@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 type Frequency = "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
+type StatusFilter = "all" | "onTrack" | "close" | "behind";
 
 type Member = {
   id: string;
@@ -56,6 +57,13 @@ const priorityOptions: { value: Priority; label: string }[] = [
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
   { value: "urgent", label: "Urgent" },
+];
+
+const statusFilterOptions: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All statuses" },
+  { value: "behind", label: "Behind" },
+  { value: "close", label: "Close" },
+  { value: "onTrack", label: "On Track" },
 ];
 
 function formatDateISO(date: Date) {
@@ -166,7 +174,10 @@ function statusClass(status: string) {
 }
 
 function priorityLabel(priority: Priority) {
-  return priorityOptions.find((option) => option.value === priority)?.label ?? "Medium";
+  return (
+    priorityOptions.find((option) => option.value === priority)?.label ??
+    "Medium"
+  );
 }
 
 function priorityRank(priority: Priority) {
@@ -177,10 +188,28 @@ function priorityRank(priority: Priority) {
 }
 
 function priorityClass(priority: Priority) {
-  if (priority === "urgent") return "bg-red-500/25 text-red-200 border-red-400/30";
-  if (priority === "high") return "bg-orange-500/25 text-orange-200 border-orange-400/30";
-  if (priority === "medium") return "bg-blue-500/20 text-blue-200 border-blue-400/30";
+  if (priority === "urgent") {
+    return "bg-red-500/25 text-red-200 border-red-400/30";
+  }
+
+  if (priority === "high") {
+    return "bg-orange-500/25 text-orange-200 border-orange-400/30";
+  }
+
+  if (priority === "medium") {
+    return "bg-blue-500/20 text-blue-200 border-blue-400/30";
+  }
+
   return "bg-slate-500/20 text-slate-200 border-slate-400/30";
+}
+
+function statusMatchesFilter(status: string, filter: StatusFilter) {
+  if (filter === "all") return true;
+  if (filter === "behind") return status === "Behind";
+  if (filter === "close") return status === "Close";
+  if (filter === "onTrack") return status === "On Track";
+
+  return true;
 }
 
 const initialMembers: Member[] = [
@@ -194,7 +223,8 @@ const initialTargets: Target[] = [
   {
     id: "video",
     title: "Make video",
-    description: "Counts as done when the video is finished and ready to publish.",
+    description:
+      "Counts as done when the video is finished and ready to publish.",
     priority: "high",
     ownerId: "me",
     frequency: "daily",
@@ -241,6 +271,10 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [calendarMonth, setCalendarMonth] = useState(monthStartISO(todayISO()));
   const [selectedMemberId, setSelectedMemberId] = useState("all");
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [targets, setTargets] = useState<Target[]>(initialTargets);
@@ -327,12 +361,6 @@ export default function Home() {
     );
   }, [members, targets, logs, hasLoadedSavedData]);
 
-  function getFilteredTargets() {
-    if (selectedMemberId === "all") return targets;
-
-    return targets.filter((target) => target.ownerId === selectedMemberId);
-  }
-
   function calculateTargetSnapshot(target: Target, dateISO: string) {
     const owner = members.find((member) => member.id === target.ownerId);
     const required = periodsDue(target, dateISO) * target.targetAmount;
@@ -372,10 +400,38 @@ export default function Home() {
     };
   }
 
+  function rowMatchesFilters(row: ReturnType<typeof calculateTargetSnapshot>) {
+    const query = searchQuery.trim().toLowerCase();
+
+    const memberMatches =
+      selectedMemberId === "all" || row.target.ownerId === selectedMemberId;
+
+    const priorityMatches =
+      priorityFilter === "all" || row.target.priority === priorityFilter;
+
+    const statusMatches = statusMatchesFilter(row.status, statusFilter);
+
+    const searchableText = [
+      row.target.title,
+      row.target.description,
+      row.target.unit,
+      row.target.frequency,
+      priorityLabel(row.target.priority),
+      row.owner?.name ?? "",
+      row.owner?.role ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    const searchMatches = !query || searchableText.includes(query);
+
+    return memberMatches && priorityMatches && statusMatches && searchMatches;
+  }
+
   function calculateDaySnapshot(dateISO: string) {
-    const rows = getFilteredTargets().map((target) =>
-      calculateTargetSnapshot(target, dateISO)
-    );
+    const rows = targets
+      .map((target) => calculateTargetSnapshot(target, dateISO))
+      .filter(rowMatchesFilters);
 
     const required = rows.reduce((sum, row) => sum + row.required, 0);
     const achieved = rows.reduce((sum, row) => sum + row.achieved, 0);
@@ -401,24 +457,29 @@ export default function Home() {
   }, [targets, logs, selectedDate, members]);
 
   const visibleDashboard = useMemo(() => {
-    const rows =
-      selectedMemberId === "all"
-        ? dashboard
-        : dashboard.filter((row) => row.target.ownerId === selectedMemberId);
+    return dashboard
+      .filter(rowMatchesFilters)
+      .slice()
+      .sort((a, b) => {
+        const priorityDifference =
+          priorityRank(b.target.priority) - priorityRank(a.target.priority);
 
-    return rows.slice().sort((a, b) => {
-      const priorityDifference =
-        priorityRank(b.target.priority) - priorityRank(a.target.priority);
+        if (priorityDifference !== 0) return priorityDifference;
 
-      if (priorityDifference !== 0) return priorityDifference;
+        const pendingDifference = b.pending - a.pending;
 
-      const pendingDifference = b.pending - a.pending;
+        if (pendingDifference !== 0) return pendingDifference;
 
-      if (pendingDifference !== 0) return pendingDifference;
-
-      return a.target.title.localeCompare(b.target.title);
-    });
-  }, [dashboard, selectedMemberId]);
+        return a.target.title.localeCompare(b.target.title);
+      });
+  }, [
+    dashboard,
+    selectedMemberId,
+    searchQuery,
+    priorityFilter,
+    statusFilter,
+    members,
+  ]);
 
   const memberOverview = useMemo(() => {
     return members.map((member) => {
@@ -449,7 +510,16 @@ export default function Home() {
 
   const selectedDaySummary = useMemo(() => {
     return calculateDaySnapshot(selectedDate);
-  }, [selectedDate, selectedMemberId, targets, logs, members]);
+  }, [
+    selectedDate,
+    selectedMemberId,
+    searchQuery,
+    priorityFilter,
+    statusFilter,
+    targets,
+    logs,
+    members,
+  ]);
 
   const monthCalendarDays = useMemo(() => {
     const firstDayOfMonth = toDate(calendarMonth);
@@ -468,11 +538,28 @@ export default function Home() {
         isSelected: date === selectedDate,
       };
     });
-  }, [calendarMonth, selectedDate, selectedMemberId, targets, logs, members]);
+  }, [
+    calendarMonth,
+    selectedDate,
+    selectedMemberId,
+    searchQuery,
+    priorityFilter,
+    statusFilter,
+    targets,
+    logs,
+    members,
+  ]);
 
   function selectCalendarDate(dateISO: string) {
     setSelectedDate(dateISO);
     setCalendarMonth(monthStartISO(dateISO));
+  }
+
+  function clearFilters() {
+    setSearchQuery("");
+    setPriorityFilter("all");
+    setStatusFilter("all");
+    setSelectedMemberId("all");
   }
 
   function logProgress(targetId: string, amount: number) {
@@ -822,6 +909,9 @@ export default function Home() {
     setSelectedMemberId("all");
     setSelectedDate(todayISO());
     setCalendarMonth(monthStartISO(todayISO()));
+    setSearchQuery("");
+    setPriorityFilter("all");
+    setStatusFilter("all");
     setNewOwnerId("me");
     setManualAmounts({});
     cancelEditingTarget();
@@ -850,6 +940,13 @@ export default function Home() {
       ? "All members"
       : members.find((member) => member.id === selectedMemberId)?.name ??
         "Unknown";
+
+  const activeFilterCount = [
+    searchQuery.trim() ? "search" : "",
+    selectedMemberId !== "all" ? "member" : "",
+    priorityFilter !== "all" ? "priority" : "",
+    statusFilter !== "all" ? "status" : "",
+  ].filter(Boolean).length;
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
@@ -945,8 +1042,66 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Higher priority targets appear first in the selected day&apos;s work list.
+            Search and filters now control the dashboard, selected-day totals,
+            and calendar totals.
           </p>
+        </section>
+
+        <section className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-5">
+          <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Search and filters</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Showing {visibleDashboard.length} matching targets. Active
+                filters: {activeFilterCount}
+              </p>
+            </div>
+
+            <button
+              onClick={clearFilters}
+              className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
+            >
+              Clear filters
+            </button>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr]">
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search targets, notes, units, owners, or roles..."
+              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+            />
+
+            <select
+              value={priorityFilter}
+              onChange={(event) =>
+                setPriorityFilter(event.target.value as "all" | Priority)
+              }
+              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+            >
+              <option value="all">All priorities</option>
+              {priorityOptions.map((priority) => (
+                <option key={priority.value} value={priority.value}>
+                  Priority: {priority.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as StatusFilter)
+              }
+              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+            >
+              {statusFilterOptions.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </section>
 
         <section className="mb-8 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-5">
@@ -1136,7 +1291,10 @@ export default function Home() {
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
                               {priorityOptions.map((priority) => (
-                                <option key={priority.value} value={priority.value}>
+                                <option
+                                  key={priority.value}
+                                  value={priority.value}
+                                >
                                   {priority.label}
                                 </option>
                               ))}
@@ -1491,7 +1649,7 @@ export default function Home() {
 
               {visibleDashboard.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-slate-400">
-                  No targets found for this member yet.
+                  No matching targets found. Clear filters or change your search.
                 </div>
               )}
             </div>
