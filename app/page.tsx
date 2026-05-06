@@ -740,14 +740,52 @@ export default function Home() {
     });
   }, [members, dashboard]);
 
-    const dashboardInsights = useMemo(() => {
+  const dashboardInsights = useMemo(() => {
     const mostBehindCategory =
       categoryOverview.filter((category) => category.pending > 0)[0] ?? null;
 
+    const memberGroups = new Map<
+      string,
+      {
+        member: Member;
+        targetCount: number;
+        pending: number;
+        achieved: number;
+        required: number;
+      }
+    >();
+
+    for (const row of visibleDashboard) {
+      const member =
+        members.find((item) => item.id === row.target.ownerId) ??
+        row.owner ??
+        {
+          id: row.target.ownerId,
+          name: "Unknown",
+          role: "Unknown",
+        };
+
+      const existing =
+        memberGroups.get(member.id) ??
+        {
+          member,
+          targetCount: 0,
+          pending: 0,
+          achieved: 0,
+          required: 0,
+        };
+
+      existing.targetCount += 1;
+      existing.pending += row.pending;
+      existing.achieved += row.achieved;
+      existing.required += row.required;
+
+      memberGroups.set(member.id, existing);
+    }
+
     const mostBehindMember =
-      memberOverview
+      Array.from(memberGroups.values())
         .filter((row) => row.pending > 0)
-        .slice()
         .sort((a, b) => b.pending - a.pending)[0] ?? null;
 
     const overdueTargets = visibleDashboard
@@ -771,7 +809,7 @@ export default function Home() {
       highestPriorityOverdueTarget,
       recommendedFocus,
     };
-  }, [categoryOverview, memberOverview, visibleDashboard]);
+  }, [categoryOverview, visibleDashboard, members]);
 
   const selectedDaySummary = useMemo(() => {
     return calculateDaySnapshot(selectedDate);
@@ -1298,7 +1336,7 @@ export default function Home() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
-      version: 20,
+      version: 21,
       selectedDate,
       calendarMonth,
       lastSavedAt,
@@ -1508,7 +1546,9 @@ export default function Home() {
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-300">
               Dashboard insights
             </p>
-            <h2 className="mt-2 text-2xl font-bold">Warnings and recommended focus</h2>
+            <h2 className="mt-2 text-2xl font-bold">
+              Warnings and recommended focus
+            </h2>
             <p className="mt-2 text-sm text-slate-300">
               Quick signals based on the selected date and active filters.
             </p>
@@ -1565,10 +1605,14 @@ export default function Home() {
                   </p>
                   <p className="mt-1 text-sm text-slate-300">
                     {priorityLabel(
-                      dashboardInsights.highestPriorityOverdueTarget.target.priority
+                      dashboardInsights.highestPriorityOverdueTarget.target
+                        .priority
                     )}{" "}
                     · {dashboardInsights.highestPriorityOverdueTarget.pending}{" "}
-                    {dashboardInsights.highestPriorityOverdueTarget.target.unit} pending
+                    {
+                      dashboardInsights.highestPriorityOverdueTarget.target.unit
+                    }{" "}
+                    pending
                   </p>
                 </>
               ) : (
@@ -1606,7 +1650,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-        
+
         <section className="mb-8 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
           <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
@@ -1804,7 +1848,7 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Category overview updates automatically when filters, progress, or
+            Dashboard insights update automatically when filters, progress, or
             selected date changes.
           </p>
         </section>
