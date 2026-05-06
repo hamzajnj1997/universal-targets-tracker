@@ -7,11 +7,7 @@ type Frequency = "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
 type StatusFilter = "all" | "onTrack" | "close" | "behind";
 
-type Member = {
-  id: string;
-  name: string;
-  role: string;
-};
+type Member = { id: string; name: string; role: string };
 
 type Target = {
   id: string;
@@ -37,6 +33,7 @@ type SavedAppState = {
   members: Member[];
   targets: Target[];
   logs: ProgressLog[];
+  lastSavedAt?: string;
 };
 
 type BackupFile = Partial<SavedAppState> & {
@@ -75,202 +72,23 @@ const statusFilterOptions: { value: StatusFilter; label: string }[] = [
   { value: "onTrack", label: "On Track" },
 ];
 
-function formatDateISO(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function todayISO() {
-  return formatDateISO(new Date());
-}
-
-function toDate(dateISO: string) {
-  return new Date(`${dateISO}T00:00:00`);
-}
-
-function isValidDateISO(value: unknown) {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function daysBetween(startDate: string, endDate: string) {
-  const start = toDate(startDate);
-  const end = toDate(endDate);
-
-  return Math.floor((end.getTime() - start.getTime()) / 86400000);
-}
-
-function monthsBetween(startDate: string, endDate: string) {
-  const start = toDate(startDate);
-  const end = toDate(endDate);
-
-  return (
-    (end.getFullYear() - start.getFullYear()) * 12 +
-    end.getMonth() -
-    start.getMonth()
-  );
-}
-
-function addDays(dateISO: string, days: number) {
-  const date = toDate(dateISO);
-  date.setDate(date.getDate() + days);
-
-  return formatDateISO(date);
-}
-
-function addMonths(dateISO: string, months: number) {
-  const date = toDate(dateISO);
-  date.setMonth(date.getMonth() + months);
-
-  return formatDateISO(date);
-}
-
-function monthStartISO(dateISO: string) {
-  const date = toDate(dateISO);
-  date.setDate(1);
-
-  return formatDateISO(date);
-}
-
-function getMonthLabel(dateISO: string) {
-  return toDate(dateISO).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function getDateLabel(dateISO: string) {
-  return toDate(dateISO).toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function getMondayBasedWeekday(date: Date) {
-  return (date.getDay() + 6) % 7;
-}
-
-function isFrequency(value: unknown): value is Frequency {
-  return value === "daily" || value === "weekly" || value === "monthly";
-}
-
-function isPriority(value: unknown): value is Priority {
-  return (
-    value === "low" ||
-    value === "medium" ||
-    value === "high" ||
-    value === "urgent"
-  );
-}
-
-function periodsDue(target: Target, dateISO: string) {
-  if (dateISO < target.startDate) return 0;
-
-  if (target.frequency === "daily") {
-    return daysBetween(target.startDate, dateISO) + 1;
-  }
-
-  if (target.frequency === "weekly") {
-    return Math.floor(daysBetween(target.startDate, dateISO) / 7) + 1;
-  }
-
-  if (target.frequency === "monthly") {
-    return monthsBetween(target.startDate, dateISO) + 1;
-  }
-
-  return 0;
-}
-
-function getStatus(pending: number, progress: number) {
-  if (pending === 0) return "On Track";
-  if (progress >= 80) return "Close";
-
-  return "Behind";
-}
-
-function statusClass(status: string) {
-  if (status === "Behind") return "bg-red-500/20 text-red-300";
-  if (status === "Close") return "bg-yellow-500/20 text-yellow-300";
-
-  return "bg-emerald-500/20 text-emerald-300";
-}
-
-function priorityLabel(priority: Priority) {
-  return (
-    priorityOptions.find((option) => option.value === priority)?.label ??
-    "Medium"
-  );
-}
-
-function priorityRank(priority: Priority) {
-  if (priority === "urgent") return 4;
-  if (priority === "high") return 3;
-  if (priority === "medium") return 2;
-  return 1;
-}
-
-function priorityClass(priority: Priority) {
-  if (priority === "urgent") {
-    return "bg-red-500/25 text-red-200 border-red-400/30";
-  }
-
-  if (priority === "high") {
-    return "bg-orange-500/25 text-orange-200 border-orange-400/30";
-  }
-
-  if (priority === "medium") {
-    return "bg-blue-500/20 text-blue-200 border-blue-400/30";
-  }
-
-  return "bg-slate-500/20 text-slate-200 border-slate-400/30";
-}
-
-function statusMatchesFilter(status: string, filter: StatusFilter) {
-  if (filter === "all") return true;
-  if (filter === "behind") return status === "Behind";
-  if (filter === "close") return status === "Close";
-  if (filter === "onTrack") return status === "On Track";
-
-  return true;
-}
-
-function csvCell(value: unknown) {
-  const text = String(value ?? "");
-
-  return `"${text.replaceAll('"', '""')}"`;
-}
-
-function buildCsv(headers: string[], rows: unknown[][]) {
-  return [
-    headers.map(csvCell).join(","),
-    ...rows.map((row) => row.map(csvCell).join(",")),
-  ].join("\n");
-}
-
-function downloadTextFile(filename: string, content: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-
-  URL.revokeObjectURL(url);
-}
-
 const initialMembers: Member[] = [
   { id: "me", name: "Me", role: "Owner" },
   { id: "family", name: "Family Member", role: "Member" },
   { id: "team", name: "Team Member", role: "Member" },
   { id: "student", name: "Student", role: "Student" },
 ];
+
+function formatDateISO(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function todayISO() {
+  return formatDateISO(new Date());
+}
 
 const initialTargets: Target[] = [
   {
@@ -321,6 +139,153 @@ const initialTargets: Target[] = [
   },
 ];
 
+function toDate(dateISO: string) {
+  return new Date(`${dateISO}T00:00:00`);
+}
+
+function isValidDateISO(value: unknown) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function daysBetween(startDate: string, endDate: string) {
+  return Math.floor((toDate(endDate).getTime() - toDate(startDate).getTime()) / 86400000);
+}
+
+function monthsBetween(startDate: string, endDate: string) {
+  const start = toDate(startDate);
+  const end = toDate(endDate);
+
+  return (
+    (end.getFullYear() - start.getFullYear()) * 12 +
+    end.getMonth() -
+    start.getMonth()
+  );
+}
+
+function addDays(dateISO: string, days: number) {
+  const date = toDate(dateISO);
+  date.setDate(date.getDate() + days);
+  return formatDateISO(date);
+}
+
+function addMonths(dateISO: string, months: number) {
+  const date = toDate(dateISO);
+  date.setMonth(date.getMonth() + months);
+  return formatDateISO(date);
+}
+
+function monthStartISO(dateISO: string) {
+  const date = toDate(dateISO);
+  date.setDate(1);
+  return formatDateISO(date);
+}
+
+function getMonthLabel(dateISO: string) {
+  return toDate(dateISO).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getDateLabel(dateISO: string) {
+  return toDate(dateISO).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function getMondayBasedWeekday(date: Date) {
+  return (date.getDay() + 6) % 7;
+}
+
+function isFrequency(value: unknown): value is Frequency {
+  return value === "daily" || value === "weekly" || value === "monthly";
+}
+
+function isPriority(value: unknown): value is Priority {
+  return value === "low" || value === "medium" || value === "high" || value === "urgent";
+}
+
+function periodsDue(target: Target, dateISO: string) {
+  if (dateISO < target.startDate) return 0;
+  if (target.frequency === "daily") return daysBetween(target.startDate, dateISO) + 1;
+  if (target.frequency === "weekly") return Math.floor(daysBetween(target.startDate, dateISO) / 7) + 1;
+  return monthsBetween(target.startDate, dateISO) + 1;
+}
+
+function getStatus(pending: number, progress: number) {
+  if (pending === 0) return "On Track";
+  if (progress >= 80) return "Close";
+  return "Behind";
+}
+
+function statusClass(status: string) {
+  if (status === "Behind") return "bg-red-500/20 text-red-300";
+  if (status === "Close") return "bg-yellow-500/20 text-yellow-300";
+  return "bg-emerald-500/20 text-emerald-300";
+}
+
+function priorityLabel(priority: Priority) {
+  return priorityOptions.find((option) => option.value === priority)?.label ?? "Medium";
+}
+
+function priorityRank(priority: Priority) {
+  if (priority === "urgent") return 4;
+  if (priority === "high") return 3;
+  if (priority === "medium") return 2;
+  return 1;
+}
+
+function priorityClass(priority: Priority) {
+  if (priority === "urgent") return "bg-red-500/25 text-red-200 border-red-400/30";
+  if (priority === "high") return "bg-orange-500/25 text-orange-200 border-orange-400/30";
+  if (priority === "medium") return "bg-blue-500/20 text-blue-200 border-blue-400/30";
+  return "bg-slate-500/20 text-slate-200 border-slate-400/30";
+}
+
+function statusMatchesFilter(status: string, filter: StatusFilter) {
+  if (filter === "all") return true;
+  if (filter === "behind") return status === "Behind";
+  if (filter === "close") return status === "Close";
+  if (filter === "onTrack") return status === "On Track";
+  return true;
+}
+
+function csvCell(value: unknown) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function buildCsv(headers: string[], rows: unknown[][]) {
+  return [headers.map(csvCell).join(","), ...rows.map((row) => row.map(csvCell).join(","))].join("\n");
+}
+
+function downloadTextFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function formatSavedTime(value: string | null) {
+  if (!value) return "Not saved yet";
+
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function Home() {
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -335,6 +300,7 @@ export default function Home() {
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [targets, setTargets] = useState<Target[]>(initialTargets);
   const [logs, setLogs] = useState<ProgressLog[]>([]);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [hasLoadedSavedData, setHasLoadedSavedData] = useState(false);
 
   const [newMemberName, setNewMemberName] = useState("");
@@ -348,9 +314,7 @@ export default function Home() {
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
   const [newOwnerId, setNewOwnerId] = useState("me");
 
-  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>(
-    {}
-  );
+  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>({});
 
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -368,45 +332,6 @@ export default function Home() {
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editLogDate, setEditLogDate] = useState(todayISO());
   const [editLogAmount, setEditLogAmount] = useState(1);
-
-  useEffect(() => {
-    const savedData = window.localStorage.getItem(STORAGE_KEY);
-
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData) as SavedAppState;
-
-        if (Array.isArray(parsedData.members)) {
-          setMembers(normalizeMembers(parsedData.members));
-        }
-
-        if (Array.isArray(parsedData.targets)) {
-          setTargets(normalizeTargets(parsedData.targets));
-        }
-
-        if (Array.isArray(parsedData.logs)) {
-          setLogs(normalizeLogs(parsedData.logs));
-        }
-      } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-
-    setHasLoadedSavedData(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hasLoadedSavedData) return;
-
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        members,
-        targets,
-        logs,
-      })
-    );
-  }, [members, targets, logs, hasLoadedSavedData]);
 
   function normalizeMembers(rawMembers: unknown[]): Member[] {
     return rawMembers
@@ -435,13 +360,9 @@ export default function Home() {
           typeof target.title === "string" && target.title.trim()
             ? target.title.trim()
             : "Untitled target",
-        description:
-          typeof target.description === "string" ? target.description : "",
+        description: typeof target.description === "string" ? target.description : "",
         priority: isPriority(target.priority) ? target.priority : "medium",
-        ownerId:
-          typeof target.ownerId === "string" && target.ownerId
-            ? target.ownerId
-            : "me",
+        ownerId: typeof target.ownerId === "string" && target.ownerId ? target.ownerId : "me",
         frequency: isFrequency(target.frequency) ? target.frequency : "daily",
         targetAmount:
           typeof target.targetAmount === "number" && target.targetAmount > 0
@@ -451,17 +372,14 @@ export default function Home() {
           typeof target.unit === "string" && target.unit.trim()
             ? target.unit.trim()
             : "tasks",
-        startDate: isValidDateISO(target.startDate)
-          ? (target.startDate as string)
-          : todayISO(),
+        startDate: isValidDateISO(target.startDate) ? (target.startDate as string) : todayISO(),
       }));
   }
 
   function normalizeLogs(rawLogs: unknown[]): ProgressLog[] {
     return rawLogs
       .map((item) => item as Partial<ProgressLog>)
-      .filter((log) => typeof log.id === "string")
-      .filter((log) => typeof log.targetId === "string")
+      .filter((log) => typeof log.id === "string" && typeof log.targetId === "string")
       .map((log) => ({
         id: log.id as string,
         targetId: log.targetId as string,
@@ -477,6 +395,42 @@ export default function Home() {
       }));
   }
 
+  useEffect(() => {
+    const savedData = window.localStorage.getItem(STORAGE_KEY);
+
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData) as SavedAppState;
+
+        if (Array.isArray(parsedData.members)) setMembers(normalizeMembers(parsedData.members));
+        if (Array.isArray(parsedData.targets)) setTargets(normalizeTargets(parsedData.targets));
+        if (Array.isArray(parsedData.logs)) setLogs(normalizeLogs(parsedData.logs));
+        if (typeof parsedData.lastSavedAt === "string") setLastSavedAt(parsedData.lastSavedAt);
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+
+    setHasLoadedSavedData(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSavedData) return;
+
+    const savedAt = new Date().toISOString();
+    setLastSavedAt(savedAt);
+
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        members,
+        targets,
+        logs,
+        lastSavedAt: savedAt,
+      })
+    );
+  }, [members, targets, logs, hasLoadedSavedData]);
+
   function calculateTargetSnapshot(target: Target, dateISO: string) {
     const owner = members.find((member) => member.id === target.ownerId);
     const required = periodsDue(target, dateISO) * target.targetAmount;
@@ -487,20 +441,12 @@ export default function Home() {
 
     const pending = Math.max(0, required - achieved);
     const surplus = Math.max(0, achieved - required);
-    const progress =
-      required === 0
-        ? 100
-        : Math.min(100, Math.round((achieved / required) * 100));
+    const progress = required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
 
     const recentLogs = logs
       .filter((log) => log.targetId === target.id)
       .slice()
-      .sort((a, b) => {
-        const aTime = a.createdAt || a.date;
-        const bTime = b.createdAt || b.date;
-
-        return bTime.localeCompare(aTime);
-      })
+      .sort((a, b) => (b.createdAt || b.date).localeCompare(a.createdAt || a.date))
       .slice(0, 4);
 
     return {
@@ -519,12 +465,8 @@ export default function Home() {
   function rowMatchesFilters(row: ReturnType<typeof calculateTargetSnapshot>) {
     const query = searchQuery.trim().toLowerCase();
 
-    const memberMatches =
-      selectedMemberId === "all" || row.target.ownerId === selectedMemberId;
-
-    const priorityMatches =
-      priorityFilter === "all" || row.target.priority === priorityFilter;
-
+    const memberMatches = selectedMemberId === "all" || row.target.ownerId === selectedMemberId;
+    const priorityMatches = priorityFilter === "all" || row.target.priority === priorityFilter;
     const statusMatches = statusMatchesFilter(row.status, statusFilter);
 
     const searchableText = [
@@ -552,11 +494,7 @@ export default function Home() {
     const required = rows.reduce((sum, row) => sum + row.required, 0);
     const achieved = rows.reduce((sum, row) => sum + row.achieved, 0);
     const pending = rows.reduce((sum, row) => sum + row.pending, 0);
-
-    const progress =
-      required === 0
-        ? 100
-        : Math.min(100, Math.round((achieved / required) * 100));
+    const progress = required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
 
     return {
       date: dateISO,
@@ -569,9 +507,7 @@ export default function Home() {
   }
 
   const dashboard = useMemo(() => {
-    return targets.map((target) =>
-      calculateTargetSnapshot(target, selectedDate)
-    );
+    return targets.map((target) => calculateTargetSnapshot(target, selectedDate));
   }, [targets, logs, selectedDate, members]);
 
   const visibleDashboard = useMemo(() => {
@@ -579,40 +515,23 @@ export default function Home() {
       .filter(rowMatchesFilters)
       .slice()
       .sort((a, b) => {
-        const priorityDifference =
-          priorityRank(b.target.priority) - priorityRank(a.target.priority);
-
+        const priorityDifference = priorityRank(b.target.priority) - priorityRank(a.target.priority);
         if (priorityDifference !== 0) return priorityDifference;
 
         const pendingDifference = b.pending - a.pending;
-
         if (pendingDifference !== 0) return pendingDifference;
 
         return a.target.title.localeCompare(b.target.title);
       });
-  }, [
-    dashboard,
-    selectedMemberId,
-    searchQuery,
-    priorityFilter,
-    statusFilter,
-    members,
-  ]);
+  }, [dashboard, selectedMemberId, searchQuery, priorityFilter, statusFilter, members]);
 
   const memberOverview = useMemo(() => {
     return members.map((member) => {
-      const memberRows = dashboard.filter(
-        (row) => row.target.ownerId === member.id
-      );
-
+      const memberRows = dashboard.filter((row) => row.target.ownerId === member.id);
       const required = memberRows.reduce((sum, row) => sum + row.required, 0);
       const achieved = memberRows.reduce((sum, row) => sum + row.achieved, 0);
       const pending = memberRows.reduce((sum, row) => sum + row.pending, 0);
-
-      const progress =
-        required === 0
-          ? 100
-          : Math.min(100, Math.round((achieved / required) * 100));
+      const progress = required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
 
       return {
         member,
@@ -628,16 +547,7 @@ export default function Home() {
 
   const selectedDaySummary = useMemo(() => {
     return calculateDaySnapshot(selectedDate);
-  }, [
-    selectedDate,
-    selectedMemberId,
-    searchQuery,
-    priorityFilter,
-    statusFilter,
-    targets,
-    logs,
-    members,
-  ]);
+  }, [selectedDate, selectedMemberId, searchQuery, priorityFilter, statusFilter, targets, logs, members]);
 
   const monthCalendarDays = useMemo(() => {
     const firstDayOfMonth = toDate(calendarMonth);
@@ -656,17 +566,7 @@ export default function Home() {
         isSelected: date === selectedDate,
       };
     });
-  }, [
-    calendarMonth,
-    selectedDate,
-    selectedMemberId,
-    searchQuery,
-    priorityFilter,
-    statusFilter,
-    targets,
-    logs,
-    members,
-  ]);
+  }, [calendarMonth, selectedDate, selectedMemberId, searchQuery, priorityFilter, statusFilter, targets, logs, members]);
 
   function selectCalendarDate(dateISO: string) {
     setSelectedDate(dateISO);
@@ -738,15 +638,11 @@ export default function Home() {
     }
 
     setLogs((currentLogs) =>
-      currentLogs.map((log) => {
-        if (log.id !== editingLogId) return log;
-
-        return {
-          ...log,
-          date: editLogDate,
-          achievedAmount: editLogAmount,
-        };
-      })
+      currentLogs.map((log) =>
+        log.id === editingLogId
+          ? { ...log, date: editLogDate, achievedAmount: editLogAmount }
+          : log
+      )
     );
 
     cancelEditingProgressLog();
@@ -754,7 +650,6 @@ export default function Home() {
 
   function deleteProgressLog(logId: string) {
     const log = logs.find((item) => item.id === logId);
-
     if (!log) return;
 
     const shouldDelete = window.confirm(
@@ -765,9 +660,7 @@ export default function Home() {
 
     setLogs((currentLogs) => currentLogs.filter((item) => item.id !== logId));
 
-    if (editingLogId === logId) {
-      cancelEditingProgressLog();
-    }
+    if (editingLogId === logId) cancelEditingProgressLog();
   }
 
   function startEditingTarget(target: Target) {
@@ -811,20 +704,20 @@ export default function Home() {
     }
 
     setTargets((currentTargets) =>
-      currentTargets.map((target) => {
-        if (target.id !== editingTargetId) return target;
-
-        return {
-          ...target,
-          title: editTitle.trim(),
-          description: editDescription.trim(),
-          priority: editPriority,
-          ownerId: editOwnerId,
-          frequency: editFrequency,
-          targetAmount: editAmount,
-          unit: editUnit.trim(),
-        };
-      })
+      currentTargets.map((target) =>
+        target.id === editingTargetId
+          ? {
+              ...target,
+              title: editTitle.trim(),
+              description: editDescription.trim(),
+              priority: editPriority,
+              ownerId: editOwnerId,
+              frequency: editFrequency,
+              targetAmount: editAmount,
+              unit: editUnit.trim(),
+            }
+          : target
+      )
     );
 
     cancelEditingTarget();
@@ -851,15 +744,11 @@ export default function Home() {
     }
 
     setMembers((currentMembers) =>
-      currentMembers.map((member) => {
-        if (member.id !== editingMemberId) return member;
-
-        return {
-          ...member,
-          name: editMemberName.trim(),
-          role: editMemberRole,
-        };
-      })
+      currentMembers.map((member) =>
+        member.id === editingMemberId
+          ? { ...member, name: editMemberName.trim(), role: editMemberRole }
+          : member
+      )
     );
 
     cancelEditingMember();
@@ -908,11 +797,7 @@ export default function Home() {
 
     setMembers((currentMembers) => [
       ...currentMembers,
-      {
-        id: newMemberId,
-        name: newMemberName.trim(),
-        role: newMemberRole,
-      },
+      { id: newMemberId, name: newMemberName.trim(), role: newMemberRole },
     ]);
 
     setNewOwnerId(newMemberId);
@@ -922,7 +807,6 @@ export default function Home() {
 
   function deleteTarget(targetId: string) {
     const target = targets.find((item) => item.id === targetId);
-
     if (!target) return;
 
     const shouldDelete = window.confirm(
@@ -931,22 +815,14 @@ export default function Home() {
 
     if (!shouldDelete) return;
 
-    setTargets((currentTargets) =>
-      currentTargets.filter((item) => item.id !== targetId)
-    );
+    setTargets((currentTargets) => currentTargets.filter((item) => item.id !== targetId));
+    setLogs((currentLogs) => currentLogs.filter((log) => log.targetId !== targetId));
 
-    setLogs((currentLogs) =>
-      currentLogs.filter((log) => log.targetId !== targetId)
-    );
-
-    if (editingTargetId === targetId) {
-      cancelEditingTarget();
-    }
+    if (editingTargetId === targetId) cancelEditingTarget();
   }
 
   function deleteMember(memberId: string) {
     const member = members.find((item) => item.id === memberId);
-
     if (!member) return;
 
     if (members.length <= 1) {
@@ -954,9 +830,7 @@ export default function Home() {
       return;
     }
 
-    const memberTargets = targets.filter(
-      (target) => target.ownerId === memberId
-    );
+    const memberTargets = targets.filter((target) => target.ownerId === memberId);
 
     const shouldDelete = window.confirm(
       `Delete member "${member.name}"? This will also delete ${memberTargets.length} targets assigned to this member.`
@@ -966,38 +840,22 @@ export default function Home() {
 
     const memberTargetIds = memberTargets.map((target) => target.id);
 
-    setMembers((currentMembers) =>
-      currentMembers.filter((item) => item.id !== memberId)
-    );
+    setMembers((currentMembers) => currentMembers.filter((item) => item.id !== memberId));
+    setTargets((currentTargets) => currentTargets.filter((target) => target.ownerId !== memberId));
+    setLogs((currentLogs) => currentLogs.filter((log) => !memberTargetIds.includes(log.targetId)));
 
-    setTargets((currentTargets) =>
-      currentTargets.filter((target) => target.ownerId !== memberId)
-    );
-
-    setLogs((currentLogs) =>
-      currentLogs.filter((log) => !memberTargetIds.includes(log.targetId))
-    );
-
-    if (selectedMemberId === memberId) {
-      setSelectedMemberId("all");
-    }
+    if (selectedMemberId === memberId) setSelectedMemberId("all");
 
     if (newOwnerId === memberId || editOwnerId === memberId) {
       const nextMember = members.find((item) => item.id !== memberId);
       const nextMemberId = nextMember?.id ?? "me";
-
       setNewOwnerId(nextMemberId);
       setEditOwnerId(nextMemberId);
     }
 
-    if (editingMemberId === memberId) {
-      cancelEditingMember();
-    }
+    if (editingMemberId === memberId) cancelEditingMember();
 
-    if (
-      editingTargetId &&
-      memberTargets.some((target) => target.id === editingTargetId)
-    ) {
+    if (editingTargetId && memberTargets.some((target) => target.id === editingTargetId)) {
       cancelEditingTarget();
     }
   }
@@ -1047,19 +905,13 @@ export default function Home() {
       rows
     );
 
-    downloadTextFile(
-      `targets-${todayISO()}.csv`,
-      csv,
-      "text/csv;charset=utf-8"
-    );
+    downloadTextFile(`targets-${todayISO()}.csv`, csv, "text/csv;charset=utf-8");
   }
 
   function exportProgressLogsCsv() {
     const rows = logs.map((log) => {
       const target = targets.find((item) => item.id === log.targetId);
-      const owner = target
-        ? members.find((member) => member.id === target.ownerId)
-        : undefined;
+      const owner = target ? members.find((member) => member.id === target.ownerId) : undefined;
 
       return [
         log.id,
@@ -1089,20 +941,17 @@ export default function Home() {
       rows
     );
 
-    downloadTextFile(
-      `progress-logs-${todayISO()}.csv`,
-      csv,
-      "text/csv;charset=utf-8"
-    );
+    downloadTextFile(`progress-logs-${todayISO()}.csv`, csv, "text/csv;charset=utf-8");
   }
 
   function exportFullBackupJson() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
-      version: 16,
+      version: 17,
       selectedDate,
       calendarMonth,
+      lastSavedAt,
       members,
       targets,
       logs,
@@ -1121,21 +970,14 @@ export default function Home() {
 
   async function importBackupJson(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-
     if (!file) return;
 
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as BackupFile;
 
-      if (
-        !Array.isArray(parsed.members) ||
-        !Array.isArray(parsed.targets) ||
-        !Array.isArray(parsed.logs)
-      ) {
-        window.alert(
-          "This backup is not valid. It must contain members, targets, and logs."
-        );
+      if (!Array.isArray(parsed.members) || !Array.isArray(parsed.targets) || !Array.isArray(parsed.logs)) {
+        window.alert("This backup is not valid. It must contain members, targets, and logs.");
         return;
       }
 
@@ -1149,17 +991,14 @@ export default function Home() {
       }
 
       const validMemberIds = new Set(importedMembers.map((member) => member.id));
+
       const safeTargets = importedTargets.map((target) => ({
         ...target,
-        ownerId: validMemberIds.has(target.ownerId)
-          ? target.ownerId
-          : importedMembers[0].id,
+        ownerId: validMemberIds.has(target.ownerId) ? target.ownerId : importedMembers[0].id,
       }));
 
       const validTargetIds = new Set(safeTargets.map((target) => target.id));
-      const safeLogs = importedLogs.filter((log) =>
-        validTargetIds.has(log.targetId)
-      );
+      const safeLogs = importedLogs.filter((log) => validTargetIds.has(log.targetId));
 
       const shouldImport = window.confirm(
         `Import this backup? This will replace your current data with ${importedMembers.length} members, ${safeTargets.length} targets, and ${safeLogs.length} progress logs.`
@@ -1179,9 +1018,7 @@ export default function Home() {
       cancelEditingMember();
       cancelEditingProgressLog();
 
-      if (isValidDateISO(parsed.selectedDate)) {
-        setSelectedDate(parsed.selectedDate as string);
-      }
+      if (isValidDateISO(parsed.selectedDate)) setSelectedDate(parsed.selectedDate as string);
 
       if (isValidDateISO(parsed.calendarMonth)) {
         setCalendarMonth(monthStartISO(parsed.calendarMonth as string));
@@ -1221,27 +1058,15 @@ export default function Home() {
     cancelEditingProgressLog();
   }
 
-  const totalPending = visibleDashboard.reduce(
-    (sum, row) => sum + row.pending,
-    0
-  );
-
-  const totalAchieved = visibleDashboard.reduce(
-    (sum, row) => sum + row.achieved,
-    0
-  );
-
-  const totalRequired = visibleDashboard.reduce(
-    (sum, row) => sum + row.required,
-    0
-  );
-
+  const totalPending = visibleDashboard.reduce((sum, row) => sum + row.pending, 0);
+  const totalAchieved = visibleDashboard.reduce((sum, row) => sum + row.achieved, 0);
+  const totalRequired = visibleDashboard.reduce((sum, row) => sum + row.required, 0);
   const totalLogs = logs.length;
+
   const selectedMemberName =
     selectedMemberId === "all"
       ? "All members"
-      : members.find((member) => member.id === selectedMemberId)?.name ??
-        "Unknown";
+      : members.find((member) => member.id === selectedMemberId)?.name ?? "Unknown";
 
   const activeFilterCount = [
     searchQuery.trim() ? "search" : "",
@@ -1264,9 +1089,9 @@ export default function Home() {
             </h1>
 
             <p className="mt-3 max-w-3xl text-slate-300">
-              Track daily, weekly, and monthly targets for individuals, families,
-              teams, businesses, and classrooms. Missed work carries forward.
-              Extra work gives future credit.
+              Track daily, weekly, and monthly targets for individuals,
+              families, teams, businesses, and classrooms. Missed work carries
+              forward. Extra work gives future credit.
             </p>
           </div>
 
@@ -1302,29 +1127,31 @@ export default function Home() {
         </header>
 
         <section className="mb-8 grid gap-4 md:grid-cols-5">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-slate-400">Pending</p>
-            <p className="mt-2 text-4xl font-bold">{totalPending}</p>
-          </div>
+          <StatCard label="Pending" value={totalPending} />
+          <StatCard label="Achieved" value={totalAchieved} />
+          <StatCard label="Required" value={totalRequired} />
+          <StatCard label="Members" value={members.length} />
+          <StatCard label="Logs" value={totalLogs} />
+        </section>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-slate-400">Achieved</p>
-            <p className="mt-2 text-4xl font-bold">{totalAchieved}</p>
-          </div>
+        <section className="mb-8 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
+          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-300">
+                Local data status
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">
+                Saved in this browser
+              </h2>
+              <p className="mt-2 text-sm text-slate-300">
+                Your prototype data is stored locally in this browser. Export a
+                JSON backup before clearing browser data or changing devices.
+              </p>
+            </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-slate-400">Required</p>
-            <p className="mt-2 text-4xl font-bold">{totalRequired}</p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-slate-400">Members</p>
-            <p className="mt-2 text-4xl font-bold">{members.length}</p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-slate-400">Logs</p>
-            <p className="mt-2 text-4xl font-bold">{totalLogs}</p>
+            <StatusBox label="Last saved" value={formatSavedTime(lastSavedAt)} />
+            <StatusBox label="Saved records" value={`${members.length} members · ${targets.length} targets`} />
+            <StatusBox label="Progress logs" value={`${logs.length} logs`} />
           </div>
         </section>
 
@@ -1344,7 +1171,8 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Export and import tools now support full backup and restore.
+            The app now shows whether browser data is saved and when it was last
+            saved.
           </p>
         </section>
 
@@ -1424,9 +1252,7 @@ export default function Home() {
 
             <select
               value={priorityFilter}
-              onChange={(event) =>
-                setPriorityFilter(event.target.value as "all" | Priority)
-              }
+              onChange={(event) => setPriorityFilter(event.target.value as "all" | Priority)}
               className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
             >
               <option value="all">All priorities</option>
@@ -1439,9 +1265,7 @@ export default function Home() {
 
             <select
               value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as StatusFilter)
-              }
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
               className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
             >
               {statusFilterOptions.map((status) => (
@@ -1468,26 +1292,9 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-              <p className="text-sm text-slate-400">Pending on this date</p>
-              <p className="mt-2 text-4xl font-bold">
-                {selectedDaySummary.pending}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-              <p className="text-sm text-slate-400">Required by this date</p>
-              <p className="mt-2 text-4xl font-bold">
-                {selectedDaySummary.required}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-              <p className="text-sm text-slate-400">Achieved by this date</p>
-              <p className="mt-2 text-4xl font-bold">
-                {selectedDaySummary.achieved}
-              </p>
-            </div>
+            <StatusBox label="Pending on this date" value={selectedDaySummary.pending} />
+            <StatusBox label="Required by this date" value={selectedDaySummary.required} />
+            <StatusBox label="Achieved by this date" value={selectedDaySummary.achieved} />
           </div>
         </section>
 
@@ -1615,50 +1422,32 @@ export default function Home() {
                         </h3>
 
                         <div className="grid gap-3 md:grid-cols-2">
-                          <div>
-                            <p className="mb-2 text-sm text-slate-400">
-                              Target name
-                            </p>
+                          <FieldLabel label="Target name">
                             <input
                               value={editTitle}
-                              onChange={(event) =>
-                                setEditTitle(event.target.value)
-                              }
+                              onChange={(event) => setEditTitle(event.target.value)}
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             />
-                          </div>
+                          </FieldLabel>
 
-                          <div>
-                            <p className="mb-2 text-sm text-slate-400">
-                              Priority
-                            </p>
+                          <FieldLabel label="Priority">
                             <select
                               value={editPriority}
-                              onChange={(event) =>
-                                setEditPriority(event.target.value as Priority)
-                              }
+                              onChange={(event) => setEditPriority(event.target.value as Priority)}
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
                               {priorityOptions.map((priority) => (
-                                <option
-                                  key={priority.value}
-                                  value={priority.value}
-                                >
+                                <option key={priority.value} value={priority.value}>
                                   {priority.label}
                                 </option>
                               ))}
                             </select>
-                          </div>
+                          </FieldLabel>
 
-                          <div>
-                            <p className="mb-2 text-sm text-slate-400">
-                              Assigned member
-                            </p>
+                          <FieldLabel label="Assigned member">
                             <select
                               value={editOwnerId}
-                              onChange={(event) =>
-                                setEditOwnerId(event.target.value)
-                              }
+                              onChange={(event) => setEditOwnerId(event.target.value)}
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
                               {members.map((member) => (
@@ -1667,66 +1456,48 @@ export default function Home() {
                                 </option>
                               ))}
                             </select>
-                          </div>
+                          </FieldLabel>
 
-                          <div>
-                            <p className="mb-2 text-sm text-slate-400">
-                              Frequency
-                            </p>
+                          <FieldLabel label="Frequency">
                             <select
                               value={editFrequency}
-                              onChange={(event) =>
-                                setEditFrequency(
-                                  event.target.value as Frequency
-                                )
-                              }
+                              onChange={(event) => setEditFrequency(event.target.value as Frequency)}
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
                               <option value="daily">Daily</option>
                               <option value="weekly">Weekly</option>
                               <option value="monthly">Monthly</option>
                             </select>
-                          </div>
+                          </FieldLabel>
 
-                          <div>
-                            <p className="mb-2 text-sm text-slate-400">
-                              Target amount
-                            </p>
+                          <FieldLabel label="Target amount">
                             <input
                               type="number"
                               min="1"
                               value={editAmount}
-                              onChange={(event) =>
-                                setEditAmount(Number(event.target.value))
-                              }
+                              onChange={(event) => setEditAmount(Number(event.target.value))}
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             />
-                          </div>
+                          </FieldLabel>
 
-                          <div>
-                            <p className="mb-2 text-sm text-slate-400">Unit</p>
+                          <FieldLabel label="Unit">
                             <input
                               value={editUnit}
-                              onChange={(event) =>
-                                setEditUnit(event.target.value)
-                              }
+                              onChange={(event) => setEditUnit(event.target.value)}
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             />
-                          </div>
+                          </FieldLabel>
 
                           <div className="md:col-span-2">
-                            <p className="mb-2 text-sm text-slate-400">
-                              Notes / what counts as done
-                            </p>
-                            <textarea
-                              value={editDescription}
-                              onChange={(event) =>
-                                setEditDescription(event.target.value)
-                              }
-                              placeholder="Example: Counts only when the work is finished and reviewed."
-                              rows={3}
-                              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                            />
+                            <FieldLabel label="Notes / what counts as done">
+                              <textarea
+                                value={editDescription}
+                                onChange={(event) => setEditDescription(event.target.value)}
+                                placeholder="Example: Counts only when the work is finished and reviewed."
+                                rows={3}
+                                className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                              />
+                            </FieldLabel>
                           </div>
                         </div>
 
@@ -1904,36 +1675,24 @@ export default function Home() {
                                   >
                                     {isEditingLog ? (
                                       <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto] md:items-end">
-                                        <div>
-                                          <p className="mb-1 text-xs text-slate-400">
-                                            Log date
-                                          </p>
+                                        <FieldLabel label="Log date">
                                           <input
                                             type="date"
                                             value={editLogDate}
-                                            onChange={(event) =>
-                                              setEditLogDate(event.target.value)
-                                            }
+                                            onChange={(event) => setEditLogDate(event.target.value)}
                                             className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white"
                                           />
-                                        </div>
+                                        </FieldLabel>
 
-                                        <div>
-                                          <p className="mb-1 text-xs text-slate-400">
-                                            Amount
-                                          </p>
+                                        <FieldLabel label="Amount">
                                           <input
                                             type="number"
                                             min="1"
                                             value={editLogAmount}
-                                            onChange={(event) =>
-                                              setEditLogAmount(
-                                                Number(event.target.value)
-                                              )
-                                            }
+                                            onChange={(event) => setEditLogAmount(Number(event.target.value))}
                                             className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white"
                                           />
-                                        </div>
+                                        </FieldLabel>
 
                                         <button
                                           onClick={saveEditedProgressLog}
@@ -1963,18 +1722,14 @@ export default function Home() {
 
                                         <div className="flex gap-2">
                                           <button
-                                            onClick={() =>
-                                              startEditingProgressLog(log)
-                                            }
+                                            onClick={() => startEditingProgressLog(log)}
                                             className="rounded-lg border border-cyan-400/30 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-400/10"
                                           >
                                             Edit log
                                           </button>
 
                                           <button
-                                            onClick={() =>
-                                              deleteProgressLog(log.id)
-                                            }
+                                            onClick={() => deleteProgressLog(log.id)}
                                             className="rounded-lg border border-red-400/30 px-3 py-1 text-xs text-red-200 hover:bg-red-400/10"
                                           >
                                             Delete log
@@ -2027,28 +1782,18 @@ export default function Home() {
                           </h3>
 
                           <div className="space-y-3">
-                            <div>
-                              <p className="mb-2 text-sm text-slate-400">
-                                Member name
-                              </p>
+                            <FieldLabel label="Member name">
                               <input
                                 value={editMemberName}
-                                onChange={(event) =>
-                                  setEditMemberName(event.target.value)
-                                }
+                                onChange={(event) => setEditMemberName(event.target.value)}
                                 className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                               />
-                            </div>
+                            </FieldLabel>
 
-                            <div>
-                              <p className="mb-2 text-sm text-slate-400">
-                                Role
-                              </p>
+                            <FieldLabel label="Role">
                               <select
                                 value={editMemberRole}
-                                onChange={(event) =>
-                                  setEditMemberRole(event.target.value)
-                                }
+                                onChange={(event) => setEditMemberRole(event.target.value)}
                                 className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                               >
                                 {roleOptions.map((role) => (
@@ -2057,7 +1802,7 @@ export default function Home() {
                                   </option>
                                 ))}
                               </select>
-                            </div>
+                            </FieldLabel>
                           </div>
 
                           <div className="mt-4 flex flex-wrap gap-2">
@@ -2183,9 +1928,7 @@ export default function Home() {
 
                 <select
                   value={newPriority}
-                  onChange={(event) =>
-                    setNewPriority(event.target.value as Priority)
-                  }
+                  onChange={(event) => setNewPriority(event.target.value as Priority)}
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 >
                   {priorityOptions.map((priority) => (
@@ -2200,9 +1943,7 @@ export default function Home() {
                     type="number"
                     min="1"
                     value={newAmount}
-                    onChange={(event) =>
-                      setNewAmount(Number(event.target.value))
-                    }
+                    onChange={(event) => setNewAmount(Number(event.target.value))}
                     className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                   />
 
@@ -2216,9 +1957,7 @@ export default function Home() {
 
                 <select
                   value={newFrequency}
-                  onChange={(event) =>
-                    setNewFrequency(event.target.value as Frequency)
-                  }
+                  onChange={(event) => setNewFrequency(event.target.value as Frequency)}
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 >
                   <option value="daily">Daily</option>
@@ -2250,5 +1989,38 @@ export default function Home() {
         </div>
       </div>
     </main>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <p className="text-sm text-slate-400">{label}</p>
+      <p className="mt-2 text-4xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function StatusBox({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+      <p className="text-sm text-slate-400">{label}</p>
+      <p className="mt-2 text-xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function FieldLabel({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label>
+      <p className="mb-2 text-sm text-slate-400">{label}</p>
+      {children}
+    </label>
   );
 }
