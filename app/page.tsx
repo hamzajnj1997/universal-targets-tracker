@@ -235,6 +235,10 @@ export default function Home() {
   const [editMemberName, setEditMemberName] = useState("");
   const [editMemberRole, setEditMemberRole] = useState("Member");
 
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
+  const [editLogDate, setEditLogDate] = useState(todayISO());
+  const [editLogAmount, setEditLogAmount] = useState(1);
+
   useEffect(() => {
     const savedData = window.localStorage.getItem(STORAGE_KEY);
 
@@ -445,6 +449,46 @@ export default function Home() {
     }));
   }
 
+  function startEditingProgressLog(log: ProgressLog) {
+    setEditingLogId(log.id);
+    setEditLogDate(log.date);
+    setEditLogAmount(log.achievedAmount);
+  }
+
+  function cancelEditingProgressLog() {
+    setEditingLogId(null);
+    setEditLogDate(todayISO());
+    setEditLogAmount(1);
+  }
+
+  function saveEditedProgressLog() {
+    if (!editingLogId) return;
+
+    if (!editLogDate) {
+      window.alert("Log date cannot be empty.");
+      return;
+    }
+
+    if (Number.isNaN(editLogAmount) || editLogAmount <= 0) {
+      window.alert("Log amount must be greater than 0.");
+      return;
+    }
+
+    setLogs((currentLogs) =>
+      currentLogs.map((log) => {
+        if (log.id !== editingLogId) return log;
+
+        return {
+          ...log,
+          date: editLogDate,
+          achievedAmount: editLogAmount,
+        };
+      })
+    );
+
+    cancelEditingProgressLog();
+  }
+
   function deleteProgressLog(logId: string) {
     const log = logs.find((item) => item.id === logId);
 
@@ -457,6 +501,10 @@ export default function Home() {
     if (!shouldDelete) return;
 
     setLogs((currentLogs) => currentLogs.filter((item) => item.id !== logId));
+
+    if (editingLogId === logId) {
+      cancelEditingProgressLog();
+    }
   }
 
   function startEditingTarget(target: Target) {
@@ -689,6 +737,7 @@ export default function Home() {
     if (!shouldClear) return;
 
     setLogs([]);
+    cancelEditingProgressLog();
   }
 
   function resetDemoData() {
@@ -709,6 +758,7 @@ export default function Home() {
     setManualAmounts({});
     cancelEditingTarget();
     cancelEditingMember();
+    cancelEditingProgressLog();
   }
 
   const totalPending = visibleDashboard.reduce(
@@ -827,8 +877,7 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Individual progress logs can now be deleted if someone logs the wrong
-            amount or wrong date.
+            Individual progress logs can now be edited or deleted.
           </p>
         </section>
 
@@ -1219,28 +1268,97 @@ export default function Home() {
 
                           {row.recentLogs.length > 0 ? (
                             <div className="space-y-2">
-                              {row.recentLogs.map((log) => (
-                                <div
-                                  key={log.id}
-                                  className="flex flex-col gap-2 rounded-xl bg-slate-950 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
-                                >
-                                  <div>
-                                    <span className="text-slate-300">
-                                      {log.date}
-                                    </span>
-                                    <span className="ml-3 font-semibold text-cyan-300">
-                                      +{log.achievedAmount} {row.target.unit}
-                                    </span>
-                                  </div>
+                              {row.recentLogs.map((log) => {
+                                const isEditingLog = editingLogId === log.id;
 
-                                  <button
-                                    onClick={() => deleteProgressLog(log.id)}
-                                    className="rounded-lg border border-red-400/30 px-3 py-1 text-xs text-red-200 hover:bg-red-400/10"
+                                return (
+                                  <div
+                                    key={log.id}
+                                    className="rounded-xl bg-slate-950 px-3 py-2 text-sm"
                                   >
-                                    Delete log
-                                  </button>
-                                </div>
-                              ))}
+                                    {isEditingLog ? (
+                                      <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto] md:items-end">
+                                        <div>
+                                          <p className="mb-1 text-xs text-slate-400">
+                                            Log date
+                                          </p>
+                                          <input
+                                            type="date"
+                                            value={editLogDate}
+                                            onChange={(event) =>
+                                              setEditLogDate(event.target.value)
+                                            }
+                                            className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white"
+                                          />
+                                        </div>
+
+                                        <div>
+                                          <p className="mb-1 text-xs text-slate-400">
+                                            Amount
+                                          </p>
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            value={editLogAmount}
+                                            onChange={(event) =>
+                                              setEditLogAmount(
+                                                Number(event.target.value)
+                                              )
+                                            }
+                                            className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white"
+                                          />
+                                        </div>
+
+                                        <button
+                                          onClick={saveEditedProgressLog}
+                                          className="rounded-lg bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-300"
+                                        >
+                                          Save log
+                                        </button>
+
+                                        <button
+                                          onClick={cancelEditingProgressLog}
+                                          className="rounded-lg border border-white/10 px-3 py-2 text-xs hover:bg-white/10"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                          <span className="text-slate-300">
+                                            {log.date}
+                                          </span>
+                                          <span className="ml-3 font-semibold text-cyan-300">
+                                            +{log.achievedAmount}{" "}
+                                            {row.target.unit}
+                                          </span>
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                          <button
+                                            onClick={() =>
+                                              startEditingProgressLog(log)
+                                            }
+                                            className="rounded-lg border border-cyan-400/30 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-400/10"
+                                          >
+                                            Edit log
+                                          </button>
+
+                                          <button
+                                            onClick={() =>
+                                              deleteProgressLog(log.id)
+                                            }
+                                            className="rounded-lg border border-red-400/30 px-3 py-1 text-xs text-red-200 hover:bg-red-400/10"
+                                          >
+                                            Delete log
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           ) : (
                             <p className="text-sm text-slate-500">
