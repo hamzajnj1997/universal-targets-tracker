@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 
 type Frequency = "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -36,6 +37,14 @@ type SavedAppState = {
   members: Member[];
   targets: Target[];
   logs: ProgressLog[];
+};
+
+type BackupFile = Partial<SavedAppState> & {
+  exportedAt?: string;
+  appName?: string;
+  version?: number;
+  selectedDate?: string;
+  calendarMonth?: string;
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
@@ -80,6 +89,10 @@ function todayISO() {
 
 function toDate(dateISO: string) {
   return new Date(`${dateISO}T00:00:00`);
+}
+
+function isValidDateISO(value: unknown) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 function daysBetween(startDate: string, endDate: string) {
@@ -139,6 +152,19 @@ function getDateLabel(dateISO: string) {
 
 function getMondayBasedWeekday(date: Date) {
   return (date.getDay() + 6) % 7;
+}
+
+function isFrequency(value: unknown): value is Frequency {
+  return value === "daily" || value === "weekly" || value === "monthly";
+}
+
+function isPriority(value: unknown): value is Priority {
+  return (
+    value === "low" ||
+    value === "medium" ||
+    value === "high" ||
+    value === "urgent"
+  );
 }
 
 function periodsDue(target: Target, dateISO: string) {
@@ -296,6 +322,8 @@ const initialTargets: Target[] = [
 ];
 
 export default function Home() {
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [calendarMonth, setCalendarMonth] = useState(monthStartISO(todayISO()));
   const [selectedMemberId, setSelectedMemberId] = useState("all");
@@ -349,26 +377,15 @@ export default function Home() {
         const parsedData = JSON.parse(savedData) as SavedAppState;
 
         if (Array.isArray(parsedData.members)) {
-          setMembers(parsedData.members);
+          setMembers(normalizeMembers(parsedData.members));
         }
 
         if (Array.isArray(parsedData.targets)) {
-          setTargets(
-            parsedData.targets.map((target) => ({
-              ...target,
-              description: target.description ?? "",
-              priority: target.priority ?? "medium",
-            }))
-          );
+          setTargets(normalizeTargets(parsedData.targets));
         }
 
         if (Array.isArray(parsedData.logs)) {
-          setLogs(
-            parsedData.logs.map((log) => ({
-              ...log,
-              createdAt: log.createdAt ?? `${log.date}T00:00:00.000Z`,
-            }))
-          );
+          setLogs(normalizeLogs(parsedData.logs));
         }
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
@@ -390,6 +407,75 @@ export default function Home() {
       })
     );
   }, [members, targets, logs, hasLoadedSavedData]);
+
+  function normalizeMembers(rawMembers: unknown[]): Member[] {
+    return rawMembers
+      .map((item) => item as Partial<Member>)
+      .filter((member) => typeof member.id === "string")
+      .map((member) => ({
+        id: member.id as string,
+        name:
+          typeof member.name === "string" && member.name.trim()
+            ? member.name.trim()
+            : "Unnamed member",
+        role:
+          typeof member.role === "string" && member.role.trim()
+            ? member.role.trim()
+            : "Member",
+      }));
+  }
+
+  function normalizeTargets(rawTargets: unknown[]): Target[] {
+    return rawTargets
+      .map((item) => item as Partial<Target>)
+      .filter((target) => typeof target.id === "string")
+      .map((target) => ({
+        id: target.id as string,
+        title:
+          typeof target.title === "string" && target.title.trim()
+            ? target.title.trim()
+            : "Untitled target",
+        description:
+          typeof target.description === "string" ? target.description : "",
+        priority: isPriority(target.priority) ? target.priority : "medium",
+        ownerId:
+          typeof target.ownerId === "string" && target.ownerId
+            ? target.ownerId
+            : "me",
+        frequency: isFrequency(target.frequency) ? target.frequency : "daily",
+        targetAmount:
+          typeof target.targetAmount === "number" && target.targetAmount > 0
+            ? target.targetAmount
+            : 1,
+        unit:
+          typeof target.unit === "string" && target.unit.trim()
+            ? target.unit.trim()
+            : "tasks",
+        startDate: isValidDateISO(target.startDate)
+          ? (target.startDate as string)
+          : todayISO(),
+      }));
+  }
+
+  function normalizeLogs(rawLogs: unknown[]): ProgressLog[] {
+    return rawLogs
+      .map((item) => item as Partial<ProgressLog>)
+      .filter((log) => typeof log.id === "string")
+      .filter((log) => typeof log.targetId === "string")
+      .map((log) => ({
+        id: log.id as string,
+        targetId: log.targetId as string,
+        date: isValidDateISO(log.date) ? (log.date as string) : todayISO(),
+        achievedAmount:
+          typeof log.achievedAmount === "number" && log.achievedAmount > 0
+            ? log.achievedAmount
+            : 1,
+        createdAt:
+          typeof log.createdAt === "string" && log.createdAt
+            ? log.createdAt
+            : `${isValidDateISO(log.date) ? log.date : todayISO()}T00:00:00.000Z`,
+      }));
+  }
 
   function calculateTargetSnapshot(target: Target, dateISO: string) {
     const owner = members.find((member) => member.id === target.ownerId);
@@ -1014,7 +1100,7 @@ export default function Home() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
-      version: 15,
+      version: 16,
       selectedDate,
       calendarMonth,
       members,
@@ -1027,6 +1113,88 @@ export default function Home() {
       JSON.stringify(backup, null, 2),
       "application/json;charset=utf-8"
     );
+  }
+
+  function triggerImportBackup() {
+    importFileInputRef.current?.click();
+  }
+
+  async function importBackupJson(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as BackupFile;
+
+      if (
+        !Array.isArray(parsed.members) ||
+        !Array.isArray(parsed.targets) ||
+        !Array.isArray(parsed.logs)
+      ) {
+        window.alert(
+          "This backup is not valid. It must contain members, targets, and logs."
+        );
+        return;
+      }
+
+      const importedMembers = normalizeMembers(parsed.members);
+      const importedTargets = normalizeTargets(parsed.targets);
+      const importedLogs = normalizeLogs(parsed.logs);
+
+      if (importedMembers.length === 0) {
+        window.alert("This backup has no valid members.");
+        return;
+      }
+
+      const validMemberIds = new Set(importedMembers.map((member) => member.id));
+      const safeTargets = importedTargets.map((target) => ({
+        ...target,
+        ownerId: validMemberIds.has(target.ownerId)
+          ? target.ownerId
+          : importedMembers[0].id,
+      }));
+
+      const validTargetIds = new Set(safeTargets.map((target) => target.id));
+      const safeLogs = importedLogs.filter((log) =>
+        validTargetIds.has(log.targetId)
+      );
+
+      const shouldImport = window.confirm(
+        `Import this backup? This will replace your current data with ${importedMembers.length} members, ${safeTargets.length} targets, and ${safeLogs.length} progress logs.`
+      );
+
+      if (!shouldImport) return;
+
+      setMembers(importedMembers);
+      setTargets(safeTargets);
+      setLogs(safeLogs);
+      setSelectedMemberId("all");
+      setSearchQuery("");
+      setPriorityFilter("all");
+      setStatusFilter("all");
+      setManualAmounts({});
+      cancelEditingTarget();
+      cancelEditingMember();
+      cancelEditingProgressLog();
+
+      if (isValidDateISO(parsed.selectedDate)) {
+        setSelectedDate(parsed.selectedDate as string);
+      }
+
+      if (isValidDateISO(parsed.calendarMonth)) {
+        setCalendarMonth(monthStartISO(parsed.calendarMonth as string));
+      } else if (isValidDateISO(parsed.selectedDate)) {
+        setCalendarMonth(monthStartISO(parsed.selectedDate as string));
+      }
+
+      window.alert("Backup imported successfully.");
+    } catch {
+      window.alert("Could not import this file. Please choose a valid JSON backup.");
+    } finally {
+      event.target.value = "";
+    }
   }
 
   function resetDemoData() {
@@ -1176,15 +1344,16 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Export buttons download your data from this browser.
+            Export and import tools now support full backup and restore.
           </p>
         </section>
 
         <section className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-5">
           <div className="mb-4">
-            <h2 className="text-2xl font-bold">Export data</h2>
+            <h2 className="text-2xl font-bold">Backup, export, and import</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Download your targets, progress logs, or a full JSON backup.
+              Download your data or restore a full JSON backup created by this
+              app.
             </p>
           </div>
 
@@ -1209,6 +1378,21 @@ export default function Home() {
             >
               Export full backup JSON
             </button>
+
+            <button
+              onClick={triggerImportBackup}
+              className="rounded-xl border border-emerald-400/30 px-4 py-3 font-semibold text-emerald-200 hover:bg-emerald-400/10"
+            >
+              Import backup JSON
+            </button>
+
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={importBackupJson}
+              className="hidden"
+            />
           </div>
         </section>
 
