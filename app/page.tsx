@@ -148,6 +148,18 @@ function getStatus(pending: number, progress: number) {
   return "Behind";
 }
 
+const roleOptions = [
+  "Owner",
+  "Admin",
+  "Parent",
+  "Teacher",
+  "Manager",
+  "Member",
+  "Student",
+  "Child",
+  "Viewer",
+];
+
 export default function Home() {
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [selectedMemberId, setSelectedMemberId] = useState("all");
@@ -176,6 +188,10 @@ export default function Home() {
   const [editFrequency, setEditFrequency] = useState<Frequency>("daily");
   const [editAmount, setEditAmount] = useState(1);
   const [editUnit, setEditUnit] = useState("tasks");
+
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editMemberName, setEditMemberName] = useState("");
+  const [editMemberRole, setEditMemberRole] = useState("Member");
 
   useEffect(() => {
     const savedData = window.localStorage.getItem(STORAGE_KEY);
@@ -377,6 +393,41 @@ export default function Home() {
     cancelEditingTarget();
   }
 
+  function startEditingMember(member: Member) {
+    setEditingMemberId(member.id);
+    setEditMemberName(member.name);
+    setEditMemberRole(member.role);
+  }
+
+  function cancelEditingMember() {
+    setEditingMemberId(null);
+    setEditMemberName("");
+    setEditMemberRole("Member");
+  }
+
+  function saveEditedMember() {
+    if (!editingMemberId) return;
+
+    if (!editMemberName.trim()) {
+      window.alert("Member name cannot be empty.");
+      return;
+    }
+
+    setMembers((currentMembers) =>
+      currentMembers.map((member) => {
+        if (member.id !== editingMemberId) return member;
+
+        return {
+          ...member,
+          name: editMemberName.trim(),
+          role: editMemberRole,
+        };
+      })
+    );
+
+    cancelEditingMember();
+  }
+
   function addTarget() {
     if (!newTitle.trim()) return;
 
@@ -488,6 +539,10 @@ export default function Home() {
       setEditOwnerId(nextMemberId);
     }
 
+    if (editingMemberId === memberId) {
+      cancelEditingMember();
+    }
+
     if (
       editingTargetId &&
       memberTargets.some((target) => target.id === editingTargetId)
@@ -521,6 +576,7 @@ export default function Home() {
     setNewOwnerId("me");
     setManualAmounts({});
     cancelEditingTarget();
+    cancelEditingMember();
   }
 
   const totalPending = visibleDashboard.reduce(
@@ -638,8 +694,8 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Edit targets when the name, amount, unit, frequency, or assigned
-            member is wrong.
+            Edit members and targets when names, roles, amounts, units, or
+            assignments are wrong.
           </p>
         </section>
 
@@ -940,52 +996,125 @@ export default function Home() {
               <h2 className="mb-4 text-2xl font-bold">Workspace overview</h2>
 
               <div className="space-y-3">
-                {memberOverview.map((row) => (
-                  <div
-                    key={row.member.id}
-                    className="rounded-2xl border border-white/10 bg-slate-900 p-4"
-                  >
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold">{row.member.name}</p>
-                        <p className="text-sm text-slate-400">
-                          {row.member.role} · {row.targetCount} targets
-                        </p>
-                      </div>
+                {memberOverview.map((row) => {
+                  const isEditingMember = editingMemberId === row.member.id;
 
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          row.status === "Behind"
-                            ? "bg-red-500/20 text-red-300"
-                            : row.status === "Close"
-                            ? "bg-yellow-500/20 text-yellow-300"
-                            : "bg-emerald-500/20 text-emerald-300"
-                        }`}
-                      >
-                        {row.progress}%
-                      </span>
-                    </div>
-
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-                      <div
-                        className="h-full rounded-full bg-cyan-400"
-                        style={{ width: `${row.progress}%` }}
-                      />
-                    </div>
-
-                    <p className="mt-3 text-sm text-slate-300">
-                      Pending: {row.pending} · Achieved: {row.achieved} ·
-                      Required: {row.required}
-                    </p>
-
-                    <button
-                      onClick={() => deleteMember(row.member.id)}
-                      className="mt-3 rounded-xl border border-red-400/30 px-3 py-2 text-sm text-red-200 hover:bg-red-400/10"
+                  return (
+                    <div
+                      key={row.member.id}
+                      className="rounded-2xl border border-white/10 bg-slate-900 p-4"
                     >
-                      Delete member
-                    </button>
-                  </div>
-                ))}
+                      {isEditingMember ? (
+                        <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-4">
+                          <h3 className="mb-4 text-lg font-bold text-cyan-200">
+                            Edit member
+                          </h3>
+
+                          <div className="space-y-3">
+                            <div>
+                              <p className="mb-2 text-sm text-slate-400">
+                                Member name
+                              </p>
+                              <input
+                                value={editMemberName}
+                                onChange={(event) =>
+                                  setEditMemberName(event.target.value)
+                                }
+                                className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                              />
+                            </div>
+
+                            <div>
+                              <p className="mb-2 text-sm text-slate-400">
+                                Role
+                              </p>
+                              <select
+                                value={editMemberRole}
+                                onChange={(event) =>
+                                  setEditMemberRole(event.target.value)
+                                }
+                                className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                              >
+                                {roleOptions.map((role) => (
+                                  <option key={role} value={role}>
+                                    {role}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <button
+                              onClick={saveEditedMember}
+                              className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
+                            >
+                              Save member
+                            </button>
+
+                            <button
+                              onClick={cancelEditingMember}
+                              className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="mb-3 flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-semibold">{row.member.name}</p>
+                              <p className="text-sm text-slate-400">
+                                {row.member.role} · {row.targetCount} targets
+                              </p>
+                            </div>
+
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                row.status === "Behind"
+                                  ? "bg-red-500/20 text-red-300"
+                                  : row.status === "Close"
+                                  ? "bg-yellow-500/20 text-yellow-300"
+                                  : "bg-emerald-500/20 text-emerald-300"
+                              }`}
+                            >
+                              {row.progress}%
+                            </span>
+                          </div>
+
+                          <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                            <div
+                              className="h-full rounded-full bg-cyan-400"
+                              style={{ width: `${row.progress}%` }}
+                            />
+                          </div>
+
+                          <p className="mt-3 text-sm text-slate-300">
+                            Pending: {row.pending} · Achieved: {row.achieved} ·
+                            Required: {row.required}
+                          </p>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              onClick={() => startEditingMember(row.member)}
+                              className="rounded-xl border border-cyan-400/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-400/10"
+                            >
+                              Edit member
+                            </button>
+
+                            <button
+                              onClick={() => deleteMember(row.member.id)}
+                              className="rounded-xl border border-red-400/30 px-3 py-2 text-sm text-red-200 hover:bg-red-400/10"
+                            >
+                              Delete member
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </section>
 
@@ -1005,15 +1134,11 @@ export default function Home() {
                   onChange={(event) => setNewMemberRole(event.target.value)}
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 >
-                  <option value="Owner">Owner</option>
-                  <option value="Admin">Admin</option>
-                  <option value="Parent">Parent</option>
-                  <option value="Teacher">Teacher</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Member">Member</option>
-                  <option value="Student">Student</option>
-                  <option value="Child">Child</option>
-                  <option value="Viewer">Viewer</option>
+                  {roleOptions.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
                 </select>
 
                 <button
