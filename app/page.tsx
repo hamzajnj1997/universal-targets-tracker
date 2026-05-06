@@ -170,6 +170,13 @@ export default function Home() {
     {}
   );
 
+  const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editOwnerId, setEditOwnerId] = useState("me");
+  const [editFrequency, setEditFrequency] = useState<Frequency>("daily");
+  const [editAmount, setEditAmount] = useState(1);
+  const [editUnit, setEditUnit] = useState("tasks");
+
   useEffect(() => {
     const savedData = window.localStorage.getItem(STORAGE_KEY);
 
@@ -316,6 +323,60 @@ export default function Home() {
     }));
   }
 
+  function startEditingTarget(target: Target) {
+    setEditingTargetId(target.id);
+    setEditTitle(target.title);
+    setEditOwnerId(target.ownerId);
+    setEditFrequency(target.frequency);
+    setEditAmount(target.targetAmount);
+    setEditUnit(target.unit);
+  }
+
+  function cancelEditingTarget() {
+    setEditingTargetId(null);
+    setEditTitle("");
+    setEditOwnerId("me");
+    setEditFrequency("daily");
+    setEditAmount(1);
+    setEditUnit("tasks");
+  }
+
+  function saveEditedTarget() {
+    if (!editingTargetId) return;
+
+    if (!editTitle.trim()) {
+      window.alert("Target name cannot be empty.");
+      return;
+    }
+
+    if (Number.isNaN(editAmount) || editAmount <= 0) {
+      window.alert("Target amount must be greater than 0.");
+      return;
+    }
+
+    if (!editUnit.trim()) {
+      window.alert("Unit cannot be empty.");
+      return;
+    }
+
+    setTargets((currentTargets) =>
+      currentTargets.map((target) => {
+        if (target.id !== editingTargetId) return target;
+
+        return {
+          ...target,
+          title: editTitle.trim(),
+          ownerId: editOwnerId,
+          frequency: editFrequency,
+          targetAmount: editAmount,
+          unit: editUnit.trim(),
+        };
+      })
+    );
+
+    cancelEditingTarget();
+  }
+
   function addTarget() {
     if (!newTitle.trim()) return;
 
@@ -375,6 +436,10 @@ export default function Home() {
     setLogs((currentLogs) =>
       currentLogs.filter((log) => log.targetId !== targetId)
     );
+
+    if (editingTargetId === targetId) {
+      cancelEditingTarget();
+    }
   }
 
   function deleteMember(memberId: string) {
@@ -415,9 +480,19 @@ export default function Home() {
       setSelectedMemberId("all");
     }
 
-    if (newOwnerId === memberId) {
+    if (newOwnerId === memberId || editOwnerId === memberId) {
       const nextMember = members.find((item) => item.id !== memberId);
-      setNewOwnerId(nextMember?.id ?? "me");
+      const nextMemberId = nextMember?.id ?? "me";
+
+      setNewOwnerId(nextMemberId);
+      setEditOwnerId(nextMemberId);
+    }
+
+    if (
+      editingTargetId &&
+      memberTargets.some((target) => target.id === editingTargetId)
+    ) {
+      cancelEditingTarget();
     }
   }
 
@@ -445,6 +520,7 @@ export default function Home() {
     setSelectedMemberId("all");
     setNewOwnerId("me");
     setManualAmounts({});
+    cancelEditingTarget();
   }
 
   const totalPending = visibleDashboard.reduce(
@@ -562,7 +638,8 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Use custom logging when the actual achieved value is not +1 or +3.
+            Edit targets when the name, amount, unit, frequency, or assigned
+            member is wrong.
           </p>
         </section>
 
@@ -580,157 +657,275 @@ export default function Home() {
             </div>
 
             <div className="space-y-4">
-              {visibleDashboard.map((row) => (
-                <div
-                  key={row.target.id}
-                  className="rounded-2xl border border-white/10 bg-slate-900 p-5"
-                >
-                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-xl font-semibold">
-                          {row.target.title}
+              {visibleDashboard.map((row) => {
+                const isEditing = editingTargetId === row.target.id;
+
+                return (
+                  <div
+                    key={row.target.id}
+                    className="rounded-2xl border border-white/10 bg-slate-900 p-5"
+                  >
+                    {isEditing ? (
+                      <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-4">
+                        <h3 className="mb-4 text-xl font-bold text-cyan-200">
+                          Edit target
                         </h3>
 
-                        <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-medium text-cyan-300">
-                          {row.target.frequency}
-                        </span>
-
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-medium ${
-                            row.status === "Behind"
-                              ? "bg-red-500/20 text-red-300"
-                              : row.status === "Close"
-                              ? "bg-yellow-500/20 text-yellow-300"
-                              : "bg-emerald-500/20 text-emerald-300"
-                          }`}
-                        >
-                          {row.status}
-                        </span>
-                      </div>
-
-                      <p className="mt-2 text-sm text-slate-400">
-                        Owner: {row.owner?.name ?? "Unknown"} · Role:{" "}
-                        {row.owner?.role ?? "Unknown"} · Target:{" "}
-                        {row.target.targetAmount} {row.target.unit} /{" "}
-                        {row.target.frequency}
-                      </p>
-
-                      <p className="mt-2 text-sm text-slate-300">
-                        Required by selected date: {row.required}{" "}
-                        {row.target.unit}. Achieved: {row.achieved}{" "}
-                        {row.target.unit}.
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-white/5 p-4 text-right">
-                      <p className="text-sm text-slate-400">Need now</p>
-                      <p className="text-3xl font-bold">
-                        {row.pending} {row.target.unit}
-                      </p>
-
-                      {row.surplus > 0 && (
-                        <p className="mt-1 text-sm text-emerald-300">
-                          Surplus credit: {row.surplus}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-800">
-                    <div
-                      className="h-full rounded-full bg-cyan-400"
-                      style={{ width: `${row.progress}%` }}
-                    />
-                  </div>
-
-                  <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() =>
-                          logProgress(
-                            row.target.id,
-                            row.pending || row.target.targetAmount
-                          )
-                        }
-                        className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
-                      >
-                        Tick done
-                      </button>
-
-                      <button
-                        onClick={() => logProgress(row.target.id, 1)}
-                        className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
-                      >
-                        +1 actual
-                      </button>
-
-                      <button
-                        onClick={() => logProgress(row.target.id, 3)}
-                        className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
-                      >
-                        +3 actual
-                      </button>
-
-                      <button
-                        onClick={() => deleteTarget(row.target.id)}
-                        className="rounded-xl border border-red-400/30 px-4 py-2 text-red-200 hover:bg-red-400/10"
-                      >
-                        Delete target
-                      </button>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        min="0"
-                        value={manualAmounts[row.target.id] ?? ""}
-                        onChange={(event) =>
-                          setManualAmounts((currentAmounts) => ({
-                            ...currentAmounts,
-                            [row.target.id]: event.target.value,
-                          }))
-                        }
-                        placeholder={`Amount`}
-                        className="w-28 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white"
-                      />
-
-                      <button
-                        onClick={() => logManualProgress(row.target.id)}
-                        className="rounded-xl bg-white px-4 py-2 font-semibold text-slate-950 hover:bg-slate-200"
-                      >
-                        Log custom
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="mb-3 text-sm font-semibold text-slate-300">
-                      Recent progress logs
-                    </p>
-
-                    {row.recentLogs.length > 0 ? (
-                      <div className="space-y-2">
-                        {row.recentLogs.map((log) => (
-                          <div
-                            key={log.id}
-                            className="flex items-center justify-between rounded-xl bg-slate-950 px-3 py-2 text-sm"
-                          >
-                            <span className="text-slate-300">{log.date}</span>
-                            <span className="font-semibold text-cyan-300">
-                              +{log.achievedAmount} {row.target.unit}
-                            </span>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div>
+                            <p className="mb-2 text-sm text-slate-400">
+                              Target name
+                            </p>
+                            <input
+                              value={editTitle}
+                              onChange={(event) =>
+                                setEditTitle(event.target.value)
+                              }
+                              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            />
                           </div>
-                        ))}
+
+                          <div>
+                            <p className="mb-2 text-sm text-slate-400">
+                              Assigned member
+                            </p>
+                            <select
+                              value={editOwnerId}
+                              onChange={(event) =>
+                                setEditOwnerId(event.target.value)
+                              }
+                              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            >
+                              {members.map((member) => (
+                                <option key={member.id} value={member.id}>
+                                  {member.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <p className="mb-2 text-sm text-slate-400">
+                              Frequency
+                            </p>
+                            <select
+                              value={editFrequency}
+                              onChange={(event) =>
+                                setEditFrequency(
+                                  event.target.value as Frequency
+                                )
+                              }
+                              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            >
+                              <option value="daily">Daily</option>
+                              <option value="weekly">Weekly</option>
+                              <option value="monthly">Monthly</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <p className="mb-2 text-sm text-slate-400">
+                              Target amount
+                            </p>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editAmount}
+                              onChange={(event) =>
+                                setEditAmount(Number(event.target.value))
+                              }
+                              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <p className="mb-2 text-sm text-slate-400">Unit</p>
+                            <input
+                              value={editUnit}
+                              onChange={(event) =>
+                                setEditUnit(event.target.value)
+                              }
+                              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            onClick={saveEditedTarget}
+                            className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
+                          >
+                            Save changes
+                          </button>
+
+                          <button
+                            onClick={cancelEditingTarget}
+                            className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-500">
-                        No progress logged yet.
-                      </p>
+                      <>
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-xl font-semibold">
+                                {row.target.title}
+                              </h3>
+
+                              <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-medium text-cyan-300">
+                                {row.target.frequency}
+                              </span>
+
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                  row.status === "Behind"
+                                    ? "bg-red-500/20 text-red-300"
+                                    : row.status === "Close"
+                                    ? "bg-yellow-500/20 text-yellow-300"
+                                    : "bg-emerald-500/20 text-emerald-300"
+                                }`}
+                              >
+                                {row.status}
+                              </span>
+                            </div>
+
+                            <p className="mt-2 text-sm text-slate-400">
+                              Owner: {row.owner?.name ?? "Unknown"} · Role:{" "}
+                              {row.owner?.role ?? "Unknown"} · Target:{" "}
+                              {row.target.targetAmount} {row.target.unit} /{" "}
+                              {row.target.frequency}
+                            </p>
+
+                            <p className="mt-2 text-sm text-slate-300">
+                              Required by selected date: {row.required}{" "}
+                              {row.target.unit}. Achieved: {row.achieved}{" "}
+                              {row.target.unit}.
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl bg-white/5 p-4 text-right">
+                            <p className="text-sm text-slate-400">Need now</p>
+                            <p className="text-3xl font-bold">
+                              {row.pending} {row.target.unit}
+                            </p>
+
+                            {row.surplus > 0 && (
+                              <p className="mt-1 text-sm text-emerald-300">
+                                Surplus credit: {row.surplus}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-800">
+                          <div
+                            className="h-full rounded-full bg-cyan-400"
+                            style={{ width: `${row.progress}%` }}
+                          />
+                        </div>
+
+                        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() =>
+                                logProgress(
+                                  row.target.id,
+                                  row.pending || row.target.targetAmount
+                                )
+                              }
+                              className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
+                            >
+                              Tick done
+                            </button>
+
+                            <button
+                              onClick={() => logProgress(row.target.id, 1)}
+                              className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
+                            >
+                              +1 actual
+                            </button>
+
+                            <button
+                              onClick={() => logProgress(row.target.id, 3)}
+                              className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
+                            >
+                              +3 actual
+                            </button>
+
+                            <button
+                              onClick={() => startEditingTarget(row.target)}
+                              className="rounded-xl border border-cyan-400/30 px-4 py-2 text-cyan-200 hover:bg-cyan-400/10"
+                            >
+                              Edit target
+                            </button>
+
+                            <button
+                              onClick={() => deleteTarget(row.target.id)}
+                              className="rounded-xl border border-red-400/30 px-4 py-2 text-red-200 hover:bg-red-400/10"
+                            >
+                              Delete target
+                            </button>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              value={manualAmounts[row.target.id] ?? ""}
+                              onChange={(event) =>
+                                setManualAmounts((currentAmounts) => ({
+                                  ...currentAmounts,
+                                  [row.target.id]: event.target.value,
+                                }))
+                              }
+                              placeholder="Amount"
+                              className="w-28 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white"
+                            />
+
+                            <button
+                              onClick={() => logManualProgress(row.target.id)}
+                              className="rounded-xl bg-white px-4 py-2 font-semibold text-slate-950 hover:bg-slate-200"
+                            >
+                              Log custom
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                          <p className="mb-3 text-sm font-semibold text-slate-300">
+                            Recent progress logs
+                          </p>
+
+                          {row.recentLogs.length > 0 ? (
+                            <div className="space-y-2">
+                              {row.recentLogs.map((log) => (
+                                <div
+                                  key={log.id}
+                                  className="flex items-center justify-between rounded-xl bg-slate-950 px-3 py-2 text-sm"
+                                >
+                                  <span className="text-slate-300">
+                                    {log.date}
+                                  </span>
+                                  <span className="font-semibold text-cyan-300">
+                                    +{log.achievedAmount} {row.target.unit}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-slate-500">
+                              No progress logged yet.
+                            </p>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {visibleDashboard.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-slate-400">
