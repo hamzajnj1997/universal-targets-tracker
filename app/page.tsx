@@ -212,6 +212,33 @@ function statusMatchesFilter(status: string, filter: StatusFilter) {
   return true;
 }
 
+function csvCell(value: unknown) {
+  const text = String(value ?? "");
+
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function buildCsv(headers: string[], rows: unknown[][]) {
+  return [
+    headers.map(csvCell).join(","),
+    ...rows.map((row) => row.map(csvCell).join(",")),
+  ].join("\n");
+}
+
+function downloadTextFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  URL.revokeObjectURL(url);
+}
+
 const initialMembers: Member[] = [
   { id: "me", name: "Me", role: "Owner" },
   { id: "family", name: "Family Member", role: "Member" },
@@ -235,7 +262,8 @@ const initialTargets: Target[] = [
   {
     id: "ideas",
     title: "Plan content ideas",
-    description: "Each idea should include a clear topic, hook, and basic outline.",
+    description:
+      "Each idea should include a clear topic, hook, and basic outline.",
     priority: "medium",
     ownerId: "me",
     frequency: "weekly",
@@ -292,7 +320,9 @@ export default function Home() {
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
   const [newOwnerId, setNewOwnerId] = useState("me");
 
-  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>({});
+  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>(
+    {}
+  );
 
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -453,7 +483,9 @@ export default function Home() {
   }
 
   const dashboard = useMemo(() => {
-    return targets.map((target) => calculateTargetSnapshot(target, selectedDate));
+    return targets.map((target) =>
+      calculateTargetSnapshot(target, selectedDate)
+    );
   }, [targets, logs, selectedDate, members]);
 
   const visibleDashboard = useMemo(() => {
@@ -895,6 +927,108 @@ export default function Home() {
     cancelEditingProgressLog();
   }
 
+  function exportTargetsCsv() {
+    const rows = targets.map((target) => {
+      const owner = members.find((member) => member.id === target.ownerId);
+
+      return [
+        target.id,
+        target.title,
+        target.description,
+        priorityLabel(target.priority),
+        owner?.name ?? "Unknown",
+        owner?.role ?? "Unknown",
+        target.frequency,
+        target.targetAmount,
+        target.unit,
+        target.startDate,
+      ];
+    });
+
+    const csv = buildCsv(
+      [
+        "Target ID",
+        "Title",
+        "Description",
+        "Priority",
+        "Owner",
+        "Owner Role",
+        "Frequency",
+        "Target Amount",
+        "Unit",
+        "Start Date",
+      ],
+      rows
+    );
+
+    downloadTextFile(
+      `targets-${todayISO()}.csv`,
+      csv,
+      "text/csv;charset=utf-8"
+    );
+  }
+
+  function exportProgressLogsCsv() {
+    const rows = logs.map((log) => {
+      const target = targets.find((item) => item.id === log.targetId);
+      const owner = target
+        ? members.find((member) => member.id === target.ownerId)
+        : undefined;
+
+      return [
+        log.id,
+        log.date,
+        log.achievedAmount,
+        target?.unit ?? "",
+        target?.title ?? "Deleted target",
+        log.targetId,
+        owner?.name ?? "Unknown",
+        owner?.role ?? "Unknown",
+        log.createdAt,
+      ];
+    });
+
+    const csv = buildCsv(
+      [
+        "Log ID",
+        "Progress Date",
+        "Achieved Amount",
+        "Unit",
+        "Target Title",
+        "Target ID",
+        "Owner",
+        "Owner Role",
+        "Created At",
+      ],
+      rows
+    );
+
+    downloadTextFile(
+      `progress-logs-${todayISO()}.csv`,
+      csv,
+      "text/csv;charset=utf-8"
+    );
+  }
+
+  function exportFullBackupJson() {
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      appName: "Universal Targets Tracker",
+      version: 15,
+      selectedDate,
+      calendarMonth,
+      members,
+      targets,
+      logs,
+    };
+
+    downloadTextFile(
+      `universal-targets-tracker-backup-${todayISO()}.json`,
+      JSON.stringify(backup, null, 2),
+      "application/json;charset=utf-8"
+    );
+  }
+
   function resetDemoData() {
     const shouldReset = window.confirm(
       "Reset demo data? This will restore the original members and targets."
@@ -1042,9 +1176,40 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Search and filters now control the dashboard, selected-day totals,
-            and calendar totals.
+            Export buttons download your data from this browser.
           </p>
+        </section>
+
+        <section className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-5">
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold">Export data</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Download your targets, progress logs, or a full JSON backup.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={exportTargetsCsv}
+              className="rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 hover:bg-cyan-300"
+            >
+              Export targets CSV
+            </button>
+
+            <button
+              onClick={exportProgressLogsCsv}
+              className="rounded-xl border border-cyan-400/30 px-4 py-3 font-semibold text-cyan-200 hover:bg-cyan-400/10"
+            >
+              Export progress logs CSV
+            </button>
+
+            <button
+              onClick={exportFullBackupJson}
+              className="rounded-xl border border-white/10 px-4 py-3 font-semibold hover:bg-white/10"
+            >
+              Export full backup JSON
+            </button>
+          </div>
         </section>
 
         <section className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-5">
@@ -1327,7 +1492,9 @@ export default function Home() {
                             <select
                               value={editFrequency}
                               onChange={(event) =>
-                                setEditFrequency(event.target.value as Frequency)
+                                setEditFrequency(
+                                  event.target.value as Frequency
+                                )
                               }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
@@ -1649,7 +1816,8 @@ export default function Home() {
 
               {visibleDashboard.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-slate-400">
-                  No matching targets found. Clear filters or change your search.
+                  No matching targets found. Clear filters or change your
+                  search.
                 </div>
               )}
             </div>
