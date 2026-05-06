@@ -740,6 +740,39 @@ export default function Home() {
     });
   }, [members, dashboard]);
 
+    const dashboardInsights = useMemo(() => {
+    const mostBehindCategory =
+      categoryOverview.filter((category) => category.pending > 0)[0] ?? null;
+
+    const mostBehindMember =
+      memberOverview
+        .filter((row) => row.pending > 0)
+        .slice()
+        .sort((a, b) => b.pending - a.pending)[0] ?? null;
+
+    const overdueTargets = visibleDashboard
+      .filter((row) => row.pending > 0)
+      .slice()
+      .sort((a, b) => {
+        const priorityDifference =
+          priorityRank(b.target.priority) - priorityRank(a.target.priority);
+
+        if (priorityDifference !== 0) return priorityDifference;
+
+        return b.pending - a.pending;
+      });
+
+    const highestPriorityOverdueTarget = overdueTargets[0] ?? null;
+    const recommendedFocus = overdueTargets.slice(0, 3);
+
+    return {
+      mostBehindCategory,
+      mostBehindMember,
+      highestPriorityOverdueTarget,
+      recommendedFocus,
+    };
+  }, [categoryOverview, memberOverview, visibleDashboard]);
+
   const selectedDaySummary = useMemo(() => {
     return calculateDaySnapshot(selectedDate);
   }, [
@@ -1470,6 +1503,110 @@ export default function Home() {
           <StatCard label="Logs" value={totalLogs} />
         </section>
 
+        <section className="mb-8 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
+          <div className="mb-5">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-300">
+              Dashboard insights
+            </p>
+            <h2 className="mt-2 text-2xl font-bold">Warnings and recommended focus</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Quick signals based on the selected date and active filters.
+            </p>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-4">
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <p className="text-sm text-slate-400">Most behind category</p>
+
+              {dashboardInsights.mostBehindCategory ? (
+                <>
+                  <p className="mt-2 text-xl font-bold">
+                    {dashboardInsights.mostBehindCategory.category}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-300">
+                    {dashboardInsights.mostBehindCategory.pending} pending ·{" "}
+                    {dashboardInsights.mostBehindCategory.targetCount} targets
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-xl font-bold text-emerald-300">
+                  No backlog
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <p className="text-sm text-slate-400">Most behind member</p>
+
+              {dashboardInsights.mostBehindMember ? (
+                <>
+                  <p className="mt-2 text-xl font-bold">
+                    {dashboardInsights.mostBehindMember.member.name}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-300">
+                    {dashboardInsights.mostBehindMember.pending} pending ·{" "}
+                    {dashboardInsights.mostBehindMember.targetCount} targets
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-xl font-bold text-emerald-300">
+                  No backlog
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <p className="text-sm text-slate-400">Highest priority overdue</p>
+
+              {dashboardInsights.highestPriorityOverdueTarget ? (
+                <>
+                  <p className="mt-2 text-xl font-bold">
+                    {dashboardInsights.highestPriorityOverdueTarget.target.title}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-300">
+                    {priorityLabel(
+                      dashboardInsights.highestPriorityOverdueTarget.target.priority
+                    )}{" "}
+                    · {dashboardInsights.highestPriorityOverdueTarget.pending}{" "}
+                    {dashboardInsights.highestPriorityOverdueTarget.target.unit} pending
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-xl font-bold text-emerald-300">
+                  All clear
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <p className="text-sm text-slate-400">Today&apos;s focus list</p>
+
+              {dashboardInsights.recommendedFocus.length > 0 ? (
+                <div className="mt-3 space-y-2">
+                  {dashboardInsights.recommendedFocus.map((row, index) => (
+                    <div
+                      key={row.target.id}
+                      className="rounded-xl bg-slate-900 px-3 py-2 text-sm"
+                    >
+                      <p className="font-semibold">
+                        {index + 1}. {row.target.title}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {row.pending} {row.target.unit} pending ·{" "}
+                        {priorityLabel(row.target.priority)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xl font-bold text-emerald-300">
+                  Nothing urgent
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+        
         <section className="mb-8 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
           <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
