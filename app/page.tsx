@@ -36,6 +36,91 @@ type SavedAppState = {
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
 
+const roleOptions = [
+  "Owner",
+  "Admin",
+  "Parent",
+  "Teacher",
+  "Manager",
+  "Member",
+  "Student",
+  "Child",
+  "Viewer",
+];
+
+function formatDateISO(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function todayISO() {
+  return formatDateISO(new Date());
+}
+
+function toDate(dateISO: string) {
+  return new Date(`${dateISO}T00:00:00`);
+}
+
+function daysBetween(startDate: string, endDate: string) {
+  const start = toDate(startDate);
+  const end = toDate(endDate);
+
+  return Math.floor((end.getTime() - start.getTime()) / 86400000);
+}
+
+function monthsBetween(startDate: string, endDate: string) {
+  const start = toDate(startDate);
+  const end = toDate(endDate);
+
+  return (
+    (end.getFullYear() - start.getFullYear()) * 12 +
+    end.getMonth() -
+    start.getMonth()
+  );
+}
+
+function addDays(dateISO: string, days: number) {
+  const date = toDate(dateISO);
+  date.setDate(date.getDate() + days);
+
+  return formatDateISO(date);
+}
+
+function periodsDue(target: Target, dateISO: string) {
+  if (dateISO < target.startDate) return 0;
+
+  if (target.frequency === "daily") {
+    return daysBetween(target.startDate, dateISO) + 1;
+  }
+
+  if (target.frequency === "weekly") {
+    return Math.floor(daysBetween(target.startDate, dateISO) / 7) + 1;
+  }
+
+  if (target.frequency === "monthly") {
+    return monthsBetween(target.startDate, dateISO) + 1;
+  }
+
+  return 0;
+}
+
+function getStatus(pending: number, progress: number) {
+  if (pending === 0) return "On Track";
+  if (progress >= 80) return "Close";
+
+  return "Behind";
+}
+
+function statusClass(status: string) {
+  if (status === "Behind") return "bg-red-500/20 text-red-300";
+  if (status === "Close") return "bg-yellow-500/20 text-yellow-300";
+
+  return "bg-emerald-500/20 text-emerald-300";
+}
+
 const initialMembers: Member[] = [
   { id: "me", name: "Me", role: "Owner" },
   { id: "family", name: "Family Member", role: "Member" },
@@ -80,84 +165,6 @@ const initialTargets: Target[] = [
     unit: "pages",
     startDate: todayISO(),
   },
-];
-
-function formatDateISO(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function todayISO() {
-  return formatDateISO(new Date());
-}
-
-function toDate(dateISO: string) {
-  return new Date(`${dateISO}T00:00:00`);
-}
-
-function daysBetween(startDate: string, endDate: string) {
-  const start = toDate(startDate);
-  const end = toDate(endDate);
-
-  return Math.floor((end.getTime() - start.getTime()) / 86400000);
-}
-
-function monthsBetween(startDate: string, endDate: string) {
-  const start = toDate(startDate);
-  const end = toDate(endDate);
-
-  return (
-    (end.getFullYear() - start.getFullYear()) * 12 +
-    end.getMonth() -
-    start.getMonth()
-  );
-}
-
-function periodsDue(target: Target, dateISO: string) {
-  if (dateISO < target.startDate) return 0;
-
-  if (target.frequency === "daily") {
-    return daysBetween(target.startDate, dateISO) + 1;
-  }
-
-  if (target.frequency === "weekly") {
-    return Math.floor(daysBetween(target.startDate, dateISO) / 7) + 1;
-  }
-
-  if (target.frequency === "monthly") {
-    return monthsBetween(target.startDate, dateISO) + 1;
-  }
-
-  return 0;
-}
-
-function addDays(dateISO: string, days: number) {
-  const date = toDate(dateISO);
-  date.setDate(date.getDate() + days);
-
-  return formatDateISO(date);
-}
-
-function getStatus(pending: number, progress: number) {
-  if (pending === 0) return "On Track";
-  if (progress >= 80) return "Close";
-
-  return "Behind";
-}
-
-const roleOptions = [
-  "Owner",
-  "Admin",
-  "Parent",
-  "Teacher",
-  "Manager",
-  "Member",
-  "Student",
-  "Child",
-  "Viewer",
 ];
 
 export default function Home() {
@@ -232,46 +239,53 @@ export default function Home() {
     );
   }, [members, targets, logs, hasLoadedSavedData]);
 
+  const filteredTargets = useMemo(() => {
+    if (selectedMemberId === "all") return targets;
+
+    return targets.filter((target) => target.ownerId === selectedMemberId);
+  }, [targets, selectedMemberId]);
+
+  function calculateTargetSnapshot(target: Target, dateISO: string) {
+    const owner = members.find((member) => member.id === target.ownerId);
+    const required = periodsDue(target, dateISO) * target.targetAmount;
+
+    const achieved = logs
+      .filter((log) => log.targetId === target.id && log.date <= dateISO)
+      .reduce((sum, log) => sum + log.achievedAmount, 0);
+
+    const pending = Math.max(0, required - achieved);
+    const surplus = Math.max(0, achieved - required);
+    const progress =
+      required === 0
+        ? 100
+        : Math.min(100, Math.round((achieved / required) * 100));
+
+    const recentLogs = logs
+      .filter((log) => log.targetId === target.id)
+      .slice()
+      .sort((a, b) => {
+        const aTime = a.createdAt || a.date;
+        const bTime = b.createdAt || b.date;
+
+        return bTime.localeCompare(aTime);
+      })
+      .slice(0, 4);
+
+    return {
+      target,
+      owner,
+      required,
+      achieved,
+      pending,
+      surplus,
+      progress,
+      recentLogs,
+      status: getStatus(pending, progress),
+    };
+  }
+
   const dashboard = useMemo(() => {
-    return targets.map((target) => {
-      const owner = members.find((member) => member.id === target.ownerId);
-
-      const required = periodsDue(target, selectedDate) * target.targetAmount;
-
-      const achieved = logs
-        .filter((log) => log.targetId === target.id && log.date <= selectedDate)
-        .reduce((sum, log) => sum + log.achievedAmount, 0);
-
-      const pending = Math.max(0, required - achieved);
-      const surplus = Math.max(0, achieved - required);
-      const progress =
-        required === 0
-          ? 100
-          : Math.min(100, Math.round((achieved / required) * 100));
-
-      const recentLogs = logs
-        .filter((log) => log.targetId === target.id)
-        .slice()
-        .sort((a, b) => {
-          const aTime = a.createdAt || a.date;
-          const bTime = b.createdAt || b.date;
-
-          return bTime.localeCompare(aTime);
-        })
-        .slice(0, 4);
-
-      return {
-        target,
-        owner,
-        required,
-        achieved,
-        pending,
-        surplus,
-        progress,
-        recentLogs,
-        status: getStatus(pending, progress),
-      };
-    });
+    return targets.map((target) => calculateTargetSnapshot(target, selectedDate));
   }, [targets, logs, selectedDate, members]);
 
   const visibleDashboard = useMemo(() => {
@@ -306,6 +320,34 @@ export default function Home() {
       };
     });
   }, [members, dashboard]);
+
+  const calendarDays = useMemo(() => {
+    return Array.from({ length: 14 }, (_, index) => {
+      const date = addDays(selectedDate, index);
+
+      const rows = filteredTargets.map((target) =>
+        calculateTargetSnapshot(target, date)
+      );
+
+      const required = rows.reduce((sum, row) => sum + row.required, 0);
+      const achieved = rows.reduce((sum, row) => sum + row.achieved, 0);
+      const pending = rows.reduce((sum, row) => sum + row.pending, 0);
+
+      const progress =
+        required === 0
+          ? 100
+          : Math.min(100, Math.round((achieved / required) * 100));
+
+      return {
+        date,
+        required,
+        achieved,
+        pending,
+        progress,
+        status: getStatus(pending, progress),
+      };
+    });
+  }, [selectedDate, filteredTargets, logs, members]);
 
   function logProgress(targetId: string, amount: number) {
     if (amount <= 0) return;
@@ -594,10 +636,6 @@ export default function Home() {
     0
   );
 
-  const nextSevenDays = Array.from({ length: 7 }, (_, index) =>
-    addDays(selectedDate, index)
-  );
-
   const totalLogs = logs.length;
 
   return (
@@ -694,9 +732,68 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Edit members and targets when names, roles, amounts, units, or
-            assignments are wrong.
+            Calendar cards show whether each future day is on track or behind.
           </p>
+        </section>
+
+        <section className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-5">
+          <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Calendar view</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                14-day forecast from selected date. Click any day to open it.
+              </p>
+            </div>
+
+            <p className="text-sm text-slate-400">
+              Filter:{" "}
+              {selectedMemberId === "all"
+                ? "All members"
+                : members.find((member) => member.id === selectedMemberId)
+                    ?.name}
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            {calendarDays.map((day) => (
+              <button
+                key={day.date}
+                onClick={() => setSelectedDate(day.date)}
+                className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:bg-white/10 ${
+                  day.date === selectedDate
+                    ? "border-cyan-400/70 bg-cyan-400/10"
+                    : "border-white/10 bg-slate-900"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold">{day.date}</p>
+                  <span
+                    className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(
+                      day.status
+                    )}`}
+                  >
+                    {day.status}
+                  </span>
+                </div>
+
+                <p className="mt-4 text-3xl font-bold">{day.pending}</p>
+                <p className="text-sm text-slate-400">pending</p>
+
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full bg-cyan-400"
+                    style={{ width: `${day.progress}%` }}
+                  />
+                </div>
+
+                <div className="mt-3 space-y-1 text-xs text-slate-400">
+                  <p>Required: {day.required}</p>
+                  <p>Achieved: {day.achieved}</p>
+                  <p>Progress: {day.progress}%</p>
+                </div>
+              </button>
+            ))}
+          </div>
         </section>
 
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
@@ -836,13 +933,9 @@ export default function Home() {
                               </span>
 
                               <span
-                                className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                  row.status === "Behind"
-                                    ? "bg-red-500/20 text-red-300"
-                                    : row.status === "Close"
-                                    ? "bg-yellow-500/20 text-yellow-300"
-                                    : "bg-emerald-500/20 text-emerald-300"
-                                }`}
+                                className={`rounded-full px-3 py-1 text-xs font-medium ${statusClass(
+                                  row.status
+                                )}`}
                               >
                                 {row.status}
                               </span>
@@ -1071,13 +1164,9 @@ export default function Home() {
                             </div>
 
                             <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                row.status === "Behind"
-                                  ? "bg-red-500/20 text-red-300"
-                                  : row.status === "Close"
-                                  ? "bg-yellow-500/20 text-yellow-300"
-                                  : "bg-emerald-500/20 text-emerald-300"
-                              }`}
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${statusClass(
+                                row.status
+                              )}`}
                             >
                               {row.progress}%
                             </span>
@@ -1210,47 +1299,6 @@ export default function Home() {
                 >
                   Add target
                 </button>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <h2 className="mb-4 text-2xl font-bold">7-day forecast</h2>
-
-              <div className="space-y-3">
-                {nextSevenDays.map((day) => {
-                  const rowsForForecast =
-                    selectedMemberId === "all"
-                      ? targets
-                      : targets.filter(
-                          (target) => target.ownerId === selectedMemberId
-                        );
-
-                  const pendingForDay = rowsForForecast.reduce(
-                    (sum, target) => {
-                      const required =
-                        periodsDue(target, day) * target.targetAmount;
-
-                      const achieved = logs
-                        .filter(
-                          (log) => log.targetId === target.id && log.date <= day
-                        )
-                        .reduce((total, log) => total + log.achievedAmount, 0);
-
-                      return sum + Math.max(0, required - achieved);
-                    },
-                    0
-                  );
-
-                  return (
-                    <div
-                      key={day}
-                      className="flex items-center justify-between rounded-2xl bg-slate-900 px-4 py-3"
-                    >
-                      <span className="text-sm text-slate-300">{day}</span>
-                      <span className="font-bold">{pendingForDay} pending</span>
-                    </div>
-                  );
-                })}
               </div>
             </section>
           </aside>
