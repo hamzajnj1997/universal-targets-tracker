@@ -25,6 +25,7 @@ type ProgressLog = {
   targetId: string;
   date: string;
   achievedAmount: number;
+  createdAt: string;
 };
 
 type SavedAppState = {
@@ -33,13 +34,52 @@ type SavedAppState = {
   logs: ProgressLog[];
 };
 
-const STORAGE_KEY = "universal-targets-tracker-demo-v3";
+const STORAGE_KEY = "universal-targets-tracker-demo-v4";
 
 const initialMembers: Member[] = [
   { id: "me", name: "Me", role: "Owner" },
   { id: "family", name: "Family Member", role: "Member" },
   { id: "team", name: "Team Member", role: "Member" },
   { id: "student", name: "Student", role: "Student" },
+];
+
+const initialTargets: Target[] = [
+  {
+    id: "video",
+    title: "Make video",
+    ownerId: "me",
+    frequency: "daily",
+    targetAmount: 1,
+    unit: "video",
+    startDate: todayISO(),
+  },
+  {
+    id: "ideas",
+    title: "Plan content ideas",
+    ownerId: "me",
+    frequency: "weekly",
+    targetAmount: 7,
+    unit: "ideas",
+    startDate: todayISO(),
+  },
+  {
+    id: "calls",
+    title: "Sales calls",
+    ownerId: "team",
+    frequency: "daily",
+    targetAmount: 10,
+    unit: "calls",
+    startDate: todayISO(),
+  },
+  {
+    id: "reading",
+    title: "Read pages",
+    ownerId: "student",
+    frequency: "daily",
+    targetAmount: 5,
+    unit: "pages",
+    startDate: todayISO(),
+  },
 ];
 
 function formatDateISO(date: Date) {
@@ -108,45 +148,6 @@ function getStatus(pending: number, progress: number) {
   return "Behind";
 }
 
-const initialTargets: Target[] = [
-  {
-    id: "video",
-    title: "Make video",
-    ownerId: "me",
-    frequency: "daily",
-    targetAmount: 1,
-    unit: "video",
-    startDate: todayISO(),
-  },
-  {
-    id: "ideas",
-    title: "Plan content ideas",
-    ownerId: "me",
-    frequency: "weekly",
-    targetAmount: 7,
-    unit: "ideas",
-    startDate: todayISO(),
-  },
-  {
-    id: "calls",
-    title: "Sales calls",
-    ownerId: "team",
-    frequency: "daily",
-    targetAmount: 10,
-    unit: "calls",
-    startDate: todayISO(),
-  },
-  {
-    id: "reading",
-    title: "Read pages",
-    ownerId: "student",
-    frequency: "daily",
-    targetAmount: 5,
-    unit: "pages",
-    startDate: todayISO(),
-  },
-];
-
 export default function Home() {
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [selectedMemberId, setSelectedMemberId] = useState("all");
@@ -164,6 +165,10 @@ export default function Home() {
   const [newUnit, setNewUnit] = useState("tasks");
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
   const [newOwnerId, setNewOwnerId] = useState("me");
+
+  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>(
+    {}
+  );
 
   useEffect(() => {
     const savedData = window.localStorage.getItem(STORAGE_KEY);
@@ -221,6 +226,17 @@ export default function Home() {
           ? 100
           : Math.min(100, Math.round((achieved / required) * 100));
 
+      const recentLogs = logs
+        .filter((log) => log.targetId === target.id)
+        .slice()
+        .sort((a, b) => {
+          const aTime = a.createdAt || a.date;
+          const bTime = b.createdAt || b.date;
+
+          return bTime.localeCompare(aTime);
+        })
+        .slice(0, 4);
+
       return {
         target,
         owner,
@@ -229,6 +245,7 @@ export default function Home() {
         pending,
         surplus,
         progress,
+        recentLogs,
         status: getStatus(pending, progress),
       };
     });
@@ -277,8 +294,26 @@ export default function Home() {
         targetId,
         date: selectedDate,
         achievedAmount: amount,
+        createdAt: new Date().toISOString(),
       },
     ]);
+  }
+
+  function logManualProgress(targetId: string) {
+    const rawAmount = manualAmounts[targetId];
+    const amount = Number(rawAmount);
+
+    if (!rawAmount || Number.isNaN(amount) || amount <= 0) {
+      window.alert("Enter a valid achieved amount greater than 0.");
+      return;
+    }
+
+    logProgress(targetId, amount);
+
+    setManualAmounts((currentAmounts) => ({
+      ...currentAmounts,
+      [targetId]: "",
+    }));
   }
 
   function addTarget() {
@@ -409,6 +444,7 @@ export default function Home() {
     setLogs([]);
     setSelectedMemberId("all");
     setNewOwnerId("me");
+    setManualAmounts({});
   }
 
   const totalPending = visibleDashboard.reduce(
@@ -429,6 +465,8 @@ export default function Home() {
   const nextSevenDays = Array.from({ length: 7 }, (_, index) =>
     addDays(selectedDate, index)
   );
+
+  const totalLogs = logs.length;
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
@@ -481,7 +519,7 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="mb-8 grid gap-4 md:grid-cols-4">
+        <section className="mb-8 grid gap-4 md:grid-cols-5">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <p className="text-sm text-slate-400">Pending</p>
             <p className="mt-2 text-4xl font-bold">{totalPending}</p>
@@ -501,6 +539,11 @@ export default function Home() {
             <p className="text-sm text-slate-400">Members</p>
             <p className="mt-2 text-4xl font-bold">{members.length}</p>
           </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-slate-400">Logs</p>
+            <p className="mt-2 text-4xl font-bold">{totalLogs}</p>
+          </div>
         </section>
 
         <section className="mb-8 flex flex-wrap gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
@@ -519,7 +562,7 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Management controls are temporary admin tools for the prototype.
+            Use custom logging when the actual achieved value is not +1 or +3.
           </p>
         </section>
 
@@ -601,39 +644,90 @@ export default function Home() {
                     />
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={() =>
-                        logProgress(
-                          row.target.id,
-                          row.pending || row.target.targetAmount
-                        )
-                      }
-                      className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
-                    >
-                      Tick done
-                    </button>
+                  <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() =>
+                          logProgress(
+                            row.target.id,
+                            row.pending || row.target.targetAmount
+                          )
+                        }
+                        className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
+                      >
+                        Tick done
+                      </button>
 
-                    <button
-                      onClick={() => logProgress(row.target.id, 1)}
-                      className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
-                    >
-                      +1 actual
-                    </button>
+                      <button
+                        onClick={() => logProgress(row.target.id, 1)}
+                        className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
+                      >
+                        +1 actual
+                      </button>
 
-                    <button
-                      onClick={() => logProgress(row.target.id, 3)}
-                      className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
-                    >
-                      +3 actual
-                    </button>
+                      <button
+                        onClick={() => logProgress(row.target.id, 3)}
+                        className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
+                      >
+                        +3 actual
+                      </button>
 
-                    <button
-                      onClick={() => deleteTarget(row.target.id)}
-                      className="rounded-xl border border-red-400/30 px-4 py-2 text-red-200 hover:bg-red-400/10"
-                    >
-                      Delete target
-                    </button>
+                      <button
+                        onClick={() => deleteTarget(row.target.id)}
+                        className="rounded-xl border border-red-400/30 px-4 py-2 text-red-200 hover:bg-red-400/10"
+                      >
+                        Delete target
+                      </button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        value={manualAmounts[row.target.id] ?? ""}
+                        onChange={(event) =>
+                          setManualAmounts((currentAmounts) => ({
+                            ...currentAmounts,
+                            [row.target.id]: event.target.value,
+                          }))
+                        }
+                        placeholder={`Amount`}
+                        className="w-28 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white"
+                      />
+
+                      <button
+                        onClick={() => logManualProgress(row.target.id)}
+                        className="rounded-xl bg-white px-4 py-2 font-semibold text-slate-950 hover:bg-slate-200"
+                      >
+                        Log custom
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="mb-3 text-sm font-semibold text-slate-300">
+                      Recent progress logs
+                    </p>
+
+                    {row.recentLogs.length > 0 ? (
+                      <div className="space-y-2">
+                        {row.recentLogs.map((log) => (
+                          <div
+                            key={log.id}
+                            className="flex items-center justify-between rounded-xl bg-slate-950 px-3 py-2 text-sm"
+                          >
+                            <span className="text-slate-300">{log.date}</span>
+                            <span className="font-semibold text-cyan-300">
+                              +{log.achievedAmount} {row.target.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        No progress logged yet.
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
