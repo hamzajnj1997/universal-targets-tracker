@@ -6,6 +6,7 @@ import type { ChangeEvent, ReactNode } from "react";
 type Frequency = "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
 type StatusFilter = "all" | "onTrack" | "close" | "behind";
+type ArchiveFilter = "active" | "archived" | "all";
 
 type Member = {
   id: string;
@@ -24,6 +25,7 @@ type Target = {
   targetAmount: number;
   unit: string;
   startDate: string;
+  isArchived: boolean;
 };
 
 type ProgressLog = {
@@ -90,6 +92,12 @@ const statusFilterOptions: { value: StatusFilter; label: string }[] = [
   { value: "onTrack", label: "On Track" },
 ];
 
+const archiveFilterOptions: { value: ArchiveFilter; label: string }[] = [
+  { value: "active", label: "Active targets" },
+  { value: "archived", label: "Archived targets" },
+  { value: "all", label: "All targets" },
+];
+
 const initialMembers: Member[] = [
   { id: "me", name: "Me", role: "Owner" },
   { id: "family", name: "Family Member", role: "Member" },
@@ -121,6 +129,7 @@ const initialTargets: Target[] = [
     targetAmount: 1,
     unit: "video",
     startDate: todayISO(),
+    isArchived: false,
   },
   {
     id: "ideas",
@@ -134,6 +143,7 @@ const initialTargets: Target[] = [
     targetAmount: 7,
     unit: "ideas",
     startDate: todayISO(),
+    isArchived: false,
   },
   {
     id: "calls",
@@ -146,6 +156,7 @@ const initialTargets: Target[] = [
     targetAmount: 10,
     unit: "calls",
     startDate: todayISO(),
+    isArchived: false,
   },
   {
     id: "reading",
@@ -158,6 +169,7 @@ const initialTargets: Target[] = [
     targetAmount: 5,
     unit: "pages",
     startDate: todayISO(),
+    isArchived: false,
   },
 ];
 
@@ -307,6 +319,12 @@ function statusMatchesFilter(status: string, filter: StatusFilter) {
   return true;
 }
 
+function archiveMatchesFilter(isArchived: boolean, filter: ArchiveFilter) {
+  if (filter === "all") return true;
+  if (filter === "archived") return isArchived;
+  return !isArchived;
+}
+
 function csvCell(value: unknown) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
@@ -354,6 +372,7 @@ export default function Home() {
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>("active");
 
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [targets, setTargets] = useState<Target[]>(initialTargets);
@@ -455,6 +474,8 @@ export default function Home() {
         startDate: isValidDateISO(target.startDate)
           ? (target.startDate as string)
           : todayISO(),
+        isArchived:
+          typeof target.isArchived === "boolean" ? target.isArchived : false,
       }));
   }
 
@@ -578,12 +599,18 @@ export default function Home() {
     const categoryMatches =
       categoryFilter === "all" || row.target.category === categoryFilter;
 
+    const archiveMatches = archiveMatchesFilter(
+      row.target.isArchived,
+      archiveFilter
+    );
+
     const searchableText = [
       row.target.title,
       row.target.description,
       row.target.category,
       row.target.unit,
       row.target.frequency,
+      row.target.isArchived ? "archived" : "active",
       priorityLabel(row.target.priority),
       row.owner?.name ?? "",
       row.owner?.role ?? "",
@@ -598,6 +625,7 @@ export default function Home() {
       priorityMatches &&
       statusMatches &&
       categoryMatches &&
+      archiveMatches &&
       searchMatches
     );
   }
@@ -636,6 +664,10 @@ export default function Home() {
       .filter(rowMatchesFilters)
       .slice()
       .sort((a, b) => {
+        if (a.target.isArchived !== b.target.isArchived) {
+          return Number(a.target.isArchived) - Number(b.target.isArchived);
+        }
+
         const priorityDifference =
           priorityRank(b.target.priority) - priorityRank(a.target.priority);
 
@@ -654,6 +686,7 @@ export default function Home() {
     priorityFilter,
     statusFilter,
     categoryFilter,
+    archiveFilter,
     members,
   ]);
 
@@ -717,7 +750,9 @@ export default function Home() {
   const memberOverview = useMemo(() => {
     return members.map((member) => {
       const memberRows = dashboard.filter(
-        (row) => row.target.ownerId === member.id
+        (row) =>
+          row.target.ownerId === member.id &&
+          archiveMatchesFilter(row.target.isArchived, archiveFilter)
       );
 
       const required = memberRows.reduce((sum, row) => sum + row.required, 0);
@@ -738,7 +773,7 @@ export default function Home() {
         status: getStatus(pending, progress),
       };
     });
-  }, [members, dashboard]);
+  }, [members, dashboard, archiveFilter]);
 
   const dashboardInsights = useMemo(() => {
     const mostBehindCategory =
@@ -820,6 +855,7 @@ export default function Home() {
     priorityFilter,
     statusFilter,
     categoryFilter,
+    archiveFilter,
     targets,
     logs,
     members,
@@ -887,6 +923,7 @@ export default function Home() {
     priorityFilter,
     statusFilter,
     categoryFilter,
+    archiveFilter,
     targets,
     logs,
     members,
@@ -917,6 +954,7 @@ export default function Home() {
     priorityFilter,
     statusFilter,
     categoryFilter,
+    archiveFilter,
     targets,
     logs,
     members,
@@ -932,6 +970,7 @@ export default function Home() {
     setPriorityFilter("all");
     setStatusFilter("all");
     setCategoryFilter("all");
+    setArchiveFilter("active");
     setSelectedMemberId("all");
   }
 
@@ -1081,6 +1120,32 @@ export default function Home() {
     cancelEditingTarget();
   }
 
+  function toggleTargetArchive(targetId: string) {
+    const target = targets.find((item) => item.id === targetId);
+    if (!target) return;
+
+    const shouldToggle = window.confirm(
+      target.isArchived
+        ? `Restore target "${target.title}"? It will appear with active targets again.`
+        : `Archive target "${target.title}"? Its progress logs will be kept, but it will be hidden from the active view.`
+    );
+
+    if (!shouldToggle) return;
+
+    setTargets((currentTargets) =>
+      currentTargets.map((item) =>
+        item.id === targetId
+          ? {
+              ...item,
+              isArchived: !item.isArchived,
+            }
+          : item
+      )
+    );
+
+    if (editingTargetId === targetId) cancelEditingTarget();
+  }
+
   function startEditingMember(member: Member) {
     setEditingMemberId(member.id);
     setEditMemberName(member.name);
@@ -1138,6 +1203,7 @@ export default function Home() {
         targetAmount: newAmount,
         unit: newUnit.trim(),
         startDate: selectedDate,
+        isArchived: false,
       },
     ]);
 
@@ -1170,7 +1236,7 @@ export default function Home() {
     if (!target) return;
 
     const shouldDelete = window.confirm(
-      `Delete target "${target.title}"? Its progress logs will also be removed.`
+      `Delete target "${target.title}"? Its progress logs will also be removed. Use Archive instead if you want to keep history.`
     );
 
     if (!shouldDelete) return;
@@ -1259,6 +1325,7 @@ export default function Home() {
         target.description,
         target.category,
         priorityLabel(target.priority),
+        target.isArchived ? "Archived" : "Active",
         owner?.name ?? "Unknown",
         owner?.role ?? "Unknown",
         target.frequency,
@@ -1275,6 +1342,7 @@ export default function Home() {
         "Description",
         "Category",
         "Priority",
+        "Archive Status",
         "Owner",
         "Owner Role",
         "Frequency",
@@ -1302,6 +1370,7 @@ export default function Home() {
         target?.unit ?? "",
         target?.title ?? "Deleted target",
         target?.category ?? "",
+        target?.isArchived ? "Archived" : "Active",
         log.targetId,
         owner?.name ?? "Unknown",
         owner?.role ?? "Unknown",
@@ -1317,6 +1386,7 @@ export default function Home() {
         "Unit",
         "Target Title",
         "Category",
+        "Archive Status",
         "Target ID",
         "Owner",
         "Owner Role",
@@ -1336,7 +1406,7 @@ export default function Home() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
-      version: 21,
+      version: 22,
       selectedDate,
       calendarMonth,
       lastSavedAt,
@@ -1412,6 +1482,7 @@ export default function Home() {
       setPriorityFilter("all");
       setStatusFilter("all");
       setCategoryFilter("all");
+      setArchiveFilter("active");
       setManualAmounts({});
       cancelEditingTarget();
       cancelEditingMember();
@@ -1453,6 +1524,7 @@ export default function Home() {
     setPriorityFilter("all");
     setStatusFilter("all");
     setCategoryFilter("all");
+    setArchiveFilter("active");
     setNewOwnerId("me");
     setNewCategory("General");
     setManualAmounts({});
@@ -1465,6 +1537,7 @@ export default function Home() {
   const totalAchieved = visibleDashboard.reduce((sum, row) => sum + row.achieved, 0);
   const totalRequired = visibleDashboard.reduce((sum, row) => sum + row.required, 0);
   const totalLogs = logs.length;
+  const archivedCount = targets.filter((target) => target.isArchived).length;
 
   const selectedMemberName =
     selectedMemberId === "all"
@@ -1478,6 +1551,7 @@ export default function Home() {
     priorityFilter !== "all" ? "priority" : "",
     statusFilter !== "all" ? "status" : "",
     categoryFilter !== "all" ? "category" : "",
+    archiveFilter !== "active" ? "archive" : "",
   ].filter(Boolean).length;
 
   return (
@@ -1533,12 +1607,13 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="mb-8 grid gap-4 md:grid-cols-5">
+        <section className="mb-8 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
           <StatCard label="Pending" value={totalPending} />
           <StatCard label="Achieved" value={totalAchieved} />
           <StatCard label="Required" value={totalRequired} />
           <StatCard label="Members" value={members.length} />
           <StatCard label="Logs" value={totalLogs} />
+          <StatCard label="Archived" value={archivedCount} />
         </section>
 
         <section className="mb-8 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
@@ -1848,8 +1923,8 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Dashboard insights update automatically when filters, progress, or
-            selected date changes.
+            Archived targets are hidden by default. Use the archive filter to
+            view or restore them.
           </p>
         </section>
 
@@ -1919,7 +1994,7 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-[2fr_1fr_1fr_1fr]">
+          <div className="grid gap-3 xl:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -1936,6 +2011,20 @@ export default function Home() {
               {categoryOptions.map((category) => (
                 <option key={category} value={category}>
                   Category: {category}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={archiveFilter}
+              onChange={(event) =>
+                setArchiveFilter(event.target.value as ArchiveFilter)
+              }
+              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+            >
+              {archiveFilterOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -2116,7 +2205,11 @@ export default function Home() {
                 return (
                   <div
                     key={row.target.id}
-                    className="rounded-2xl border border-white/10 bg-slate-900 p-5"
+                    className={`rounded-2xl border p-5 ${
+                      row.target.isArchived
+                        ? "border-slate-500/30 bg-slate-900/60 opacity-80"
+                        : "border-white/10 bg-slate-900"
+                    }`}
                   >
                     {isEditing ? (
                       <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-4">
@@ -2253,6 +2346,12 @@ export default function Home() {
                                 {row.target.title}
                               </h3>
 
+                              {row.target.isArchived && (
+                                <span className="rounded-full border border-slate-400/30 bg-slate-500/20 px-3 py-1 text-xs font-medium text-slate-200">
+                                  Archived
+                                </span>
+                              )}
+
                               <span className="rounded-full border border-violet-400/30 bg-violet-500/20 px-3 py-1 text-xs font-medium text-violet-200">
                                 {row.target.category || "General"}
                               </span>
@@ -2324,37 +2423,48 @@ export default function Home() {
 
                         <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
                           <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() =>
-                                logProgress(
-                                  row.target.id,
-                                  row.pending || row.target.targetAmount
-                                )
-                              }
-                              className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
-                            >
-                              Tick done
-                            </button>
+                            {!row.target.isArchived && (
+                              <>
+                                <button
+                                  onClick={() =>
+                                    logProgress(
+                                      row.target.id,
+                                      row.pending || row.target.targetAmount
+                                    )
+                                  }
+                                  className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
+                                >
+                                  Tick done
+                                </button>
 
-                            <button
-                              onClick={() => logProgress(row.target.id, 1)}
-                              className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
-                            >
-                              +1 actual
-                            </button>
+                                <button
+                                  onClick={() => logProgress(row.target.id, 1)}
+                                  className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
+                                >
+                                  +1 actual
+                                </button>
 
-                            <button
-                              onClick={() => logProgress(row.target.id, 3)}
-                              className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
-                            >
-                              +3 actual
-                            </button>
+                                <button
+                                  onClick={() => logProgress(row.target.id, 3)}
+                                  className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
+                                >
+                                  +3 actual
+                                </button>
+                              </>
+                            )}
 
                             <button
                               onClick={() => startEditingTarget(row.target)}
                               className="rounded-xl border border-cyan-400/30 px-4 py-2 text-cyan-200 hover:bg-cyan-400/10"
                             >
                               Edit target
+                            </button>
+
+                            <button
+                              onClick={() => toggleTargetArchive(row.target.id)}
+                              className="rounded-xl border border-slate-400/30 px-4 py-2 text-slate-200 hover:bg-slate-400/10"
+                            >
+                              {row.target.isArchived ? "Restore target" : "Archive target"}
                             </button>
 
                             <button
@@ -2365,28 +2475,30 @@ export default function Home() {
                             </button>
                           </div>
 
-                          <div className="flex gap-2">
-                            <input
-                              type="number"
-                              min="0"
-                              value={manualAmounts[row.target.id] ?? ""}
-                              onChange={(event) =>
-                                setManualAmounts((currentAmounts) => ({
-                                  ...currentAmounts,
-                                  [row.target.id]: event.target.value,
-                                }))
-                              }
-                              placeholder="Amount"
-                              className="w-28 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white"
-                            />
+                          {!row.target.isArchived && (
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                value={manualAmounts[row.target.id] ?? ""}
+                                onChange={(event) =>
+                                  setManualAmounts((currentAmounts) => ({
+                                    ...currentAmounts,
+                                    [row.target.id]: event.target.value,
+                                  }))
+                                }
+                                placeholder="Amount"
+                                className="w-28 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white"
+                              />
 
-                            <button
-                              onClick={() => logManualProgress(row.target.id)}
-                              className="rounded-xl bg-white px-4 py-2 font-semibold text-slate-950 hover:bg-slate-200"
-                            >
-                              Log custom
-                            </button>
-                          </div>
+                              <button
+                                onClick={() => logManualProgress(row.target.id)}
+                                className="rounded-xl bg-white px-4 py-2 font-semibold text-slate-950 hover:bg-slate-200"
+                              >
+                                Log custom
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -2760,7 +2872,13 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function StatusBox({ label, value }: { label: string | number; value: string | number }) {
+function StatusBox({
+  label,
+  value,
+}: {
+  label: string | number;
+  value: string | number;
+}) {
   return (
     <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
       <p className="text-sm text-slate-400">{label}</p>
