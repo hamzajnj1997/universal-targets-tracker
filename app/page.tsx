@@ -110,6 +110,15 @@ function getMonthLabel(dateISO: string) {
   });
 }
 
+function getDateLabel(dateISO: string) {
+  return toDate(dateISO).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function getMondayBasedWeekday(date: Date) {
   return (date.getDay() + 6) % 7;
 }
@@ -375,6 +384,10 @@ export default function Home() {
       };
     });
   }, [members, dashboard]);
+
+  const selectedDaySummary = useMemo(() => {
+    return calculateDaySnapshot(selectedDate);
+  }, [selectedDate, selectedMemberId, targets, logs, members]);
 
   const monthCalendarDays = useMemo(() => {
     const firstDayOfMonth = toDate(calendarMonth);
@@ -800,9 +813,46 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Month calendar shows backlog, required amount, achieved amount, and
-            daily status.
+            You are logging progress for the selected date below.
           </p>
+        </section>
+
+        <section className="mb-8 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-5">
+          <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300">
+                Logging date
+              </p>
+              <h2 className="mt-2 text-3xl font-bold">
+                {getDateLabel(selectedDate)}
+              </h2>
+              <p className="mt-2 text-sm text-slate-300">
+                Any Tick done, +1, +3, or custom log you enter now will be saved
+                for {selectedDate}.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <p className="text-sm text-slate-400">Pending on this date</p>
+              <p className="mt-2 text-4xl font-bold">
+                {selectedDaySummary.pending}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <p className="text-sm text-slate-400">Required by this date</p>
+              <p className="mt-2 text-4xl font-bold">
+                {selectedDaySummary.required}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <p className="text-sm text-slate-400">Achieved by this date</p>
+              <p className="mt-2 text-4xl font-bold">
+                {selectedDaySummary.achieved}
+              </p>
+            </div>
+          </div>
         </section>
 
         <section className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-5">
@@ -872,7 +922,9 @@ export default function Home() {
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold">{Number(day.date.slice(8, 10))}</p>
+                  <p className="font-semibold">
+                    {Number(day.date.slice(8, 10))}
+                  </p>
 
                   <span
                     className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(
