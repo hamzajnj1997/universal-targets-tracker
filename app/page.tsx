@@ -33,29 +33,13 @@ type SavedAppState = {
   logs: ProgressLog[];
 };
 
-const STORAGE_KEY = "universal-targets-tracker-demo-v2";
+const STORAGE_KEY = "universal-targets-tracker-demo-v3";
 
 const initialMembers: Member[] = [
-  {
-    id: "me",
-    name: "Me",
-    role: "Owner",
-  },
-  {
-    id: "family",
-    name: "Family Member",
-    role: "Member",
-  },
-  {
-    id: "team",
-    name: "Team Member",
-    role: "Member",
-  },
-  {
-    id: "student",
-    name: "Student",
-    role: "Student",
-  },
+  { id: "me", name: "Me", role: "Owner" },
+  { id: "family", name: "Family Member", role: "Member" },
+  { id: "team", name: "Team Member", role: "Member" },
+  { id: "student", name: "Student", role: "Student" },
 ];
 
 function formatDateISO(date: Date) {
@@ -338,7 +322,87 @@ export default function Home() {
     setNewMemberRole("Member");
   }
 
+  function deleteTarget(targetId: string) {
+    const target = targets.find((item) => item.id === targetId);
+
+    if (!target) return;
+
+    const shouldDelete = window.confirm(
+      `Delete target "${target.title}"? Its progress logs will also be removed.`
+    );
+
+    if (!shouldDelete) return;
+
+    setTargets((currentTargets) =>
+      currentTargets.filter((item) => item.id !== targetId)
+    );
+
+    setLogs((currentLogs) =>
+      currentLogs.filter((log) => log.targetId !== targetId)
+    );
+  }
+
+  function deleteMember(memberId: string) {
+    const member = members.find((item) => item.id === memberId);
+
+    if (!member) return;
+
+    if (members.length <= 1) {
+      window.alert("You must keep at least one member.");
+      return;
+    }
+
+    const memberTargets = targets.filter(
+      (target) => target.ownerId === memberId
+    );
+
+    const shouldDelete = window.confirm(
+      `Delete member "${member.name}"? This will also delete ${memberTargets.length} targets assigned to this member.`
+    );
+
+    if (!shouldDelete) return;
+
+    const memberTargetIds = memberTargets.map((target) => target.id);
+
+    setMembers((currentMembers) =>
+      currentMembers.filter((item) => item.id !== memberId)
+    );
+
+    setTargets((currentTargets) =>
+      currentTargets.filter((target) => target.ownerId !== memberId)
+    );
+
+    setLogs((currentLogs) =>
+      currentLogs.filter((log) => !memberTargetIds.includes(log.targetId))
+    );
+
+    if (selectedMemberId === memberId) {
+      setSelectedMemberId("all");
+    }
+
+    if (newOwnerId === memberId) {
+      const nextMember = members.find((item) => item.id !== memberId);
+      setNewOwnerId(nextMember?.id ?? "me");
+    }
+  }
+
+  function clearProgressLogs() {
+    const shouldClear = window.confirm(
+      "Clear all progress logs? Targets and members will stay, but achieved values will reset to zero."
+    );
+
+    if (!shouldClear) return;
+
+    setLogs([]);
+  }
+
   function resetDemoData() {
+    const shouldReset = window.confirm(
+      "Reset demo data? This will restore the original members and targets."
+    );
+
+    if (!shouldReset) return;
+
     window.localStorage.removeItem(STORAGE_KEY);
     setMembers(initialMembers);
     setTargets(initialTargets);
@@ -439,26 +503,37 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="mb-8 flex flex-wrap gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
+          <button
+            onClick={clearProgressLogs}
+            className="rounded-xl border border-yellow-400/30 px-4 py-2 text-sm text-yellow-200 hover:bg-yellow-400/10"
+          >
+            Clear progress only
+          </button>
+
+          <button
+            onClick={resetDemoData}
+            className="rounded-xl border border-red-400/30 px-4 py-2 text-sm text-red-200 hover:bg-red-400/10"
+          >
+            Reset demo data
+          </button>
+
+          <p className="flex items-center text-sm text-slate-400">
+            Management controls are temporary admin tools for the prototype.
+          </p>
+        </section>
+
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
           <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
-            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">Today&apos;s work</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Showing{" "}
-                  {selectedMemberId === "all"
-                    ? "all members"
-                    : members.find((member) => member.id === selectedMemberId)
-                        ?.name}
-                </p>
-              </div>
-
-              <button
-                onClick={resetDemoData}
-                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/10"
-              >
-                Reset demo data
-              </button>
+            <div className="mb-5">
+              <h2 className="text-2xl font-bold">Today&apos;s work</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Showing{" "}
+                {selectedMemberId === "all"
+                  ? "all members"
+                  : members.find((member) => member.id === selectedMemberId)
+                      ?.name}
+              </p>
             </div>
 
             <div className="space-y-4">
@@ -552,6 +627,13 @@ export default function Home() {
                     >
                       +3 actual
                     </button>
+
+                    <button
+                      onClick={() => deleteTarget(row.target.id)}
+                      className="rounded-xl border border-red-400/30 px-4 py-2 text-red-200 hover:bg-red-400/10"
+                    >
+                      Delete target
+                    </button>
                   </div>
                 </div>
               ))}
@@ -606,6 +688,13 @@ export default function Home() {
                       Pending: {row.pending} · Achieved: {row.achieved} ·
                       Required: {row.required}
                     </p>
+
+                    <button
+                      onClick={() => deleteMember(row.member.id)}
+                      className="mt-3 rounded-xl border border-red-400/30 px-3 py-2 text-sm text-red-200 hover:bg-red-400/10"
+                    >
+                      Delete member
+                    </button>
                   </div>
                 ))}
               </div>
