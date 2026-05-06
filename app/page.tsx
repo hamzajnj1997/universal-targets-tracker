@@ -89,6 +89,31 @@ function addDays(dateISO: string, days: number) {
   return formatDateISO(date);
 }
 
+function addMonths(dateISO: string, months: number) {
+  const date = toDate(dateISO);
+  date.setMonth(date.getMonth() + months);
+
+  return formatDateISO(date);
+}
+
+function monthStartISO(dateISO: string) {
+  const date = toDate(dateISO);
+  date.setDate(1);
+
+  return formatDateISO(date);
+}
+
+function getMonthLabel(dateISO: string) {
+  return toDate(dateISO).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getMondayBasedWeekday(date: Date) {
+  return (date.getDay() + 6) % 7;
+}
+
 function periodsDue(target: Target, dateISO: string) {
   if (dateISO < target.startDate) return 0;
 
@@ -169,6 +194,7 @@ const initialTargets: Target[] = [
 
 export default function Home() {
   const [selectedDate, setSelectedDate] = useState(todayISO());
+  const [calendarMonth, setCalendarMonth] = useState(monthStartISO(todayISO()));
   const [selectedMemberId, setSelectedMemberId] = useState("all");
 
   const [members, setMembers] = useState<Member[]>(initialMembers);
@@ -216,7 +242,12 @@ export default function Home() {
         }
 
         if (Array.isArray(parsedData.logs)) {
-          setLogs(parsedData.logs);
+          setLogs(
+            parsedData.logs.map((log) => ({
+              ...log,
+              createdAt: log.createdAt ?? `${log.date}T00:00:00.000Z`,
+            }))
+          );
         }
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
@@ -239,11 +270,11 @@ export default function Home() {
     );
   }, [members, targets, logs, hasLoadedSavedData]);
 
-  const filteredTargets = useMemo(() => {
+  function getFilteredTargets() {
     if (selectedMemberId === "all") return targets;
 
     return targets.filter((target) => target.ownerId === selectedMemberId);
-  }, [targets, selectedMemberId]);
+  }
 
   function calculateTargetSnapshot(target: Target, dateISO: string) {
     const owner = members.find((member) => member.id === target.ownerId);
@@ -280,6 +311,30 @@ export default function Home() {
       surplus,
       progress,
       recentLogs,
+      status: getStatus(pending, progress),
+    };
+  }
+
+  function calculateDaySnapshot(dateISO: string) {
+    const rows = getFilteredTargets().map((target) =>
+      calculateTargetSnapshot(target, dateISO)
+    );
+
+    const required = rows.reduce((sum, row) => sum + row.required, 0);
+    const achieved = rows.reduce((sum, row) => sum + row.achieved, 0);
+    const pending = rows.reduce((sum, row) => sum + row.pending, 0);
+
+    const progress =
+      required === 0
+        ? 100
+        : Math.min(100, Math.round((achieved / required) * 100));
+
+    return {
+      date: dateISO,
+      required,
+      achieved,
+      pending,
+      progress,
       status: getStatus(pending, progress),
     };
   }
@@ -321,33 +376,29 @@ export default function Home() {
     });
   }, [members, dashboard]);
 
-  const calendarDays = useMemo(() => {
-    return Array.from({ length: 14 }, (_, index) => {
-      const date = addDays(selectedDate, index);
+  const monthCalendarDays = useMemo(() => {
+    const firstDayOfMonth = toDate(calendarMonth);
+    const leadingDays = getMondayBasedWeekday(firstDayOfMonth);
+    const firstGridDate = addDays(calendarMonth, -leadingDays);
+    const currentMonthKey = calendarMonth.slice(0, 7);
 
-      const rows = filteredTargets.map((target) =>
-        calculateTargetSnapshot(target, date)
-      );
-
-      const required = rows.reduce((sum, row) => sum + row.required, 0);
-      const achieved = rows.reduce((sum, row) => sum + row.achieved, 0);
-      const pending = rows.reduce((sum, row) => sum + row.pending, 0);
-
-      const progress =
-        required === 0
-          ? 100
-          : Math.min(100, Math.round((achieved / required) * 100));
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = addDays(firstGridDate, index);
+      const snapshot = calculateDaySnapshot(date);
 
       return {
-        date,
-        required,
-        achieved,
-        pending,
-        progress,
-        status: getStatus(pending, progress),
+        ...snapshot,
+        isCurrentMonth: date.startsWith(currentMonthKey),
+        isToday: date === todayISO(),
+        isSelected: date === selectedDate,
       };
     });
-  }, [selectedDate, filteredTargets, logs, members]);
+  }, [calendarMonth, selectedDate, selectedMemberId, targets, logs, members]);
+
+  function selectCalendarDate(dateISO: string) {
+    setSelectedDate(dateISO);
+    setCalendarMonth(monthStartISO(dateISO));
+  }
 
   function logProgress(targetId: string, amount: number) {
     if (amount <= 0) return;
@@ -473,15 +524,25 @@ export default function Home() {
   function addTarget() {
     if (!newTitle.trim()) return;
 
+    if (newAmount <= 0) {
+      window.alert("Target amount must be greater than 0.");
+      return;
+    }
+
+    if (!newUnit.trim()) {
+      window.alert("Unit cannot be empty.");
+      return;
+    }
+
     setTargets((currentTargets) => [
       ...currentTargets,
       {
         id: crypto.randomUUID(),
-        title: newTitle,
+        title: newTitle.trim(),
         ownerId: newOwnerId,
         frequency: newFrequency,
         targetAmount: newAmount,
-        unit: newUnit,
+        unit: newUnit.trim(),
         startDate: selectedDate,
       },
     ]);
@@ -501,7 +562,7 @@ export default function Home() {
       ...currentMembers,
       {
         id: newMemberId,
-        name: newMemberName,
+        name: newMemberName.trim(),
         role: newMemberRole,
       },
     ]);
@@ -615,6 +676,8 @@ export default function Home() {
     setTargets(initialTargets);
     setLogs([]);
     setSelectedMemberId("all");
+    setSelectedDate(todayISO());
+    setCalendarMonth(monthStartISO(todayISO()));
     setNewOwnerId("me");
     setManualAmounts({});
     cancelEditingTarget();
@@ -637,6 +700,11 @@ export default function Home() {
   );
 
   const totalLogs = logs.length;
+  const selectedMemberName =
+    selectedMemberId === "all"
+      ? "All members"
+      : members.find((member) => member.id === selectedMemberId)?.name ??
+        "Unknown";
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
@@ -665,7 +733,7 @@ export default function Home() {
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(event) => setSelectedDate(event.target.value)}
+                onChange={(event) => selectCalendarDate(event.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"
               />
             </div>
@@ -732,41 +800,80 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Calendar cards show whether each future day is on track or behind.
+            Month calendar shows backlog, required amount, achieved amount, and
+            daily status.
           </p>
         </section>
 
         <section className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-5">
-          <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-2xl font-bold">Calendar view</h2>
+              <h2 className="text-2xl font-bold">Month calendar</h2>
               <p className="mt-1 text-sm text-slate-400">
-                14-day forecast from selected date. Click any day to open it.
+                Click any day to open that date. Filter: {selectedMemberName}
               </p>
             </div>
 
-            <p className="text-sm text-slate-400">
-              Filter:{" "}
-              {selectedMemberId === "all"
-                ? "All members"
-                : members.find((member) => member.id === selectedMemberId)
-                    ?.name}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}
+                className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
+              >
+                Previous month
+              </button>
+
+              <div className="min-w-48 rounded-xl bg-slate-900 px-4 py-2 text-center font-semibold">
+                {getMonthLabel(calendarMonth)}
+              </div>
+
+              <button
+                onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}
+                className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
+              >
+                Next month
+              </button>
+
+              <button
+                onClick={() => {
+                  setSelectedDate(todayISO());
+                  setCalendarMonth(monthStartISO(todayISO()));
+                }}
+                className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
+              >
+                Today
+              </button>
+            </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-            {calendarDays.map((day) => (
+          <div className="mb-2 grid grid-cols-7 gap-2">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+              <div
+                key={day}
+                className="rounded-xl bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-slate-300"
+              >
+                {day}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-2">
+            {monthCalendarDays.map((day) => (
               <button
                 key={day.date}
-                onClick={() => setSelectedDate(day.date)}
-                className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:bg-white/10 ${
-                  day.date === selectedDate
-                    ? "border-cyan-400/70 bg-cyan-400/10"
-                    : "border-white/10 bg-slate-900"
+                onClick={() => selectCalendarDate(day.date)}
+                className={`min-h-32 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:bg-white/10 ${
+                  day.isSelected
+                    ? "border-cyan-400 bg-cyan-400/10"
+                    : day.isToday
+                    ? "border-emerald-400/70 bg-emerald-400/10"
+                    : day.isCurrentMonth
+                    ? "border-white/10 bg-slate-900"
+                    : "border-white/5 bg-slate-950/50 opacity-50"
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold">{day.date}</p>
+                  <p className="font-semibold">{Number(day.date.slice(8, 10))}</p>
+
                   <span
                     className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(
                       day.status
@@ -776,20 +883,19 @@ export default function Home() {
                   </span>
                 </div>
 
-                <p className="mt-4 text-3xl font-bold">{day.pending}</p>
-                <p className="text-sm text-slate-400">pending</p>
+                <p className="mt-3 text-2xl font-bold">{day.pending}</p>
+                <p className="text-xs text-slate-400">pending</p>
 
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800">
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
                   <div
                     className="h-full rounded-full bg-cyan-400"
                     style={{ width: `${day.progress}%` }}
                   />
                 </div>
 
-                <div className="mt-3 space-y-1 text-xs text-slate-400">
-                  <p>Required: {day.required}</p>
-                  <p>Achieved: {day.achieved}</p>
-                  <p>Progress: {day.progress}%</p>
+                <div className="mt-2 space-y-1 text-[11px] text-slate-400">
+                  <p>Req: {day.required}</p>
+                  <p>Done: {day.achieved}</p>
                 </div>
               </button>
             ))}
@@ -799,13 +905,9 @@ export default function Home() {
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
           <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
             <div className="mb-5">
-              <h2 className="text-2xl font-bold">Today&apos;s work</h2>
+              <h2 className="text-2xl font-bold">Selected day&apos;s work</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Showing{" "}
-                {selectedMemberId === "all"
-                  ? "all members"
-                  : members.find((member) => member.id === selectedMemberId)
-                      ?.name}
+                {selectedDate} · Showing {selectedMemberName}
               </p>
             </div>
 
