@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 
 type Frequency = "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -148,7 +148,9 @@ function isValidDateISO(value: unknown) {
 }
 
 function daysBetween(startDate: string, endDate: string) {
-  return Math.floor((toDate(endDate).getTime() - toDate(startDate).getTime()) / 86400000);
+  return Math.floor(
+    (toDate(endDate).getTime() - toDate(startDate).getTime()) / 86400000
+  );
 }
 
 function monthsBetween(startDate: string, endDate: string) {
@@ -196,6 +198,12 @@ function getDateLabel(dateISO: string) {
   });
 }
 
+function getShortDayLabel(dateISO: string) {
+  return toDate(dateISO).toLocaleDateString("en-US", {
+    weekday: "short",
+  });
+}
+
 function getMondayBasedWeekday(date: Date) {
   return (date.getDay() + 6) % 7;
 }
@@ -205,13 +213,22 @@ function isFrequency(value: unknown): value is Frequency {
 }
 
 function isPriority(value: unknown): value is Priority {
-  return value === "low" || value === "medium" || value === "high" || value === "urgent";
+  return (
+    value === "low" ||
+    value === "medium" ||
+    value === "high" ||
+    value === "urgent"
+  );
 }
 
 function periodsDue(target: Target, dateISO: string) {
   if (dateISO < target.startDate) return 0;
-  if (target.frequency === "daily") return daysBetween(target.startDate, dateISO) + 1;
-  if (target.frequency === "weekly") return Math.floor(daysBetween(target.startDate, dateISO) / 7) + 1;
+  if (target.frequency === "daily") {
+    return daysBetween(target.startDate, dateISO) + 1;
+  }
+  if (target.frequency === "weekly") {
+    return Math.floor(daysBetween(target.startDate, dateISO) / 7) + 1;
+  }
   return monthsBetween(target.startDate, dateISO) + 1;
 }
 
@@ -228,7 +245,10 @@ function statusClass(status: string) {
 }
 
 function priorityLabel(priority: Priority) {
-  return priorityOptions.find((option) => option.value === priority)?.label ?? "Medium";
+  return (
+    priorityOptions.find((option) => option.value === priority)?.label ??
+    "Medium"
+  );
 }
 
 function priorityRank(priority: Priority) {
@@ -239,9 +259,15 @@ function priorityRank(priority: Priority) {
 }
 
 function priorityClass(priority: Priority) {
-  if (priority === "urgent") return "bg-red-500/25 text-red-200 border-red-400/30";
-  if (priority === "high") return "bg-orange-500/25 text-orange-200 border-orange-400/30";
-  if (priority === "medium") return "bg-blue-500/20 text-blue-200 border-blue-400/30";
+  if (priority === "urgent") {
+    return "bg-red-500/25 text-red-200 border-red-400/30";
+  }
+  if (priority === "high") {
+    return "bg-orange-500/25 text-orange-200 border-orange-400/30";
+  }
+  if (priority === "medium") {
+    return "bg-blue-500/20 text-blue-200 border-blue-400/30";
+  }
   return "bg-slate-500/20 text-slate-200 border-slate-400/30";
 }
 
@@ -258,7 +284,10 @@ function csvCell(value: unknown) {
 }
 
 function buildCsv(headers: string[], rows: unknown[][]) {
-  return [headers.map(csvCell).join(","), ...rows.map((row) => row.map(csvCell).join(","))].join("\n");
+  return [
+    headers.map(csvCell).join(","),
+    ...rows.map((row) => row.map(csvCell).join(",")),
+  ].join("\n");
 }
 
 function downloadTextFile(filename: string, content: string, mimeType: string) {
@@ -314,7 +343,9 @@ export default function Home() {
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
   const [newOwnerId, setNewOwnerId] = useState("me");
 
-  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>({});
+  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>(
+    {}
+  );
 
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -360,9 +391,13 @@ export default function Home() {
           typeof target.title === "string" && target.title.trim()
             ? target.title.trim()
             : "Untitled target",
-        description: typeof target.description === "string" ? target.description : "",
+        description:
+          typeof target.description === "string" ? target.description : "",
         priority: isPriority(target.priority) ? target.priority : "medium",
-        ownerId: typeof target.ownerId === "string" && target.ownerId ? target.ownerId : "me",
+        ownerId:
+          typeof target.ownerId === "string" && target.ownerId
+            ? target.ownerId
+            : "me",
         frequency: isFrequency(target.frequency) ? target.frequency : "daily",
         targetAmount:
           typeof target.targetAmount === "number" && target.targetAmount > 0
@@ -372,14 +407,18 @@ export default function Home() {
           typeof target.unit === "string" && target.unit.trim()
             ? target.unit.trim()
             : "tasks",
-        startDate: isValidDateISO(target.startDate) ? (target.startDate as string) : todayISO(),
+        startDate: isValidDateISO(target.startDate)
+          ? (target.startDate as string)
+          : todayISO(),
       }));
   }
 
   function normalizeLogs(rawLogs: unknown[]): ProgressLog[] {
     return rawLogs
       .map((item) => item as Partial<ProgressLog>)
-      .filter((log) => typeof log.id === "string" && typeof log.targetId === "string")
+      .filter(
+        (log) => typeof log.id === "string" && typeof log.targetId === "string"
+      )
       .map((log) => ({
         id: log.id as string,
         targetId: log.targetId as string,
@@ -391,7 +430,9 @@ export default function Home() {
         createdAt:
           typeof log.createdAt === "string" && log.createdAt
             ? log.createdAt
-            : `${isValidDateISO(log.date) ? log.date : todayISO()}T00:00:00.000Z`,
+            : `${
+                isValidDateISO(log.date) ? log.date : todayISO()
+              }T00:00:00.000Z`,
       }));
   }
 
@@ -402,10 +443,18 @@ export default function Home() {
       try {
         const parsedData = JSON.parse(savedData) as SavedAppState;
 
-        if (Array.isArray(parsedData.members)) setMembers(normalizeMembers(parsedData.members));
-        if (Array.isArray(parsedData.targets)) setTargets(normalizeTargets(parsedData.targets));
-        if (Array.isArray(parsedData.logs)) setLogs(normalizeLogs(parsedData.logs));
-        if (typeof parsedData.lastSavedAt === "string") setLastSavedAt(parsedData.lastSavedAt);
+        if (Array.isArray(parsedData.members)) {
+          setMembers(normalizeMembers(parsedData.members));
+        }
+        if (Array.isArray(parsedData.targets)) {
+          setTargets(normalizeTargets(parsedData.targets));
+        }
+        if (Array.isArray(parsedData.logs)) {
+          setLogs(normalizeLogs(parsedData.logs));
+        }
+        if (typeof parsedData.lastSavedAt === "string") {
+          setLastSavedAt(parsedData.lastSavedAt);
+        }
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
       }
@@ -441,12 +490,15 @@ export default function Home() {
 
     const pending = Math.max(0, required - achieved);
     const surplus = Math.max(0, achieved - required);
-    const progress = required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
+    const progress =
+      required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
 
     const recentLogs = logs
       .filter((log) => log.targetId === target.id)
       .slice()
-      .sort((a, b) => (b.createdAt || b.date).localeCompare(a.createdAt || a.date))
+      .sort((a, b) =>
+        (b.createdAt || b.date).localeCompare(a.createdAt || a.date)
+      )
       .slice(0, 4);
 
     return {
@@ -465,8 +517,10 @@ export default function Home() {
   function rowMatchesFilters(row: ReturnType<typeof calculateTargetSnapshot>) {
     const query = searchQuery.trim().toLowerCase();
 
-    const memberMatches = selectedMemberId === "all" || row.target.ownerId === selectedMemberId;
-    const priorityMatches = priorityFilter === "all" || row.target.priority === priorityFilter;
+    const memberMatches =
+      selectedMemberId === "all" || row.target.ownerId === selectedMemberId;
+    const priorityMatches =
+      priorityFilter === "all" || row.target.priority === priorityFilter;
     const statusMatches = statusMatchesFilter(row.status, statusFilter);
 
     const searchableText = [
@@ -494,7 +548,8 @@ export default function Home() {
     const required = rows.reduce((sum, row) => sum + row.required, 0);
     const achieved = rows.reduce((sum, row) => sum + row.achieved, 0);
     const pending = rows.reduce((sum, row) => sum + row.pending, 0);
-    const progress = required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
+    const progress =
+      required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
 
     return {
       date: dateISO,
@@ -515,7 +570,8 @@ export default function Home() {
       .filter(rowMatchesFilters)
       .slice()
       .sort((a, b) => {
-        const priorityDifference = priorityRank(b.target.priority) - priorityRank(a.target.priority);
+        const priorityDifference =
+          priorityRank(b.target.priority) - priorityRank(a.target.priority);
         if (priorityDifference !== 0) return priorityDifference;
 
         const pendingDifference = b.pending - a.pending;
@@ -523,15 +579,26 @@ export default function Home() {
 
         return a.target.title.localeCompare(b.target.title);
       });
-  }, [dashboard, selectedMemberId, searchQuery, priorityFilter, statusFilter, members]);
+  }, [
+    dashboard,
+    selectedMemberId,
+    searchQuery,
+    priorityFilter,
+    statusFilter,
+    members,
+  ]);
 
   const memberOverview = useMemo(() => {
     return members.map((member) => {
-      const memberRows = dashboard.filter((row) => row.target.ownerId === member.id);
+      const memberRows = dashboard.filter(
+        (row) => row.target.ownerId === member.id
+      );
+
       const required = memberRows.reduce((sum, row) => sum + row.required, 0);
       const achieved = memberRows.reduce((sum, row) => sum + row.achieved, 0);
       const pending = memberRows.reduce((sum, row) => sum + row.pending, 0);
-      const progress = required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
+      const progress =
+        required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
 
       return {
         member,
@@ -547,7 +614,84 @@ export default function Home() {
 
   const selectedDaySummary = useMemo(() => {
     return calculateDaySnapshot(selectedDate);
-  }, [selectedDate, selectedMemberId, searchQuery, priorityFilter, statusFilter, targets, logs, members]);
+  }, [
+    selectedDate,
+    selectedMemberId,
+    searchQuery,
+    priorityFilter,
+    statusFilter,
+    targets,
+    logs,
+    members,
+  ]);
+
+  const completionHistory = useMemo(() => {
+    const lastThirtyDays = Array.from({ length: 30 }, (_, index) => {
+      const date = addDays(selectedDate, index - 29);
+      const snapshot = calculateDaySnapshot(date);
+      const active = snapshot.required > 0;
+      const complete = active && snapshot.pending === 0;
+
+      return {
+        ...snapshot,
+        active,
+        complete,
+      };
+    });
+
+    let currentStreak = 0;
+
+    for (let index = lastThirtyDays.length - 1; index >= 0; index -= 1) {
+      const day = lastThirtyDays[index];
+
+      if (!day.active || !day.complete) break;
+
+      currentStreak += 1;
+    }
+
+    let bestStreak = 0;
+    let runningStreak = 0;
+
+    for (const day of lastThirtyDays) {
+      if (day.active && day.complete) {
+        runningStreak += 1;
+        bestStreak = Math.max(bestStreak, runningStreak);
+      } else if (day.active) {
+        runningStreak = 0;
+      } else {
+        runningStreak = 0;
+      }
+    }
+
+    const lastSevenDays = lastThirtyDays.slice(-7);
+    const activeSevenDays = lastSevenDays.filter((day) => day.active).length;
+    const completedSevenDays = lastSevenDays.filter(
+      (day) => day.active && day.complete
+    ).length;
+
+    const completionRate =
+      activeSevenDays === 0
+        ? 100
+        : Math.round((completedSevenDays / activeSevenDays) * 100);
+
+    return {
+      lastSevenDays,
+      currentStreak,
+      bestStreak,
+      completionRate,
+      completedSevenDays,
+      activeSevenDays,
+    };
+  }, [
+    selectedDate,
+    selectedMemberId,
+    searchQuery,
+    priorityFilter,
+    statusFilter,
+    targets,
+    logs,
+    members,
+  ]);
 
   const monthCalendarDays = useMemo(() => {
     const firstDayOfMonth = toDate(calendarMonth);
@@ -566,7 +710,17 @@ export default function Home() {
         isSelected: date === selectedDate,
       };
     });
-  }, [calendarMonth, selectedDate, selectedMemberId, searchQuery, priorityFilter, statusFilter, targets, logs, members]);
+  }, [
+    calendarMonth,
+    selectedDate,
+    selectedMemberId,
+    searchQuery,
+    priorityFilter,
+    statusFilter,
+    targets,
+    logs,
+    members,
+  ]);
 
   function selectCalendarDate(dateISO: string) {
     setSelectedDate(dateISO);
@@ -815,8 +969,12 @@ export default function Home() {
 
     if (!shouldDelete) return;
 
-    setTargets((currentTargets) => currentTargets.filter((item) => item.id !== targetId));
-    setLogs((currentLogs) => currentLogs.filter((log) => log.targetId !== targetId));
+    setTargets((currentTargets) =>
+      currentTargets.filter((item) => item.id !== targetId)
+    );
+    setLogs((currentLogs) =>
+      currentLogs.filter((log) => log.targetId !== targetId)
+    );
 
     if (editingTargetId === targetId) cancelEditingTarget();
   }
@@ -830,7 +988,9 @@ export default function Home() {
       return;
     }
 
-    const memberTargets = targets.filter((target) => target.ownerId === memberId);
+    const memberTargets = targets.filter(
+      (target) => target.ownerId === memberId
+    );
 
     const shouldDelete = window.confirm(
       `Delete member "${member.name}"? This will also delete ${memberTargets.length} targets assigned to this member.`
@@ -840,9 +1000,15 @@ export default function Home() {
 
     const memberTargetIds = memberTargets.map((target) => target.id);
 
-    setMembers((currentMembers) => currentMembers.filter((item) => item.id !== memberId));
-    setTargets((currentTargets) => currentTargets.filter((target) => target.ownerId !== memberId));
-    setLogs((currentLogs) => currentLogs.filter((log) => !memberTargetIds.includes(log.targetId)));
+    setMembers((currentMembers) =>
+      currentMembers.filter((item) => item.id !== memberId)
+    );
+    setTargets((currentTargets) =>
+      currentTargets.filter((target) => target.ownerId !== memberId)
+    );
+    setLogs((currentLogs) =>
+      currentLogs.filter((log) => !memberTargetIds.includes(log.targetId))
+    );
 
     if (selectedMemberId === memberId) setSelectedMemberId("all");
 
@@ -855,7 +1021,10 @@ export default function Home() {
 
     if (editingMemberId === memberId) cancelEditingMember();
 
-    if (editingTargetId && memberTargets.some((target) => target.id === editingTargetId)) {
+    if (
+      editingTargetId &&
+      memberTargets.some((target) => target.id === editingTargetId)
+    ) {
       cancelEditingTarget();
     }
   }
@@ -911,7 +1080,9 @@ export default function Home() {
   function exportProgressLogsCsv() {
     const rows = logs.map((log) => {
       const target = targets.find((item) => item.id === log.targetId);
-      const owner = target ? members.find((member) => member.id === target.ownerId) : undefined;
+      const owner = target
+        ? members.find((member) => member.id === target.ownerId)
+        : undefined;
 
       return [
         log.id,
@@ -941,14 +1112,18 @@ export default function Home() {
       rows
     );
 
-    downloadTextFile(`progress-logs-${todayISO()}.csv`, csv, "text/csv;charset=utf-8");
+    downloadTextFile(
+      `progress-logs-${todayISO()}.csv`,
+      csv,
+      "text/csv;charset=utf-8"
+    );
   }
 
   function exportFullBackupJson() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
-      version: 17,
+      version: 18,
       selectedDate,
       calendarMonth,
       lastSavedAt,
@@ -976,8 +1151,14 @@ export default function Home() {
       const text = await file.text();
       const parsed = JSON.parse(text) as BackupFile;
 
-      if (!Array.isArray(parsed.members) || !Array.isArray(parsed.targets) || !Array.isArray(parsed.logs)) {
-        window.alert("This backup is not valid. It must contain members, targets, and logs.");
+      if (
+        !Array.isArray(parsed.members) ||
+        !Array.isArray(parsed.targets) ||
+        !Array.isArray(parsed.logs)
+      ) {
+        window.alert(
+          "This backup is not valid. It must contain members, targets, and logs."
+        );
         return;
       }
 
@@ -994,11 +1175,15 @@ export default function Home() {
 
       const safeTargets = importedTargets.map((target) => ({
         ...target,
-        ownerId: validMemberIds.has(target.ownerId) ? target.ownerId : importedMembers[0].id,
+        ownerId: validMemberIds.has(target.ownerId)
+          ? target.ownerId
+          : importedMembers[0].id,
       }));
 
       const validTargetIds = new Set(safeTargets.map((target) => target.id));
-      const safeLogs = importedLogs.filter((log) => validTargetIds.has(log.targetId));
+      const safeLogs = importedLogs.filter((log) =>
+        validTargetIds.has(log.targetId)
+      );
 
       const shouldImport = window.confirm(
         `Import this backup? This will replace your current data with ${importedMembers.length} members, ${safeTargets.length} targets, and ${safeLogs.length} progress logs.`
@@ -1018,7 +1203,9 @@ export default function Home() {
       cancelEditingMember();
       cancelEditingProgressLog();
 
-      if (isValidDateISO(parsed.selectedDate)) setSelectedDate(parsed.selectedDate as string);
+      if (isValidDateISO(parsed.selectedDate)) {
+        setSelectedDate(parsed.selectedDate as string);
+      }
 
       if (isValidDateISO(parsed.calendarMonth)) {
         setCalendarMonth(monthStartISO(parsed.calendarMonth as string));
@@ -1066,7 +1253,8 @@ export default function Home() {
   const selectedMemberName =
     selectedMemberId === "all"
       ? "All members"
-      : members.find((member) => member.id === selectedMemberId)?.name ?? "Unknown";
+      : members.find((member) => member.id === selectedMemberId)?.name ??
+        "Unknown";
 
   const activeFilterCount = [
     searchQuery.trim() ? "search" : "",
@@ -1096,20 +1284,16 @@ export default function Home() {
           </div>
 
           <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-2">
-            <div>
-              <p className="mb-2 text-sm text-slate-400">Selected date</p>
-
+            <FieldLabel label="Selected date">
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(event) => selectCalendarDate(event.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"
               />
-            </div>
+            </FieldLabel>
 
-            <div>
-              <p className="mb-2 text-sm text-slate-400">View member</p>
-
+            <FieldLabel label="View member">
               <select
                 value={selectedMemberId}
                 onChange={(event) => setSelectedMemberId(event.target.value)}
@@ -1122,7 +1306,7 @@ export default function Home() {
                   </option>
                 ))}
               </select>
-            </div>
+            </FieldLabel>
           </div>
         </header>
 
@@ -1150,8 +1334,90 @@ export default function Home() {
             </div>
 
             <StatusBox label="Last saved" value={formatSavedTime(lastSavedAt)} />
-            <StatusBox label="Saved records" value={`${members.length} members · ${targets.length} targets`} />
+            <StatusBox
+              label="Saved records"
+              value={`${members.length} members · ${targets.length} targets`}
+            />
             <StatusBox label="Progress logs" value={`${logs.length} logs`} />
+          </div>
+        </section>
+
+        <section className="mb-8 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-5">
+          <div className="mb-5">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-purple-300">
+              Completion history
+            </p>
+            <h2 className="mt-2 text-2xl font-bold">Consistency and streaks</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Based on the selected date and current filters. A day counts as
+              complete when its filtered required work has no pending amount.
+            </p>
+          </div>
+
+          <div className="mb-5 grid gap-4 md:grid-cols-4">
+            <StatusBox
+              label="Current streak"
+              value={`${completionHistory.currentStreak} days`}
+            />
+            <StatusBox
+              label="Best streak"
+              value={`${completionHistory.bestStreak} days`}
+            />
+            <StatusBox
+              label="7-day completion"
+              value={`${completionHistory.completionRate}%`}
+            />
+            <StatusBox
+              label="Completed days"
+              value={`${completionHistory.completedSevenDays}/${completionHistory.activeSevenDays}`}
+            />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-7">
+            {completionHistory.lastSevenDays.map((day) => (
+              <div
+                key={day.date}
+                className={`rounded-2xl border p-4 ${
+                  day.complete
+                    ? "border-emerald-400/30 bg-emerald-400/10"
+                    : day.active
+                    ? "border-red-400/30 bg-red-400/10"
+                    : "border-white/10 bg-slate-950/50"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">{getShortDayLabel(day.date)}</p>
+                    <p className="text-xs text-slate-400">{day.date.slice(5)}</p>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+                      day.complete
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : day.active
+                        ? "bg-red-500/20 text-red-300"
+                        : "bg-slate-500/20 text-slate-300"
+                    }`}
+                  >
+                    {day.complete ? "Done" : day.active ? "Open" : "No work"}
+                  </span>
+                </div>
+
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full bg-cyan-400"
+                    style={{ width: `${day.progress}%` }}
+                  />
+                </div>
+
+                <div className="mt-3 space-y-1 text-xs text-slate-400">
+                  <p>Pending: {day.pending}</p>
+                  <p>Required: {day.required}</p>
+                  <p>Achieved: {day.achieved}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -1171,8 +1437,7 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            The app now shows whether browser data is saved and when it was last
-            saved.
+            Streaks update automatically when you log progress or change filters.
           </p>
         </section>
 
@@ -1252,7 +1517,9 @@ export default function Home() {
 
             <select
               value={priorityFilter}
-              onChange={(event) => setPriorityFilter(event.target.value as "all" | Priority)}
+              onChange={(event) =>
+                setPriorityFilter(event.target.value as "all" | Priority)
+              }
               className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
             >
               <option value="all">All priorities</option>
@@ -1265,7 +1532,9 @@ export default function Home() {
 
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as StatusFilter)
+              }
               className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
             >
               {statusFilterOptions.map((status) => (
@@ -1292,9 +1561,18 @@ export default function Home() {
               </p>
             </div>
 
-            <StatusBox label="Pending on this date" value={selectedDaySummary.pending} />
-            <StatusBox label="Required by this date" value={selectedDaySummary.required} />
-            <StatusBox label="Achieved by this date" value={selectedDaySummary.achieved} />
+            <StatusBox
+              label="Pending on this date"
+              value={selectedDaySummary.pending}
+            />
+            <StatusBox
+              label="Required by this date"
+              value={selectedDaySummary.required}
+            />
+            <StatusBox
+              label="Achieved by this date"
+              value={selectedDaySummary.achieved}
+            />
           </div>
         </section>
 
@@ -1425,7 +1703,9 @@ export default function Home() {
                           <FieldLabel label="Target name">
                             <input
                               value={editTitle}
-                              onChange={(event) => setEditTitle(event.target.value)}
+                              onChange={(event) =>
+                                setEditTitle(event.target.value)
+                              }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             />
                           </FieldLabel>
@@ -1433,7 +1713,9 @@ export default function Home() {
                           <FieldLabel label="Priority">
                             <select
                               value={editPriority}
-                              onChange={(event) => setEditPriority(event.target.value as Priority)}
+                              onChange={(event) =>
+                                setEditPriority(event.target.value as Priority)
+                              }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
                               {priorityOptions.map((priority) => (
@@ -1447,7 +1729,9 @@ export default function Home() {
                           <FieldLabel label="Assigned member">
                             <select
                               value={editOwnerId}
-                              onChange={(event) => setEditOwnerId(event.target.value)}
+                              onChange={(event) =>
+                                setEditOwnerId(event.target.value)
+                              }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
                               {members.map((member) => (
@@ -1461,7 +1745,9 @@ export default function Home() {
                           <FieldLabel label="Frequency">
                             <select
                               value={editFrequency}
-                              onChange={(event) => setEditFrequency(event.target.value as Frequency)}
+                              onChange={(event) =>
+                                setEditFrequency(event.target.value as Frequency)
+                              }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
                               <option value="daily">Daily</option>
@@ -1475,7 +1761,9 @@ export default function Home() {
                               type="number"
                               min="1"
                               value={editAmount}
-                              onChange={(event) => setEditAmount(Number(event.target.value))}
+                              onChange={(event) =>
+                                setEditAmount(Number(event.target.value))
+                              }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             />
                           </FieldLabel>
@@ -1492,7 +1780,9 @@ export default function Home() {
                             <FieldLabel label="Notes / what counts as done">
                               <textarea
                                 value={editDescription}
-                                onChange={(event) => setEditDescription(event.target.value)}
+                                onChange={(event) =>
+                                  setEditDescription(event.target.value)
+                                }
                                 placeholder="Example: Counts only when the work is finished and reviewed."
                                 rows={3}
                                 className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
@@ -1679,7 +1969,9 @@ export default function Home() {
                                           <input
                                             type="date"
                                             value={editLogDate}
-                                            onChange={(event) => setEditLogDate(event.target.value)}
+                                            onChange={(event) =>
+                                              setEditLogDate(event.target.value)
+                                            }
                                             className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white"
                                           />
                                         </FieldLabel>
@@ -1689,7 +1981,11 @@ export default function Home() {
                                             type="number"
                                             min="1"
                                             value={editLogAmount}
-                                            onChange={(event) => setEditLogAmount(Number(event.target.value))}
+                                            onChange={(event) =>
+                                              setEditLogAmount(
+                                                Number(event.target.value)
+                                              )
+                                            }
                                             className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white"
                                           />
                                         </FieldLabel>
@@ -1722,14 +2018,18 @@ export default function Home() {
 
                                         <div className="flex gap-2">
                                           <button
-                                            onClick={() => startEditingProgressLog(log)}
+                                            onClick={() =>
+                                              startEditingProgressLog(log)
+                                            }
                                             className="rounded-lg border border-cyan-400/30 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-400/10"
                                           >
                                             Edit log
                                           </button>
 
                                           <button
-                                            onClick={() => deleteProgressLog(log.id)}
+                                            onClick={() =>
+                                              deleteProgressLog(log.id)
+                                            }
                                             className="rounded-lg border border-red-400/30 px-3 py-1 text-xs text-red-200 hover:bg-red-400/10"
                                           >
                                             Delete log
@@ -1785,7 +2085,9 @@ export default function Home() {
                             <FieldLabel label="Member name">
                               <input
                                 value={editMemberName}
-                                onChange={(event) => setEditMemberName(event.target.value)}
+                                onChange={(event) =>
+                                  setEditMemberName(event.target.value)
+                                }
                                 className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                               />
                             </FieldLabel>
@@ -1793,7 +2095,9 @@ export default function Home() {
                             <FieldLabel label="Role">
                               <select
                                 value={editMemberRole}
-                                onChange={(event) => setEditMemberRole(event.target.value)}
+                                onChange={(event) =>
+                                  setEditMemberRole(event.target.value)
+                                }
                                 className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                               >
                                 {roleOptions.map((role) => (
@@ -1928,7 +2232,9 @@ export default function Home() {
 
                 <select
                   value={newPriority}
-                  onChange={(event) => setNewPriority(event.target.value as Priority)}
+                  onChange={(event) =>
+                    setNewPriority(event.target.value as Priority)
+                  }
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 >
                   {priorityOptions.map((priority) => (
@@ -1943,7 +2249,9 @@ export default function Home() {
                     type="number"
                     min="1"
                     value={newAmount}
-                    onChange={(event) => setNewAmount(Number(event.target.value))}
+                    onChange={(event) =>
+                      setNewAmount(Number(event.target.value))
+                    }
                     className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                   />
 
@@ -1957,7 +2265,9 @@ export default function Home() {
 
                 <select
                   value={newFrequency}
-                  onChange={(event) => setNewFrequency(event.target.value as Frequency)}
+                  onChange={(event) =>
+                    setNewFrequency(event.target.value as Frequency)
+                  }
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 >
                   <option value="daily">Daily</option>
@@ -2015,7 +2325,7 @@ function FieldLabel({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label>
