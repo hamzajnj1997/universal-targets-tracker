@@ -13,6 +13,7 @@ type Member = {
 type Target = {
   id: string;
   title: string;
+  description: string;
   ownerId: string;
   frequency: Frequency;
   targetAmount: number;
@@ -166,6 +167,7 @@ const initialTargets: Target[] = [
   {
     id: "video",
     title: "Make video",
+    description: "Counts as done when the video is finished and ready to publish.",
     ownerId: "me",
     frequency: "daily",
     targetAmount: 1,
@@ -175,6 +177,7 @@ const initialTargets: Target[] = [
   {
     id: "ideas",
     title: "Plan content ideas",
+    description: "Each idea should include a clear topic, hook, and basic outline.",
     ownerId: "me",
     frequency: "weekly",
     targetAmount: 7,
@@ -184,6 +187,7 @@ const initialTargets: Target[] = [
   {
     id: "calls",
     title: "Sales calls",
+    description: "Only completed calls count. Missed calls carry forward.",
     ownerId: "team",
     frequency: "daily",
     targetAmount: 10,
@@ -193,6 +197,7 @@ const initialTargets: Target[] = [
   {
     id: "reading",
     title: "Read pages",
+    description: "Pages count when they are actually read, not just opened.",
     ownerId: "student",
     frequency: "daily",
     targetAmount: 5,
@@ -215,6 +220,7 @@ export default function Home() {
   const [newMemberRole, setNewMemberRole] = useState("Member");
 
   const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
   const [newAmount, setNewAmount] = useState(1);
   const [newUnit, setNewUnit] = useState("tasks");
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
@@ -226,6 +232,7 @@ export default function Home() {
 
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [editOwnerId, setEditOwnerId] = useState("me");
   const [editFrequency, setEditFrequency] = useState<Frequency>("daily");
   const [editAmount, setEditAmount] = useState(1);
@@ -251,7 +258,12 @@ export default function Home() {
         }
 
         if (Array.isArray(parsedData.targets)) {
-          setTargets(parsedData.targets);
+          setTargets(
+            parsedData.targets.map((target) => ({
+              ...target,
+              description: target.description ?? "",
+            }))
+          );
         }
 
         if (Array.isArray(parsedData.logs)) {
@@ -510,6 +522,7 @@ export default function Home() {
   function startEditingTarget(target: Target) {
     setEditingTargetId(target.id);
     setEditTitle(target.title);
+    setEditDescription(target.description ?? "");
     setEditOwnerId(target.ownerId);
     setEditFrequency(target.frequency);
     setEditAmount(target.targetAmount);
@@ -519,6 +532,7 @@ export default function Home() {
   function cancelEditingTarget() {
     setEditingTargetId(null);
     setEditTitle("");
+    setEditDescription("");
     setEditOwnerId("me");
     setEditFrequency("daily");
     setEditAmount(1);
@@ -550,6 +564,7 @@ export default function Home() {
         return {
           ...target,
           title: editTitle.trim(),
+          description: editDescription.trim(),
           ownerId: editOwnerId,
           frequency: editFrequency,
           targetAmount: editAmount,
@@ -614,6 +629,7 @@ export default function Home() {
       {
         id: crypto.randomUUID(),
         title: newTitle.trim(),
+        description: newDescription.trim(),
         ownerId: newOwnerId,
         frequency: newFrequency,
         targetAmount: newAmount,
@@ -623,6 +639,7 @@ export default function Home() {
     ]);
 
     setNewTitle("");
+    setNewDescription("");
     setNewAmount(1);
     setNewUnit("tasks");
     setNewFrequency("daily");
@@ -877,7 +894,7 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Individual progress logs can now be edited or deleted.
+            Target descriptions explain exactly what counts as done.
           </p>
         </section>
 
@@ -1119,6 +1136,21 @@ export default function Home() {
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             />
                           </div>
+
+                          <div className="md:col-span-2">
+                            <p className="mb-2 text-sm text-slate-400">
+                              Notes / what counts as done
+                            </p>
+                            <textarea
+                              value={editDescription}
+                              onChange={(event) =>
+                                setEditDescription(event.target.value)
+                              }
+                              placeholder="Example: Counts only when the work is finished and reviewed."
+                              rows={3}
+                              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            />
+                          </div>
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
@@ -1165,6 +1197,15 @@ export default function Home() {
                               {row.target.targetAmount} {row.target.unit} /{" "}
                               {row.target.frequency}
                             </p>
+
+                            {row.target.description && (
+                              <p className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+                                <span className="font-semibold text-cyan-300">
+                                  Notes:
+                                </span>{" "}
+                                {row.target.description}
+                              </p>
+                            )}
 
                             <p className="mt-2 text-sm text-slate-300">
                               Required by selected date: {row.required}{" "}
@@ -1543,6 +1584,14 @@ export default function Home() {
                   value={newTitle}
                   onChange={(event) => setNewTitle(event.target.value)}
                   placeholder="Example: Read pages"
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+                />
+
+                <textarea
+                  value={newDescription}
+                  onChange={(event) => setNewDescription(event.target.value)}
+                  placeholder="Notes / what counts as done"
+                  rows={3}
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 />
 
