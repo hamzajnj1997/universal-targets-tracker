@@ -7,12 +7,17 @@ type Frequency = "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
 type StatusFilter = "all" | "onTrack" | "close" | "behind";
 
-type Member = { id: string; name: string; role: string };
+type Member = {
+  id: string;
+  name: string;
+  role: string;
+};
 
 type Target = {
   id: string;
   title: string;
   description: string;
+  category: string;
   priority: Priority;
   ownerId: string;
   frequency: Frequency;
@@ -58,6 +63,19 @@ const roleOptions = [
   "Viewer",
 ];
 
+const suggestedCategories = [
+  "General",
+  "School",
+  "Business",
+  "Content",
+  "Health",
+  "Family",
+  "Sales",
+  "Admin",
+  "Personal",
+  "Finance",
+];
+
 const priorityOptions: { value: Priority; label: string }[] = [
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
@@ -96,6 +114,7 @@ const initialTargets: Target[] = [
     title: "Make video",
     description:
       "Counts as done when the video is finished and ready to publish.",
+    category: "Content",
     priority: "high",
     ownerId: "me",
     frequency: "daily",
@@ -108,6 +127,7 @@ const initialTargets: Target[] = [
     title: "Plan content ideas",
     description:
       "Each idea should include a clear topic, hook, and basic outline.",
+    category: "Content",
     priority: "medium",
     ownerId: "me",
     frequency: "weekly",
@@ -119,6 +139,7 @@ const initialTargets: Target[] = [
     id: "calls",
     title: "Sales calls",
     description: "Only completed calls count. Missed calls carry forward.",
+    category: "Sales",
     priority: "urgent",
     ownerId: "team",
     frequency: "daily",
@@ -130,6 +151,7 @@ const initialTargets: Target[] = [
     id: "reading",
     title: "Read pages",
     description: "Pages count when they are actually read, not just opened.",
+    category: "School",
     priority: "medium",
     ownerId: "student",
     frequency: "daily",
@@ -223,12 +245,15 @@ function isPriority(value: unknown): value is Priority {
 
 function periodsDue(target: Target, dateISO: string) {
   if (dateISO < target.startDate) return 0;
+
   if (target.frequency === "daily") {
     return daysBetween(target.startDate, dateISO) + 1;
   }
+
   if (target.frequency === "weekly") {
     return Math.floor(daysBetween(target.startDate, dateISO) / 7) + 1;
   }
+
   return monthsBetween(target.startDate, dateISO) + 1;
 }
 
@@ -262,12 +287,15 @@ function priorityClass(priority: Priority) {
   if (priority === "urgent") {
     return "bg-red-500/25 text-red-200 border-red-400/30";
   }
+
   if (priority === "high") {
     return "bg-orange-500/25 text-orange-200 border-orange-400/30";
   }
+
   if (priority === "medium") {
     return "bg-blue-500/20 text-blue-200 border-blue-400/30";
   }
+
   return "bg-slate-500/20 text-slate-200 border-slate-400/30";
 }
 
@@ -325,6 +353,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [targets, setTargets] = useState<Target[]>(initialTargets);
@@ -337,6 +366,7 @@ export default function Home() {
 
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newCategory, setNewCategory] = useState("General");
   const [newPriority, setNewPriority] = useState<Priority>("medium");
   const [newAmount, setNewAmount] = useState(1);
   const [newUnit, setNewUnit] = useState("tasks");
@@ -350,6 +380,7 @@ export default function Home() {
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editCategory, setEditCategory] = useState("General");
   const [editPriority, setEditPriority] = useState<Priority>("medium");
   const [editOwnerId, setEditOwnerId] = useState("me");
   const [editFrequency, setEditFrequency] = useState<Frequency>("daily");
@@ -363,6 +394,16 @@ export default function Home() {
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editLogDate, setEditLogDate] = useState(todayISO());
   const [editLogAmount, setEditLogAmount] = useState(1);
+
+  const categoryOptions = useMemo(() => {
+    const currentCategories = targets
+      .map((target) => target.category || "General")
+      .filter(Boolean);
+
+    return Array.from(
+      new Set([...suggestedCategories, ...currentCategories])
+    ).sort((a, b) => a.localeCompare(b));
+  }, [targets]);
 
   function normalizeMembers(rawMembers: unknown[]): Member[] {
     return rawMembers
@@ -393,6 +434,10 @@ export default function Home() {
             : "Untitled target",
         description:
           typeof target.description === "string" ? target.description : "",
+        category:
+          typeof target.category === "string" && target.category.trim()
+            ? target.category.trim()
+            : "General",
         priority: isPriority(target.priority) ? target.priority : "medium",
         ownerId:
           typeof target.ownerId === "string" && target.ownerId
@@ -446,12 +491,15 @@ export default function Home() {
         if (Array.isArray(parsedData.members)) {
           setMembers(normalizeMembers(parsedData.members));
         }
+
         if (Array.isArray(parsedData.targets)) {
           setTargets(normalizeTargets(parsedData.targets));
         }
+
         if (Array.isArray(parsedData.logs)) {
           setLogs(normalizeLogs(parsedData.logs));
         }
+
         if (typeof parsedData.lastSavedAt === "string") {
           setLastSavedAt(parsedData.lastSavedAt);
         }
@@ -491,7 +539,9 @@ export default function Home() {
     const pending = Math.max(0, required - achieved);
     const surplus = Math.max(0, achieved - required);
     const progress =
-      required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
+      required === 0
+        ? 100
+        : Math.min(100, Math.round((achieved / required) * 100));
 
     const recentLogs = logs
       .filter((log) => log.targetId === target.id)
@@ -519,13 +569,19 @@ export default function Home() {
 
     const memberMatches =
       selectedMemberId === "all" || row.target.ownerId === selectedMemberId;
+
     const priorityMatches =
       priorityFilter === "all" || row.target.priority === priorityFilter;
+
     const statusMatches = statusMatchesFilter(row.status, statusFilter);
+
+    const categoryMatches =
+      categoryFilter === "all" || row.target.category === categoryFilter;
 
     const searchableText = [
       row.target.title,
       row.target.description,
+      row.target.category,
       row.target.unit,
       row.target.frequency,
       priorityLabel(row.target.priority),
@@ -537,7 +593,13 @@ export default function Home() {
 
     const searchMatches = !query || searchableText.includes(query);
 
-    return memberMatches && priorityMatches && statusMatches && searchMatches;
+    return (
+      memberMatches &&
+      priorityMatches &&
+      statusMatches &&
+      categoryMatches &&
+      searchMatches
+    );
   }
 
   function calculateDaySnapshot(dateISO: string) {
@@ -549,7 +611,9 @@ export default function Home() {
     const achieved = rows.reduce((sum, row) => sum + row.achieved, 0);
     const pending = rows.reduce((sum, row) => sum + row.pending, 0);
     const progress =
-      required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
+      required === 0
+        ? 100
+        : Math.min(100, Math.round((achieved / required) * 100));
 
     return {
       date: dateISO,
@@ -562,7 +626,9 @@ export default function Home() {
   }
 
   const dashboard = useMemo(() => {
-    return targets.map((target) => calculateTargetSnapshot(target, selectedDate));
+    return targets.map((target) =>
+      calculateTargetSnapshot(target, selectedDate)
+    );
   }, [targets, logs, selectedDate, members]);
 
   const visibleDashboard = useMemo(() => {
@@ -572,9 +638,11 @@ export default function Home() {
       .sort((a, b) => {
         const priorityDifference =
           priorityRank(b.target.priority) - priorityRank(a.target.priority);
+
         if (priorityDifference !== 0) return priorityDifference;
 
         const pendingDifference = b.pending - a.pending;
+
         if (pendingDifference !== 0) return pendingDifference;
 
         return a.target.title.localeCompare(b.target.title);
@@ -585,6 +653,7 @@ export default function Home() {
     searchQuery,
     priorityFilter,
     statusFilter,
+    categoryFilter,
     members,
   ]);
 
@@ -598,7 +667,9 @@ export default function Home() {
       const achieved = memberRows.reduce((sum, row) => sum + row.achieved, 0);
       const pending = memberRows.reduce((sum, row) => sum + row.pending, 0);
       const progress =
-        required === 0 ? 100 : Math.min(100, Math.round((achieved / required) * 100));
+        required === 0
+          ? 100
+          : Math.min(100, Math.round((achieved / required) * 100));
 
       return {
         member,
@@ -620,6 +691,7 @@ export default function Home() {
     searchQuery,
     priorityFilter,
     statusFilter,
+    categoryFilter,
     targets,
     logs,
     members,
@@ -656,8 +728,6 @@ export default function Home() {
       if (day.active && day.complete) {
         runningStreak += 1;
         bestStreak = Math.max(bestStreak, runningStreak);
-      } else if (day.active) {
-        runningStreak = 0;
       } else {
         runningStreak = 0;
       }
@@ -688,6 +758,7 @@ export default function Home() {
     searchQuery,
     priorityFilter,
     statusFilter,
+    categoryFilter,
     targets,
     logs,
     members,
@@ -717,6 +788,7 @@ export default function Home() {
     searchQuery,
     priorityFilter,
     statusFilter,
+    categoryFilter,
     targets,
     logs,
     members,
@@ -731,6 +803,7 @@ export default function Home() {
     setSearchQuery("");
     setPriorityFilter("all");
     setStatusFilter("all");
+    setCategoryFilter("all");
     setSelectedMemberId("all");
   }
 
@@ -821,6 +894,7 @@ export default function Home() {
     setEditingTargetId(target.id);
     setEditTitle(target.title);
     setEditDescription(target.description ?? "");
+    setEditCategory(target.category || "General");
     setEditPriority(target.priority ?? "medium");
     setEditOwnerId(target.ownerId);
     setEditFrequency(target.frequency);
@@ -832,6 +906,7 @@ export default function Home() {
     setEditingTargetId(null);
     setEditTitle("");
     setEditDescription("");
+    setEditCategory("General");
     setEditPriority("medium");
     setEditOwnerId("me");
     setEditFrequency("daily");
@@ -864,6 +939,7 @@ export default function Home() {
               ...target,
               title: editTitle.trim(),
               description: editDescription.trim(),
+              category: editCategory.trim() || "General",
               priority: editPriority,
               ownerId: editOwnerId,
               frequency: editFrequency,
@@ -927,6 +1003,7 @@ export default function Home() {
         id: crypto.randomUUID(),
         title: newTitle.trim(),
         description: newDescription.trim(),
+        category: newCategory.trim() || "General",
         priority: newPriority,
         ownerId: newOwnerId,
         frequency: newFrequency,
@@ -938,6 +1015,7 @@ export default function Home() {
 
     setNewTitle("");
     setNewDescription("");
+    setNewCategory("General");
     setNewPriority("medium");
     setNewAmount(1);
     setNewUnit("tasks");
@@ -972,6 +1050,7 @@ export default function Home() {
     setTargets((currentTargets) =>
       currentTargets.filter((item) => item.id !== targetId)
     );
+
     setLogs((currentLogs) =>
       currentLogs.filter((log) => log.targetId !== targetId)
     );
@@ -1003,9 +1082,11 @@ export default function Home() {
     setMembers((currentMembers) =>
       currentMembers.filter((item) => item.id !== memberId)
     );
+
     setTargets((currentTargets) =>
       currentTargets.filter((target) => target.ownerId !== memberId)
     );
+
     setLogs((currentLogs) =>
       currentLogs.filter((log) => !memberTargetIds.includes(log.targetId))
     );
@@ -1048,6 +1129,7 @@ export default function Home() {
         target.id,
         target.title,
         target.description,
+        target.category,
         priorityLabel(target.priority),
         owner?.name ?? "Unknown",
         owner?.role ?? "Unknown",
@@ -1063,6 +1145,7 @@ export default function Home() {
         "Target ID",
         "Title",
         "Description",
+        "Category",
         "Priority",
         "Owner",
         "Owner Role",
@@ -1090,6 +1173,7 @@ export default function Home() {
         log.achievedAmount,
         target?.unit ?? "",
         target?.title ?? "Deleted target",
+        target?.category ?? "",
         log.targetId,
         owner?.name ?? "Unknown",
         owner?.role ?? "Unknown",
@@ -1104,6 +1188,7 @@ export default function Home() {
         "Achieved Amount",
         "Unit",
         "Target Title",
+        "Category",
         "Target ID",
         "Owner",
         "Owner Role",
@@ -1123,7 +1208,7 @@ export default function Home() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
-      version: 18,
+      version: 19,
       selectedDate,
       calendarMonth,
       lastSavedAt,
@@ -1198,6 +1283,7 @@ export default function Home() {
       setSearchQuery("");
       setPriorityFilter("all");
       setStatusFilter("all");
+      setCategoryFilter("all");
       setManualAmounts({});
       cancelEditingTarget();
       cancelEditingMember();
@@ -1238,7 +1324,9 @@ export default function Home() {
     setSearchQuery("");
     setPriorityFilter("all");
     setStatusFilter("all");
+    setCategoryFilter("all");
     setNewOwnerId("me");
+    setNewCategory("General");
     setManualAmounts({});
     cancelEditingTarget();
     cancelEditingMember();
@@ -1261,11 +1349,18 @@ export default function Home() {
     selectedMemberId !== "all" ? "member" : "",
     priorityFilter !== "all" ? "priority" : "",
     statusFilter !== "all" ? "status" : "",
+    categoryFilter !== "all" ? "category" : "",
   ].filter(Boolean).length;
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
       <div className="mx-auto max-w-7xl">
+        <datalist id="category-options">
+          {categoryOptions.map((category) => (
+            <option key={category} value={category} />
+          ))}
+        </datalist>
+
         <header className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-cyan-400">
@@ -1437,7 +1532,8 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Streaks update automatically when you log progress or change filters.
+            Categories now help group targets by school, business, content,
+            health, family, sales, admin, or any custom area.
           </p>
         </section>
 
@@ -1507,13 +1603,26 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr]">
+          <div className="grid gap-3 xl:grid-cols-[2fr_1fr_1fr_1fr]">
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search targets, notes, units, owners, or roles..."
+              placeholder="Search targets, categories, notes, units, owners, or roles..."
               className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
             />
+
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+            >
+              <option value="all">All categories</option>
+              {categoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  Category: {category}
+                </option>
+              ))}
+            </select>
 
             <select
               value={priorityFilter}
@@ -1710,6 +1819,18 @@ export default function Home() {
                             />
                           </FieldLabel>
 
+                          <FieldLabel label="Category">
+                            <input
+                              list="category-options"
+                              value={editCategory}
+                              onChange={(event) =>
+                                setEditCategory(event.target.value)
+                              }
+                              placeholder="Example: School"
+                              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            />
+                          </FieldLabel>
+
                           <FieldLabel label="Priority">
                             <select
                               value={editPriority}
@@ -1815,6 +1936,10 @@ export default function Home() {
                               <h3 className="text-xl font-semibold">
                                 {row.target.title}
                               </h3>
+
+                              <span className="rounded-full border border-violet-400/30 bg-violet-500/20 px-3 py-1 text-xs font-medium text-violet-200">
+                                {row.target.category || "General"}
+                              </span>
 
                               <span
                                 className={`rounded-full border px-3 py-1 text-xs font-medium ${priorityClass(
@@ -2219,6 +2344,14 @@ export default function Home() {
                   value={newTitle}
                   onChange={(event) => setNewTitle(event.target.value)}
                   placeholder="Example: Read pages"
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+                />
+
+                <input
+                  list="category-options"
+                  value={newCategory}
+                  onChange={(event) => setNewCategory(event.target.value)}
+                  placeholder="Category, e.g. School"
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 />
 
