@@ -657,6 +657,63 @@ export default function Home() {
     members,
   ]);
 
+  const categoryOverview = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        category: string;
+        targetCount: number;
+        pending: number;
+        achieved: number;
+        required: number;
+      }
+    >();
+
+    for (const row of visibleDashboard) {
+      const category = row.target.category || "General";
+      const existing =
+        groups.get(category) ??
+        {
+          category,
+          targetCount: 0,
+          pending: 0,
+          achieved: 0,
+          required: 0,
+        };
+
+      existing.targetCount += 1;
+      existing.pending += row.pending;
+      existing.achieved += row.achieved;
+      existing.required += row.required;
+
+      groups.set(category, existing);
+    }
+
+    return Array.from(groups.values())
+      .map((group) => {
+        const progress =
+          group.required === 0
+            ? 100
+            : Math.min(
+                100,
+                Math.round((group.achieved / group.required) * 100)
+              );
+
+        return {
+          ...group,
+          progress,
+          status: getStatus(group.pending, progress),
+        };
+      })
+      .sort((a, b) => {
+        const pendingDifference = b.pending - a.pending;
+
+        if (pendingDifference !== 0) return pendingDifference;
+
+        return a.category.localeCompare(b.category);
+      });
+  }, [visibleDashboard]);
+
   const memberOverview = useMemo(() => {
     return members.map((member) => {
       const memberRows = dashboard.filter(
@@ -1208,7 +1265,7 @@ export default function Home() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
-      version: 19,
+      version: 20,
       selectedDate,
       calendarMonth,
       lastSavedAt,
@@ -1516,6 +1573,84 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="mb-8 rounded-3xl border border-violet-400/20 bg-violet-400/10 p-5">
+          <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-violet-300">
+                Category overview
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">Work grouped by category</h2>
+              <p className="mt-2 text-sm text-slate-300">
+                Shows pending, achieved, required, and progress for the current
+                date and active filters.
+              </p>
+            </div>
+
+            <p className="text-sm text-slate-400">
+              {categoryOverview.length} visible categories
+            </p>
+          </div>
+
+          {categoryOverview.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {categoryOverview.map((category) => (
+                <div
+                  key={category.category}
+                  className="rounded-2xl border border-white/10 bg-slate-950/50 p-5"
+                >
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <span className="rounded-full border border-violet-400/30 bg-violet-500/20 px-3 py-1 text-xs font-medium text-violet-200">
+                        {category.category}
+                      </span>
+                      <h3 className="mt-3 text-xl font-bold">
+                        {category.targetCount}{" "}
+                        {category.targetCount === 1 ? "target" : "targets"}
+                      </h3>
+                    </div>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${statusClass(
+                        category.status
+                      )}`}
+                    >
+                      {category.progress}%
+                    </span>
+                  </div>
+
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className="h-full rounded-full bg-cyan-400"
+                      style={{ width: `${category.progress}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                    <div className="rounded-xl bg-slate-900 p-3">
+                      <p className="text-slate-400">Pending</p>
+                      <p className="mt-1 text-lg font-bold">{category.pending}</p>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-900 p-3">
+                      <p className="text-slate-400">Achieved</p>
+                      <p className="mt-1 text-lg font-bold">{category.achieved}</p>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-900 p-3">
+                      <p className="text-slate-400">Required</p>
+                      <p className="mt-1 text-lg font-bold">{category.required}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-slate-400">
+              No category data to show with the current filters.
+            </div>
+          )}
+        </section>
+
         <section className="mb-8 flex flex-wrap gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
           <button
             onClick={clearProgressLogs}
@@ -1532,8 +1667,8 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Categories now help group targets by school, business, content,
-            health, family, sales, admin, or any custom area.
+            Category overview updates automatically when filters, progress, or
+            selected date changes.
           </p>
         </section>
 
@@ -2444,7 +2579,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function StatusBox({ label, value }: { label: string; value: string | number }) {
+function StatusBox({ label, value }: { label: string | number; value: string | number }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
       <p className="text-sm text-slate-400">{label}</p>
