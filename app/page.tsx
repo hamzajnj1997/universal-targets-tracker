@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Frequency = "daily" | "weekly" | "monthly";
+type Priority = "low" | "medium" | "high" | "urgent";
 
 type Member = {
   id: string;
@@ -14,6 +15,7 @@ type Target = {
   id: string;
   title: string;
   description: string;
+  priority: Priority;
   ownerId: string;
   frequency: Frequency;
   targetAmount: number;
@@ -47,6 +49,13 @@ const roleOptions = [
   "Student",
   "Child",
   "Viewer",
+];
+
+const priorityOptions: { value: Priority; label: string }[] = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "urgent", label: "Urgent" },
 ];
 
 function formatDateISO(date: Date) {
@@ -156,6 +165,24 @@ function statusClass(status: string) {
   return "bg-emerald-500/20 text-emerald-300";
 }
 
+function priorityLabel(priority: Priority) {
+  return priorityOptions.find((option) => option.value === priority)?.label ?? "Medium";
+}
+
+function priorityRank(priority: Priority) {
+  if (priority === "urgent") return 4;
+  if (priority === "high") return 3;
+  if (priority === "medium") return 2;
+  return 1;
+}
+
+function priorityClass(priority: Priority) {
+  if (priority === "urgent") return "bg-red-500/25 text-red-200 border-red-400/30";
+  if (priority === "high") return "bg-orange-500/25 text-orange-200 border-orange-400/30";
+  if (priority === "medium") return "bg-blue-500/20 text-blue-200 border-blue-400/30";
+  return "bg-slate-500/20 text-slate-200 border-slate-400/30";
+}
+
 const initialMembers: Member[] = [
   { id: "me", name: "Me", role: "Owner" },
   { id: "family", name: "Family Member", role: "Member" },
@@ -168,6 +195,7 @@ const initialTargets: Target[] = [
     id: "video",
     title: "Make video",
     description: "Counts as done when the video is finished and ready to publish.",
+    priority: "high",
     ownerId: "me",
     frequency: "daily",
     targetAmount: 1,
@@ -178,6 +206,7 @@ const initialTargets: Target[] = [
     id: "ideas",
     title: "Plan content ideas",
     description: "Each idea should include a clear topic, hook, and basic outline.",
+    priority: "medium",
     ownerId: "me",
     frequency: "weekly",
     targetAmount: 7,
@@ -188,6 +217,7 @@ const initialTargets: Target[] = [
     id: "calls",
     title: "Sales calls",
     description: "Only completed calls count. Missed calls carry forward.",
+    priority: "urgent",
     ownerId: "team",
     frequency: "daily",
     targetAmount: 10,
@@ -198,6 +228,7 @@ const initialTargets: Target[] = [
     id: "reading",
     title: "Read pages",
     description: "Pages count when they are actually read, not just opened.",
+    priority: "medium",
     ownerId: "student",
     frequency: "daily",
     targetAmount: 5,
@@ -221,18 +252,18 @@ export default function Home() {
 
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newPriority, setNewPriority] = useState<Priority>("medium");
   const [newAmount, setNewAmount] = useState(1);
   const [newUnit, setNewUnit] = useState("tasks");
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
   const [newOwnerId, setNewOwnerId] = useState("me");
 
-  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>(
-    {}
-  );
+  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>({});
 
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editPriority, setEditPriority] = useState<Priority>("medium");
   const [editOwnerId, setEditOwnerId] = useState("me");
   const [editFrequency, setEditFrequency] = useState<Frequency>("daily");
   const [editAmount, setEditAmount] = useState(1);
@@ -262,6 +293,7 @@ export default function Home() {
             parsedData.targets.map((target) => ({
               ...target,
               description: target.description ?? "",
+              priority: target.priority ?? "medium",
             }))
           );
         }
@@ -369,9 +401,23 @@ export default function Home() {
   }, [targets, logs, selectedDate, members]);
 
   const visibleDashboard = useMemo(() => {
-    if (selectedMemberId === "all") return dashboard;
+    const rows =
+      selectedMemberId === "all"
+        ? dashboard
+        : dashboard.filter((row) => row.target.ownerId === selectedMemberId);
 
-    return dashboard.filter((row) => row.target.ownerId === selectedMemberId);
+    return rows.slice().sort((a, b) => {
+      const priorityDifference =
+        priorityRank(b.target.priority) - priorityRank(a.target.priority);
+
+      if (priorityDifference !== 0) return priorityDifference;
+
+      const pendingDifference = b.pending - a.pending;
+
+      if (pendingDifference !== 0) return pendingDifference;
+
+      return a.target.title.localeCompare(b.target.title);
+    });
   }, [dashboard, selectedMemberId]);
 
   const memberOverview = useMemo(() => {
@@ -523,6 +569,7 @@ export default function Home() {
     setEditingTargetId(target.id);
     setEditTitle(target.title);
     setEditDescription(target.description ?? "");
+    setEditPriority(target.priority ?? "medium");
     setEditOwnerId(target.ownerId);
     setEditFrequency(target.frequency);
     setEditAmount(target.targetAmount);
@@ -533,6 +580,7 @@ export default function Home() {
     setEditingTargetId(null);
     setEditTitle("");
     setEditDescription("");
+    setEditPriority("medium");
     setEditOwnerId("me");
     setEditFrequency("daily");
     setEditAmount(1);
@@ -565,6 +613,7 @@ export default function Home() {
           ...target,
           title: editTitle.trim(),
           description: editDescription.trim(),
+          priority: editPriority,
           ownerId: editOwnerId,
           frequency: editFrequency,
           targetAmount: editAmount,
@@ -630,6 +679,7 @@ export default function Home() {
         id: crypto.randomUUID(),
         title: newTitle.trim(),
         description: newDescription.trim(),
+        priority: newPriority,
         ownerId: newOwnerId,
         frequency: newFrequency,
         targetAmount: newAmount,
@@ -640,6 +690,7 @@ export default function Home() {
 
     setNewTitle("");
     setNewDescription("");
+    setNewPriority("medium");
     setNewAmount(1);
     setNewUnit("tasks");
     setNewFrequency("daily");
@@ -894,7 +945,7 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Target descriptions explain exactly what counts as done.
+            Higher priority targets appear first in the selected day&apos;s work list.
           </p>
         </section>
 
@@ -1075,6 +1126,25 @@ export default function Home() {
 
                           <div>
                             <p className="mb-2 text-sm text-slate-400">
+                              Priority
+                            </p>
+                            <select
+                              value={editPriority}
+                              onChange={(event) =>
+                                setEditPriority(event.target.value as Priority)
+                              }
+                              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            >
+                              {priorityOptions.map((priority) => (
+                                <option key={priority.value} value={priority.value}>
+                                  {priority.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <p className="mb-2 text-sm text-slate-400">
                               Assigned member
                             </p>
                             <select
@@ -1099,9 +1169,7 @@ export default function Home() {
                             <select
                               value={editFrequency}
                               onChange={(event) =>
-                                setEditFrequency(
-                                  event.target.value as Frequency
-                                )
+                                setEditFrequency(event.target.value as Frequency)
                               }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
@@ -1177,6 +1245,14 @@ export default function Home() {
                               <h3 className="text-xl font-semibold">
                                 {row.target.title}
                               </h3>
+
+                              <span
+                                className={`rounded-full border px-3 py-1 text-xs font-medium ${priorityClass(
+                                  row.target.priority
+                                )}`}
+                              >
+                                {priorityLabel(row.target.priority)}
+                              </span>
 
                               <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-medium text-cyan-300">
                                 {row.target.frequency}
@@ -1594,6 +1670,20 @@ export default function Home() {
                   rows={3}
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 />
+
+                <select
+                  value={newPriority}
+                  onChange={(event) =>
+                    setNewPriority(event.target.value as Priority)
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+                >
+                  {priorityOptions.map((priority) => (
+                    <option key={priority.value} value={priority.value}>
+                      Priority: {priority.label}
+                    </option>
+                  ))}
+                </select>
 
                 <div className="grid grid-cols-2 gap-3">
                   <input
