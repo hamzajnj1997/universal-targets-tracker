@@ -4,10 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 
 type Frequency = "daily" | "weekly" | "monthly";
 
+type Member = {
+  id: string;
+  name: string;
+  role: string;
+};
+
 type Target = {
   id: string;
   title: string;
-  owner: string;
+  ownerId: string;
   frequency: Frequency;
   targetAmount: number;
   unit: string;
@@ -20,6 +26,37 @@ type ProgressLog = {
   date: string;
   achievedAmount: number;
 };
+
+type SavedAppState = {
+  members: Member[];
+  targets: Target[];
+  logs: ProgressLog[];
+};
+
+const STORAGE_KEY = "universal-targets-tracker-demo-v2";
+
+const initialMembers: Member[] = [
+  {
+    id: "me",
+    name: "Me",
+    role: "Owner",
+  },
+  {
+    id: "family",
+    name: "Family Member",
+    role: "Member",
+  },
+  {
+    id: "team",
+    name: "Team Member",
+    role: "Member",
+  },
+  {
+    id: "student",
+    name: "Student",
+    role: "Student",
+  },
+];
 
 function formatDateISO(date: Date) {
   const year = date.getFullYear();
@@ -40,6 +77,7 @@ function toDate(dateISO: string) {
 function daysBetween(startDate: string, endDate: string) {
   const start = toDate(startDate);
   const end = toDate(endDate);
+
   return Math.floor((end.getTime() - start.getTime()) / 86400000);
 }
 
@@ -79,11 +117,18 @@ function addDays(dateISO: string, days: number) {
   return formatDateISO(date);
 }
 
+function getStatus(pending: number, progress: number) {
+  if (pending === 0) return "On Track";
+  if (progress >= 80) return "Close";
+
+  return "Behind";
+}
+
 const initialTargets: Target[] = [
   {
     id: "video",
     title: "Make video",
-    owner: "Me",
+    ownerId: "me",
     frequency: "daily",
     targetAmount: 1,
     unit: "video",
@@ -92,7 +137,7 @@ const initialTargets: Target[] = [
   {
     id: "ideas",
     title: "Plan content ideas",
-    owner: "Me",
+    ownerId: "me",
     frequency: "weekly",
     targetAmount: 7,
     unit: "ideas",
@@ -101,68 +146,84 @@ const initialTargets: Target[] = [
   {
     id: "calls",
     title: "Sales calls",
-    owner: "Team Member",
+    ownerId: "team",
     frequency: "daily",
     targetAmount: 10,
     unit: "calls",
     startDate: todayISO(),
   },
+  {
+    id: "reading",
+    title: "Read pages",
+    ownerId: "student",
+    frequency: "daily",
+    targetAmount: 5,
+    unit: "pages",
+    startDate: todayISO(),
+  },
 ];
-const STORAGE_KEY = "universal-targets-tracker-demo-v1";
-
-type SavedAppState = {
-  targets: Target[];
-  logs: ProgressLog[];
-};
 
 export default function Home() {
   const [selectedDate, setSelectedDate] = useState(todayISO());
+  const [selectedMemberId, setSelectedMemberId] = useState("all");
+
+  const [members, setMembers] = useState<Member[]>(initialMembers);
   const [targets, setTargets] = useState<Target[]>(initialTargets);
   const [logs, setLogs] = useState<ProgressLog[]>([]);
-
   const [hasLoadedSavedData, setHasLoadedSavedData] = useState(false);
 
-useEffect(() => {
-  const savedData = window.localStorage.getItem(STORAGE_KEY);
-
-  if (savedData) {
-    try {
-      const parsedData = JSON.parse(savedData) as SavedAppState;
-
-      if (Array.isArray(parsedData.targets)) {
-        setTargets(parsedData.targets);
-      }
-
-      if (Array.isArray(parsedData.logs)) {
-        setLogs(parsedData.logs);
-      }
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  }
-
-  setHasLoadedSavedData(true);
-}, []);
-
-useEffect(() => {
-  if (!hasLoadedSavedData) return;
-
-  window.localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      targets,
-      logs,
-    })
-  );
-}, [targets, logs, hasLoadedSavedData]);
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState("Member");
 
   const [newTitle, setNewTitle] = useState("");
   const [newAmount, setNewAmount] = useState(1);
   const [newUnit, setNewUnit] = useState("tasks");
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
+  const [newOwnerId, setNewOwnerId] = useState("me");
+
+  useEffect(() => {
+    const savedData = window.localStorage.getItem(STORAGE_KEY);
+
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData) as SavedAppState;
+
+        if (Array.isArray(parsedData.members)) {
+          setMembers(parsedData.members);
+        }
+
+        if (Array.isArray(parsedData.targets)) {
+          setTargets(parsedData.targets);
+        }
+
+        if (Array.isArray(parsedData.logs)) {
+          setLogs(parsedData.logs);
+        }
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+
+    setHasLoadedSavedData(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSavedData) return;
+
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        members,
+        targets,
+        logs,
+      })
+    );
+  }, [members, targets, logs, hasLoadedSavedData]);
 
   const dashboard = useMemo(() => {
     return targets.map((target) => {
+      const owner = members.find((member) => member.id === target.ownerId);
+
       const required = periodsDue(target, selectedDate) * target.targetAmount;
 
       const achieved = logs
@@ -176,27 +237,51 @@ useEffect(() => {
           ? 100
           : Math.min(100, Math.round((achieved / required) * 100));
 
-      let status = "On Track";
-
-      if (pending > 0 && progress < 80) {
-        status = "Behind";
-      }
-
-      if (pending > 0 && progress >= 80) {
-        status = "Close";
-      }
-
       return {
         target,
+        owner,
         required,
         achieved,
         pending,
         surplus,
         progress,
-        status,
+        status: getStatus(pending, progress),
       };
     });
-  }, [targets, logs, selectedDate]);
+  }, [targets, logs, selectedDate, members]);
+
+  const visibleDashboard = useMemo(() => {
+    if (selectedMemberId === "all") return dashboard;
+
+    return dashboard.filter((row) => row.target.ownerId === selectedMemberId);
+  }, [dashboard, selectedMemberId]);
+
+  const memberOverview = useMemo(() => {
+    return members.map((member) => {
+      const memberRows = dashboard.filter(
+        (row) => row.target.ownerId === member.id
+      );
+
+      const required = memberRows.reduce((sum, row) => sum + row.required, 0);
+      const achieved = memberRows.reduce((sum, row) => sum + row.achieved, 0);
+      const pending = memberRows.reduce((sum, row) => sum + row.pending, 0);
+
+      const progress =
+        required === 0
+          ? 100
+          : Math.min(100, Math.round((achieved / required) * 100));
+
+      return {
+        member,
+        required,
+        achieved,
+        pending,
+        progress,
+        targetCount: memberRows.length,
+        status: getStatus(pending, progress),
+      };
+    });
+  }, [members, dashboard]);
 
   function logProgress(targetId: string, amount: number) {
     if (amount <= 0) return;
@@ -220,7 +305,7 @@ useEffect(() => {
       {
         id: crypto.randomUUID(),
         title: newTitle,
-        owner: "Me",
+        ownerId: newOwnerId,
         frequency: newFrequency,
         targetAmount: newAmount,
         unit: newUnit,
@@ -234,9 +319,48 @@ useEffect(() => {
     setNewFrequency("daily");
   }
 
-  const totalPending = dashboard.reduce((sum, row) => sum + row.pending, 0);
-  const totalAchieved = dashboard.reduce((sum, row) => sum + row.achieved, 0);
-  const totalRequired = dashboard.reduce((sum, row) => sum + row.required, 0);
+  function addMember() {
+    if (!newMemberName.trim()) return;
+
+    const newMemberId = crypto.randomUUID();
+
+    setMembers((currentMembers) => [
+      ...currentMembers,
+      {
+        id: newMemberId,
+        name: newMemberName,
+        role: newMemberRole,
+      },
+    ]);
+
+    setNewOwnerId(newMemberId);
+    setNewMemberName("");
+    setNewMemberRole("Member");
+  }
+
+  function resetDemoData() {
+    window.localStorage.removeItem(STORAGE_KEY);
+    setMembers(initialMembers);
+    setTargets(initialTargets);
+    setLogs([]);
+    setSelectedMemberId("all");
+    setNewOwnerId("me");
+  }
+
+  const totalPending = visibleDashboard.reduce(
+    (sum, row) => sum + row.pending,
+    0
+  );
+
+  const totalAchieved = visibleDashboard.reduce(
+    (sum, row) => sum + row.achieved,
+    0
+  );
+
+  const totalRequired = visibleDashboard.reduce(
+    (sum, row) => sum + row.required,
+    0
+  );
 
   const nextSevenDays = Array.from({ length: 7 }, (_, index) =>
     addDays(selectedDate, index)
@@ -245,57 +369,100 @@ useEffect(() => {
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <header className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-cyan-400">
               Universal Targets Tracker
             </p>
 
             <h1 className="mt-3 text-4xl font-bold">
-              Today&apos;s targets, backlog, and progress
+              Workspace targets, backlog, and progress
             </h1>
 
-            <p className="mt-3 max-w-2xl text-slate-300">
-              Track daily, weekly, and monthly targets. Missed work carries
-              forward. Extra work gives future credit.
+            <p className="mt-3 max-w-3xl text-slate-300">
+              Track daily, weekly, and monthly targets for individuals, families,
+              teams, businesses, and classrooms. Missed work carries forward.
+              Extra work gives future credit.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <p className="mb-2 text-sm text-slate-400">Selected date</p>
+          <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-2">
+            <div>
+              <p className="mb-2 text-sm text-slate-400">Selected date</p>
 
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(event) => setSelectedDate(event.target.value)}
-              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"
-            />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"
+              />
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm text-slate-400">View member</p>
+
+              <select
+                value={selectedMemberId}
+                onChange={(event) => setSelectedMemberId(event.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"
+              >
+                <option value="all">All members</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </header>
 
-        <section className="mb-8 grid gap-4 md:grid-cols-3">
+        <section className="mb-8 grid gap-4 md:grid-cols-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-slate-400">Pending today</p>
+            <p className="text-sm text-slate-400">Pending</p>
             <p className="mt-2 text-4xl font-bold">{totalPending}</p>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-slate-400">Achieved so far</p>
+            <p className="text-sm text-slate-400">Achieved</p>
             <p className="mt-2 text-4xl font-bold">{totalAchieved}</p>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-slate-400">Required by date</p>
+            <p className="text-sm text-slate-400">Required</p>
             <p className="mt-2 text-4xl font-bold">{totalRequired}</p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-slate-400">Members</p>
+            <p className="mt-2 text-4xl font-bold">{members.length}</p>
           </div>
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
           <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
-            <h2 className="mb-4 text-2xl font-bold">Today&apos;s work</h2>
+            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-2xl font-bold">Today&apos;s work</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Showing{" "}
+                  {selectedMemberId === "all"
+                    ? "all members"
+                    : members.find((member) => member.id === selectedMemberId)
+                        ?.name}
+                </p>
+              </div>
+
+              <button
+                onClick={resetDemoData}
+                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/10"
+              >
+                Reset demo data
+              </button>
+            </div>
 
             <div className="space-y-4">
-              {dashboard.map((row) => (
+              {visibleDashboard.map((row) => (
                 <div
                   key={row.target.id}
                   className="rounded-2xl border border-white/10 bg-slate-900 p-5"
@@ -325,7 +492,8 @@ useEffect(() => {
                       </div>
 
                       <p className="mt-2 text-sm text-slate-400">
-                        Owner: {row.target.owner} · Target:{" "}
+                        Owner: {row.owner?.name ?? "Unknown"} · Role:{" "}
+                        {row.owner?.role ?? "Unknown"} · Target:{" "}
                         {row.target.targetAmount} {row.target.unit} /{" "}
                         {row.target.frequency}
                       </p>
@@ -387,10 +555,98 @@ useEffect(() => {
                   </div>
                 </div>
               ))}
+
+              {visibleDashboard.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-slate-400">
+                  No targets found for this member yet.
+                </div>
+              )}
             </div>
           </section>
 
           <aside className="space-y-6">
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <h2 className="mb-4 text-2xl font-bold">Workspace overview</h2>
+
+              <div className="space-y-3">
+                {memberOverview.map((row) => (
+                  <div
+                    key={row.member.id}
+                    className="rounded-2xl border border-white/10 bg-slate-900 p-4"
+                  >
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{row.member.name}</p>
+                        <p className="text-sm text-slate-400">
+                          {row.member.role} · {row.targetCount} targets
+                        </p>
+                      </div>
+
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          row.status === "Behind"
+                            ? "bg-red-500/20 text-red-300"
+                            : row.status === "Close"
+                            ? "bg-yellow-500/20 text-yellow-300"
+                            : "bg-emerald-500/20 text-emerald-300"
+                        }`}
+                      >
+                        {row.progress}%
+                      </span>
+                    </div>
+
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-cyan-400"
+                        style={{ width: `${row.progress}%` }}
+                      />
+                    </div>
+
+                    <p className="mt-3 text-sm text-slate-300">
+                      Pending: {row.pending} · Achieved: {row.achieved} ·
+                      Required: {row.required}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <h2 className="mb-4 text-2xl font-bold">Add member</h2>
+
+              <div className="space-y-3">
+                <input
+                  value={newMemberName}
+                  onChange={(event) => setNewMemberName(event.target.value)}
+                  placeholder="Example: Ahmed"
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+                />
+
+                <select
+                  value={newMemberRole}
+                  onChange={(event) => setNewMemberRole(event.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+                >
+                  <option value="Owner">Owner</option>
+                  <option value="Admin">Admin</option>
+                  <option value="Parent">Parent</option>
+                  <option value="Teacher">Teacher</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Member">Member</option>
+                  <option value="Student">Student</option>
+                  <option value="Child">Child</option>
+                  <option value="Viewer">Viewer</option>
+                </select>
+
+                <button
+                  onClick={addMember}
+                  className="w-full rounded-xl bg-white px-4 py-3 font-semibold text-slate-950 hover:bg-slate-200"
+                >
+                  Add member
+                </button>
+              </div>
+            </section>
+
             <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
               <h2 className="mb-4 text-2xl font-bold">Add target</h2>
 
@@ -433,9 +689,21 @@ useEffect(() => {
                   <option value="monthly">Monthly</option>
                 </select>
 
+                <select
+                  value={newOwnerId}
+                  onChange={(event) => setNewOwnerId(event.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+                >
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      Assign to: {member.name}
+                    </option>
+                  ))}
+                </select>
+
                 <button
                   onClick={addTarget}
-                  className="w-full rounded-xl bg-white px-4 py-3 font-semibold text-slate-950 hover:bg-slate-200"
+                  className="w-full rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 hover:bg-cyan-300"
                 >
                   Add target
                 </button>
@@ -447,18 +715,28 @@ useEffect(() => {
 
               <div className="space-y-3">
                 {nextSevenDays.map((day) => {
-                  const pendingForDay = targets.reduce((sum, target) => {
-                    const required =
-                      periodsDue(target, day) * target.targetAmount;
+                  const rowsForForecast =
+                    selectedMemberId === "all"
+                      ? targets
+                      : targets.filter(
+                          (target) => target.ownerId === selectedMemberId
+                        );
 
-                    const achieved = logs
-                      .filter(
-                        (log) => log.targetId === target.id && log.date <= day
-                      )
-                      .reduce((total, log) => total + log.achievedAmount, 0);
+                  const pendingForDay = rowsForForecast.reduce(
+                    (sum, target) => {
+                      const required =
+                        periodsDue(target, day) * target.targetAmount;
 
-                    return sum + Math.max(0, required - achieved);
-                  }, 0);
+                      const achieved = logs
+                        .filter(
+                          (log) => log.targetId === target.id && log.date <= day
+                        )
+                        .reduce((total, log) => total + log.achievedAmount, 0);
+
+                      return sum + Math.max(0, required - achieved);
+                    },
+                    0
+                  );
 
                   return (
                     <div
