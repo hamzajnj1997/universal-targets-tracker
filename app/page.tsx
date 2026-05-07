@@ -1451,7 +1451,7 @@ export default function Home() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
-      version: 23,
+      version: 24,
       selectedDate,
       calendarMonth,
       lastSavedAt,
@@ -1608,7 +1608,7 @@ export default function Home() {
   });
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
+    <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
       <div className="mx-auto max-w-7xl">
         <datalist id="category-options">
           {categoryOptions.map((category) => (
@@ -1616,24 +1616,24 @@ export default function Home() {
           ))}
         </datalist>
 
-        <header className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <header className="mb-6 flex flex-col gap-4 xl:mb-8 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-cyan-400">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-400 sm:text-sm sm:tracking-[0.3em]">
               Universal Targets Tracker
             </p>
 
-            <h1 className="mt-3 text-4xl font-bold">
+            <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
               Workspace targets, backlog, and progress
             </h1>
 
-            <p className="mt-3 max-w-3xl text-slate-300">
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
               Track daily, weekly, and monthly targets for individuals,
               families, teams, businesses, and classrooms. Missed work carries
               forward. Extra work gives future credit.
             </p>
           </div>
 
-          <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-2">
+          <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 sm:grid-cols-2">
             <FieldLabel label="Selected date">
               <input
                 type="date"
@@ -1660,7 +1660,7 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="mb-8 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <section className="mb-6 grid grid-cols-2 gap-3 sm:mb-8 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
           <StatCard label="Pending" value={totalPending} />
           <StatCard label="Achieved" value={totalAchieved} />
           <StatCard label="Required" value={totalRequired} />
@@ -1669,16 +1669,16 @@ export default function Home() {
           <StatCard label="Archived" value={archivedCount} />
         </section>
 
-        <section className="mb-8 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-5">
-          <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5">
+          <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
                 Quick start
               </p>
               <h2 className="mt-2 text-2xl font-bold">
                 Finish setup and start tracking
               </h2>
-              <p className="mt-2 text-sm text-slate-300">
+              <p className="mt-2 text-sm leading-6 text-slate-300">
                 Use this checklist when starting a new workspace or testing the
                 prototype with a fresh browser.
               </p>
@@ -1692,7 +1692,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <OnboardingStep
               number="1"
               title="Add members"
@@ -1716,20 +1716,20 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-8 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
+        <section className="mb-6 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 sm:mb-8 sm:p-5">
           <div className="mb-5">
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300 sm:text-sm sm:tracking-[0.25em]">
               Dashboard insights
             </p>
             <h2 className="mt-2 text-2xl font-bold">
               Warnings and recommended focus
             </h2>
-            <p className="mt-2 text-sm text-slate-300">
+            <p className="mt-2 text-sm leading-6 text-slate-300">
               Quick signals based on the selected date and active filters.
             </p>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
               <p className="text-sm text-slate-400">Most behind category</p>
 
@@ -1826,16 +1826,16 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-8 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
+        <section className="mb-6 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-4 sm:mb-8 sm:p-5">
           <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300 sm:text-sm sm:tracking-[0.25em]">
                 Local data status
               </p>
               <h2 className="mt-2 text-2xl font-bold">
                 Saved in this browser
               </h2>
-              <p className="mt-2 text-sm text-slate-300">
+              <p className="mt-2 text-sm leading-6 text-slate-300">
                 Your prototype data is stored locally in this browser. Export a
                 JSON backup before clearing browser data or changing devices.
               </p>
@@ -1850,19 +1850,19 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-8 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-5">
+        <section className="mb-6 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-4 sm:mb-8 sm:p-5">
           <div className="mb-5">
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-purple-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300 sm:text-sm sm:tracking-[0.25em]">
               Completion history
             </p>
             <h2 className="mt-2 text-2xl font-bold">Consistency and streaks</h2>
-            <p className="mt-2 text-sm text-slate-300">
+            <p className="mt-2 text-sm leading-6 text-slate-300">
               Based on the selected date and current filters. A day counts as
               complete when its filtered required work has no pending amount.
             </p>
           </div>
 
-          <div className="mb-5 grid gap-4 md:grid-cols-4">
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatusBox
               label="Current streak"
               value={`${completionHistory.currentStreak} days`}
@@ -1881,7 +1881,7 @@ export default function Home() {
             />
           </div>
 
-          <div className="grid gap-3 md:grid-cols-7">
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
             {completionHistory.lastSevenDays.map((day) => (
               <div
                 key={day.date}
@@ -1929,14 +1929,14 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-8 rounded-3xl border border-violet-400/20 bg-violet-400/10 p-5">
+        <section className="mb-6 rounded-3xl border border-violet-400/20 bg-violet-400/10 p-4 sm:mb-8 sm:p-5">
           <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-violet-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-300 sm:text-sm sm:tracking-[0.25em]">
                 Category overview
               </p>
               <h2 className="mt-2 text-2xl font-bold">Work grouped by category</h2>
-              <p className="mt-2 text-sm text-slate-300">
+              <p className="mt-2 text-sm leading-6 text-slate-300">
                 Shows pending, achieved, required, and progress for the current
                 date and active filters.
               </p>
@@ -1948,11 +1948,11 @@ export default function Home() {
           </div>
 
           {categoryOverview.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {categoryOverview.map((category) => (
                 <div
                   key={category.category}
-                  className="rounded-2xl border border-white/10 bg-slate-950/50 p-5"
+                  className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 sm:p-5"
                 >
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
@@ -1981,7 +1981,7 @@ export default function Home() {
                     />
                   </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-sm sm:gap-3">
                     <div className="rounded-xl bg-slate-900 p-3">
                       <p className="text-slate-400">Pending</p>
                       <p className="mt-1 text-lg font-bold">{category.pending}</p>
@@ -2008,7 +2008,7 @@ export default function Home() {
           )}
         </section>
 
-        <section className="mb-8 flex flex-wrap gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
+        <section className="mb-6 flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:flex-row sm:flex-wrap sm:p-5">
           <button
             onClick={clearProgressLogs}
             className="rounded-xl border border-yellow-400/30 px-4 py-2 text-sm text-yellow-200 hover:bg-yellow-400/10"
@@ -2023,22 +2023,22 @@ export default function Home() {
             Reset demo data
           </button>
 
-          <p className="flex items-center text-sm text-slate-400">
+          <p className="flex items-center text-sm leading-6 text-slate-400">
             Empty states now explain whether there is no data, archived data, or
             filters hiding results.
           </p>
         </section>
 
-        <section className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-5">
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5">
           <div className="mb-4">
             <h2 className="text-2xl font-bold">Backup, export, and import</h2>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm leading-6 text-slate-400">
               Download your data or restore a full JSON backup created by this
               app.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <button
               onClick={exportTargetsCsv}
               className="rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 hover:bg-cyan-300"
@@ -2077,11 +2077,11 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-5">
-          <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-2xl font-bold">Search and filters</h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm leading-6 text-slate-400">
                 Showing {visibleDashboard.length} matching targets. Active
                 filters: {activeFilterCount}
               </p>
@@ -2095,12 +2095,12 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search targets, categories, notes, units, owners, or roles..."
-              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white md:col-span-2 xl:col-span-1"
             />
 
             <select
@@ -2160,17 +2160,16 @@ export default function Home() {
             </select>
           </div>
         </section>
-
-        <section className="mb-8 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-5">
+                <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5">
           <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr_1fr]">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
                 Logging date
               </p>
-              <h2 className="mt-2 text-3xl font-bold">
+              <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
                 {getDateLabel(selectedDate)}
               </h2>
-              <p className="mt-2 text-sm text-slate-300">
+              <p className="mt-2 text-sm leading-6 text-slate-300">
                 Any Tick done, +1, +3, or custom log you enter now will be saved
                 for {selectedDate}.
               </p>
@@ -2191,16 +2190,16 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-5">
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-2xl font-bold">Month calendar</h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm leading-6 text-slate-400">
                 Click any day to open that date. Filter: {selectedMemberName}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
               <button
                 onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}
                 className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
@@ -2208,7 +2207,7 @@ export default function Home() {
                 Previous month
               </button>
 
-              <div className="min-w-48 rounded-xl bg-slate-900 px-4 py-2 text-center font-semibold">
+              <div className="rounded-xl bg-slate-900 px-4 py-2 text-center font-semibold sm:min-w-48">
                 {getMonthLabel(calendarMonth)}
               </div>
 
@@ -2231,70 +2230,78 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mb-2 grid grid-cols-7 gap-2">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-              <div
-                key={day}
-                className="rounded-xl bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-slate-300"
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-2">
-            {monthCalendarDays.map((day) => (
-              <button
-                key={day.date}
-                onClick={() => selectCalendarDate(day.date)}
-                className={`min-h-32 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:bg-white/10 ${
-                  day.isSelected
-                    ? "border-cyan-400 bg-cyan-400/10"
-                    : day.isToday
-                    ? "border-emerald-400/70 bg-emerald-400/10"
-                    : day.isCurrentMonth
-                    ? "border-white/10 bg-slate-900"
-                    : "border-white/5 bg-slate-950/50 opacity-50"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold">
-                    {Number(day.date.slice(8, 10))}
-                  </p>
-
-                  <span
-                    className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(
-                      day.status
-                    )}`}
-                  >
-                    {day.status}
-                  </span>
-                </div>
-
-                <p className="mt-3 text-2xl font-bold">{day.pending}</p>
-                <p className="text-xs text-slate-400">pending</p>
-
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+          <div className="overflow-x-auto pb-2">
+            <div className="min-w-[760px]">
+              <div className="mb-2 grid grid-cols-7 gap-2">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
                   <div
-                    className="h-full rounded-full bg-cyan-400"
-                    style={{ width: `${day.progress}%` }}
-                  />
-                </div>
+                    key={day}
+                    className="rounded-xl bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-slate-300"
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
 
-                <div className="mt-2 space-y-1 text-[11px] text-slate-400">
-                  <p>Req: {day.required}</p>
-                  <p>Done: {day.achieved}</p>
-                </div>
-              </button>
-            ))}
+              <div className="grid grid-cols-7 gap-2">
+                {monthCalendarDays.map((day) => (
+                  <button
+                    key={day.date}
+                    onClick={() => selectCalendarDate(day.date)}
+                    className={`min-h-28 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 hover:bg-white/10 ${
+                      day.isSelected
+                        ? "border-cyan-400 bg-cyan-400/10"
+                        : day.isToday
+                        ? "border-emerald-400/70 bg-emerald-400/10"
+                        : day.isCurrentMonth
+                        ? "border-white/10 bg-slate-900"
+                        : "border-white/5 bg-slate-950/50 opacity-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold">
+                        {Number(day.date.slice(8, 10))}
+                      </p>
+
+                      <span
+                        className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass(
+                          day.status
+                        )}`}
+                      >
+                        {day.status}
+                      </span>
+                    </div>
+
+                    <p className="mt-3 text-2xl font-bold">{day.pending}</p>
+                    <p className="text-xs text-slate-400">pending</p>
+
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-cyan-400"
+                        style={{ width: `${day.progress}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-2 space-y-1 text-[11px] text-slate-400">
+                      <p>Req: {day.required}</p>
+                      <p>Done: {day.achieved}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
+
+          <p className="mt-3 text-xs text-slate-500 sm:hidden">
+            Swipe sideways to see the full calendar.
+          </p>
         </section>
 
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-          <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
             <div className="mb-5">
               <h2 className="text-2xl font-bold">Selected day&apos;s work</h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm leading-6 text-slate-400">
                 {selectedDate} · Showing {selectedMemberName}
               </p>
             </div>
@@ -2306,7 +2313,7 @@ export default function Home() {
                 return (
                   <div
                     key={row.target.id}
-                    className={`rounded-2xl border p-5 ${
+                    className={`rounded-2xl border p-4 sm:p-5 ${
                       row.target.isArchived
                         ? "border-slate-500/30 bg-slate-900/60 opacity-80"
                         : "border-white/10 bg-slate-900"
@@ -2422,7 +2429,7 @@ export default function Home() {
                           </div>
                         </div>
 
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
                           <button
                             onClick={saveEditedTarget}
                             className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
@@ -2441,9 +2448,9 @@ export default function Home() {
                     ) : (
                       <>
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-xl font-semibold">
+                              <h3 className="break-words text-xl font-semibold">
                                 {row.target.title}
                               </h3>
 
@@ -2478,7 +2485,7 @@ export default function Home() {
                               </span>
                             </div>
 
-                            <p className="mt-2 text-sm text-slate-400">
+                            <p className="mt-2 text-sm leading-6 text-slate-400">
                               Owner: {row.owner?.name ?? "Unknown"} · Role:{" "}
                               {row.owner?.role ?? "Unknown"} · Target:{" "}
                               {row.target.targetAmount} {row.target.unit} /{" "}
@@ -2486,7 +2493,7 @@ export default function Home() {
                             </p>
 
                             {row.target.description && (
-                              <p className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+                              <p className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
                                 <span className="font-semibold text-cyan-300">
                                   Notes:
                                 </span>{" "}
@@ -2494,14 +2501,14 @@ export default function Home() {
                               </p>
                             )}
 
-                            <p className="mt-2 text-sm text-slate-300">
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
                               Required by selected date: {row.required}{" "}
                               {row.target.unit}. Achieved: {row.achieved}{" "}
                               {row.target.unit}.
                             </p>
                           </div>
 
-                          <div className="rounded-2xl bg-white/5 p-4 text-right">
+                          <div className="rounded-2xl bg-white/5 p-4 text-left md:min-w-40 md:text-right">
                             <p className="text-sm text-slate-400">Need now</p>
                             <p className="text-3xl font-bold">
                               {row.pending} {row.target.unit}
@@ -2523,7 +2530,7 @@ export default function Home() {
                         </div>
 
                         <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
-                          <div className="flex flex-wrap gap-2">
+                          <div className="grid gap-2 sm:flex sm:flex-wrap">
                             {!row.target.isArchived && (
                               <>
                                 <button
@@ -2577,7 +2584,7 @@ export default function Home() {
                           </div>
 
                           {!row.target.isArchived && (
-                            <div className="flex gap-2">
+                            <div className="grid gap-2 sm:flex">
                               <input
                                 type="number"
                                 min="0"
@@ -2589,7 +2596,7 @@ export default function Home() {
                                   }))
                                 }
                                 placeholder="Amount"
-                                className="w-28 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white"
+                                className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white sm:w-28"
                               />
 
                               <button
@@ -2670,7 +2677,7 @@ export default function Home() {
                                           </span>
                                         </div>
 
-                                        <div className="flex gap-2">
+                                        <div className="grid gap-2 sm:flex">
                                           <button
                                             onClick={() =>
                                               startEditingProgressLog(log)
@@ -2717,7 +2724,7 @@ export default function Home() {
           </section>
 
           <aside className="space-y-6">
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
               <h2 className="mb-4 text-2xl font-bold">Workspace overview</h2>
 
               <div className="space-y-3">
@@ -2763,7 +2770,7 @@ export default function Home() {
                             </FieldLabel>
                           </div>
 
-                          <div className="mt-4 flex flex-wrap gap-2">
+                          <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
                             <button
                               onClick={saveEditedMember}
                               className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
@@ -2805,12 +2812,12 @@ export default function Home() {
                             />
                           </div>
 
-                          <p className="mt-3 text-sm text-slate-300">
+                          <p className="mt-3 text-sm leading-6 text-slate-300">
                             Pending: {row.pending} · Achieved: {row.achieved} ·
                             Required: {row.required}
                           </p>
 
-                          <div className="mt-3 flex flex-wrap gap-2">
+                          <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
                             <button
                               onClick={() => startEditingMember(row.member)}
                               className="rounded-xl border border-cyan-400/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-400/10"
@@ -2833,7 +2840,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
               <h2 className="mb-4 text-2xl font-bold">Add member</h2>
 
               <div className="space-y-3">
@@ -2865,7 +2872,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
               <h2 className="mb-4 text-2xl font-bold">Add target</h2>
 
               <div className="space-y-3">
@@ -2966,9 +2973,9 @@ export default function Home() {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
       <p className="text-sm text-slate-400">{label}</p>
-      <p className="mt-2 text-4xl font-bold">{value}</p>
+      <p className="mt-2 text-3xl font-bold sm:text-4xl">{value}</p>
     </div>
   );
 }
@@ -2983,7 +2990,7 @@ function StatusBox({
   return (
     <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
       <p className="text-sm text-slate-400">{label}</p>
-      <p className="mt-2 text-xl font-bold">{value}</p>
+      <p className="mt-2 break-words text-lg font-bold sm:text-xl">{value}</p>
     </div>
   );
 }
@@ -3018,16 +3025,18 @@ function OnboardingStep({
         {number}
       </div>
       <h3 className="font-bold">{title}</h3>
-      <p className="mt-2 text-sm text-slate-400">{body}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
     </div>
   );
 }
 
 function EmptyStateCard({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/40 p-8 text-center">
+    <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/40 p-6 text-center sm:p-8">
       <h3 className="text-xl font-bold text-slate-200">{title}</h3>
-      <p className="mx-auto mt-2 max-w-xl text-sm text-slate-400">{body}</p>
+      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-400">
+        {body}
+      </p>
     </div>
   );
 }
