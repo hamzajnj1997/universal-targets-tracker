@@ -52,6 +52,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
+const APP_BACKUP_VERSION = 25;
 
 const roleOptions = [
   "Owner",
@@ -177,8 +178,36 @@ function toDate(dateISO: string) {
   return new Date(`${dateISO}T00:00:00`);
 }
 
-function isValidDateISO(value: unknown) {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+function isValidDateISO(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
+function isPositiveFiniteNumber(value: number) {
+  return Number.isFinite(value) && value > 0;
+}
+
+function parseNumberInput(value: string) {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function createId(prefix: string) {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function daysBetween(startDate: string, endDate: string) {
@@ -352,7 +381,11 @@ function downloadTextFile(filename: string, content: string, mimeType: string) {
 function formatSavedTime(value: string | null) {
   if (!value) return "Not saved yet";
 
-  return new Date(value).toLocaleString("en-US", {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "Not saved yet";
+
+  return date.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -470,11 +503,18 @@ export default function Home() {
   }, [targets]);
 
   function normalizeMembers(rawMembers: unknown[]): Member[] {
-    return rawMembers
-      .map((item) => item as Partial<Member>)
-      .filter((member) => typeof member.id === "string")
-      .map((member) => ({
-        id: member.id as string,
+    const seenMemberIds = new Set<string>();
+    const normalizedMembers: Member[] = [];
+
+    for (const item of rawMembers) {
+      const member = item as Partial<Member>;
+      const id = typeof member.id === "string" ? member.id.trim() : "";
+
+      if (!id || seenMemberIds.has(id)) continue;
+
+      seenMemberIds.add(id);
+      normalizedMembers.push({
+        id,
         name:
           typeof member.name === "string" && member.name.trim()
             ? member.name.trim()
@@ -483,15 +523,31 @@ export default function Home() {
           typeof member.role === "string" && member.role.trim()
             ? member.role.trim()
             : "Member",
-      }));
+      });
+    }
+
+    return normalizedMembers;
   }
 
   function normalizeTargets(rawTargets: unknown[]): Target[] {
-    return rawTargets
-      .map((item) => item as Partial<Target>)
-      .filter((target) => typeof target.id === "string")
-      .map((target) => ({
-        id: target.id as string,
+    const seenTargetIds = new Set<string>();
+    const normalizedTargets: Target[] = [];
+
+    for (const item of rawTargets) {
+      const target = item as Partial<Target>;
+      const id = typeof target.id === "string" ? target.id.trim() : "";
+
+      if (!id || seenTargetIds.has(id)) continue;
+
+      const targetAmount =
+        typeof target.targetAmount === "number" &&
+        isPositiveFiniteNumber(target.targetAmount)
+          ? target.targetAmount
+          : 1;
+
+      seenTargetIds.add(id);
+      normalizedTargets.push({
+        id,
         title:
           typeof target.title === "string" && target.title.trim()
             ? target.title.trim()
@@ -504,47 +560,89 @@ export default function Home() {
             : "General",
         priority: isPriority(target.priority) ? target.priority : "medium",
         ownerId:
-          typeof target.ownerId === "string" && target.ownerId
-            ? target.ownerId
+          typeof target.ownerId === "string" && target.ownerId.trim()
+            ? target.ownerId.trim()
             : "me",
         frequency: isFrequency(target.frequency) ? target.frequency : "daily",
-        targetAmount:
-          typeof target.targetAmount === "number" && target.targetAmount > 0
-            ? target.targetAmount
-            : 1,
+        targetAmount,
         unit:
           typeof target.unit === "string" && target.unit.trim()
             ? target.unit.trim()
             : "tasks",
         startDate: isValidDateISO(target.startDate)
-          ? (target.startDate as string)
+          ? target.startDate
           : todayISO(),
         isArchived:
           typeof target.isArchived === "boolean" ? target.isArchived : false,
-      }));
+      });
+    }
+
+    return normalizedTargets;
   }
 
   function normalizeLogs(rawLogs: unknown[]): ProgressLog[] {
-    return rawLogs
-      .map((item) => item as Partial<ProgressLog>)
-      .filter(
-        (log) => typeof log.id === "string" && typeof log.targetId === "string"
-      )
-      .map((log) => ({
-        id: log.id as string,
-        targetId: log.targetId as string,
-        date: isValidDateISO(log.date) ? (log.date as string) : todayISO(),
-        achievedAmount:
-          typeof log.achievedAmount === "number" && log.achievedAmount > 0
-            ? log.achievedAmount
-            : 1,
+    const seenLogIds = new Set<string>();
+    const normalizedLogs: ProgressLog[] = [];
+
+    for (const item of rawLogs) {
+      const log = item as Partial<ProgressLog>;
+      const id = typeof log.id === "string" ? log.id.trim() : "";
+      const targetId =
+        typeof log.targetId === "string" ? log.targetId.trim() : "";
+
+      if (!id || !targetId || seenLogIds.has(id)) continue;
+
+      const date = isValidDateISO(log.date) ? log.date : todayISO();
+      const achievedAmount =
+        typeof log.achievedAmount === "number" &&
+        isPositiveFiniteNumber(log.achievedAmount)
+          ? log.achievedAmount
+          : 1;
+
+      seenLogIds.add(id);
+      normalizedLogs.push({
+        id,
+        targetId,
+        date,
+        achievedAmount,
         createdAt:
           typeof log.createdAt === "string" && log.createdAt
             ? log.createdAt
-            : `${
-                isValidDateISO(log.date) ? log.date : todayISO()
-              }T00:00:00.000Z`,
-      }));
+            : `${date}T00:00:00.000Z`,
+      });
+    }
+
+    return normalizedLogs;
+  }
+
+  function makeSafeState(rawState: Partial<SavedAppState>) {
+    const importedMembers = Array.isArray(rawState.members)
+      ? normalizeMembers(rawState.members)
+      : [];
+    const safeMembers = importedMembers.length > 0 ? importedMembers : initialMembers;
+    const validMemberIds = new Set(safeMembers.map((member) => member.id));
+
+    const safeTargets = (Array.isArray(rawState.targets)
+      ? normalizeTargets(rawState.targets)
+      : initialTargets
+    ).map((target) => ({
+      ...target,
+      ownerId: validMemberIds.has(target.ownerId)
+        ? target.ownerId
+        : safeMembers[0].id,
+    }));
+
+    const validTargetIds = new Set(safeTargets.map((target) => target.id));
+    const safeLogs = (Array.isArray(rawState.logs)
+      ? normalizeLogs(rawState.logs)
+      : []
+    ).filter((log) => validTargetIds.has(log.targetId));
+
+    return {
+      members: safeMembers,
+      targets: safeTargets,
+      logs: safeLogs,
+    };
   }
 
   useEffect(() => {
@@ -553,18 +651,12 @@ export default function Home() {
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData) as SavedAppState;
+        const safeState = makeSafeState(parsedData);
 
-        if (Array.isArray(parsedData.members)) {
-          setMembers(normalizeMembers(parsedData.members));
-        }
-
-        if (Array.isArray(parsedData.targets)) {
-          setTargets(normalizeTargets(parsedData.targets));
-        }
-
-        if (Array.isArray(parsedData.logs)) {
-          setLogs(normalizeLogs(parsedData.logs));
-        }
+        setMembers(safeState.members);
+        setTargets(safeState.targets);
+        setLogs(safeState.logs);
+        setNewOwnerId(safeState.members[0]?.id ?? "me");
 
         if (typeof parsedData.lastSavedAt === "string") {
           setLastSavedAt(parsedData.lastSavedAt);
@@ -593,6 +685,26 @@ export default function Home() {
       })
     );
   }, [members, targets, logs, hasLoadedSavedData]);
+
+
+  useEffect(() => {
+    if (members.length === 0) return;
+
+    const validMemberIds = new Set(members.map((member) => member.id));
+    const fallbackMemberId = members[0].id;
+
+    if (selectedMemberId !== "all" && !validMemberIds.has(selectedMemberId)) {
+      setSelectedMemberId("all");
+    }
+
+    if (!validMemberIds.has(newOwnerId)) {
+      setNewOwnerId(fallbackMemberId);
+    }
+
+    if (!validMemberIds.has(editOwnerId)) {
+      setEditOwnerId(fallbackMemberId);
+    }
+  }, [members, selectedMemberId, newOwnerId, editOwnerId]);
 
   function calculateTargetSnapshot(target: Target, dateISO: string) {
     const owner = members.find((member) => member.id === target.ownerId);
@@ -1006,6 +1118,8 @@ export default function Home() {
   ]);
 
   function selectCalendarDate(dateISO: string) {
+    if (!isValidDateISO(dateISO)) return;
+
     setSelectedDate(dateISO);
     setCalendarMonth(monthStartISO(dateISO));
   }
@@ -1020,12 +1134,12 @@ export default function Home() {
   }
 
   function logProgress(targetId: string, amount: number) {
-    if (amount <= 0) return;
+    if (!isPositiveFiniteNumber(amount) || !isValidDateISO(selectedDate)) return;
 
     setLogs((currentLogs) => [
       ...currentLogs,
       {
-        id: crypto.randomUUID(),
+        id: createId("log"),
         targetId,
         date: selectedDate,
         achievedAmount: amount,
@@ -1038,7 +1152,7 @@ export default function Home() {
     const rawAmount = manualAmounts[targetId];
     const amount = Number(rawAmount);
 
-    if (!rawAmount || Number.isNaN(amount) || amount <= 0) {
+    if (!rawAmount || !isPositiveFiniteNumber(amount)) {
       window.alert("Enter a valid achieved amount greater than 0.");
       return;
     }
@@ -1066,12 +1180,12 @@ export default function Home() {
   function saveEditedProgressLog() {
     if (!editingLogId) return;
 
-    if (!editLogDate) {
-      window.alert("Log date cannot be empty.");
+    if (!isValidDateISO(editLogDate)) {
+      window.alert("Log date must be a valid calendar date.");
       return;
     }
 
-    if (Number.isNaN(editLogAmount) || editLogAmount <= 0) {
+    if (!isPositiveFiniteNumber(editLogAmount)) {
       window.alert("Log amount must be greater than 0.");
       return;
     }
@@ -1134,13 +1248,18 @@ export default function Home() {
       return;
     }
 
-    if (Number.isNaN(editAmount) || editAmount <= 0) {
+    if (!isPositiveFiniteNumber(editAmount)) {
       window.alert("Target amount must be greater than 0.");
       return;
     }
 
     if (!editUnit.trim()) {
       window.alert("Unit cannot be empty.");
+      return;
+    }
+
+    if (!members.some((member) => member.id === editOwnerId)) {
+      window.alert("Choose a valid assigned member.");
       return;
     }
 
@@ -1225,7 +1344,7 @@ export default function Home() {
   function addTarget() {
     if (!newTitle.trim()) return;
 
-    if (newAmount <= 0) {
+    if (!isPositiveFiniteNumber(newAmount)) {
       window.alert("Target amount must be greater than 0.");
       return;
     }
@@ -1235,19 +1354,28 @@ export default function Home() {
       return;
     }
 
+    const ownerId = members.some((member) => member.id === newOwnerId)
+      ? newOwnerId
+      : members[0]?.id;
+
+    if (!ownerId) {
+      window.alert("Add at least one member before creating a target.");
+      return;
+    }
+
     setTargets((currentTargets) => [
       ...currentTargets,
       {
-        id: crypto.randomUUID(),
+        id: createId("target"),
         title: newTitle.trim(),
         description: newDescription.trim(),
         category: newCategory.trim() || "General",
         priority: newPriority,
-        ownerId: newOwnerId,
+        ownerId,
         frequency: newFrequency,
         targetAmount: newAmount,
         unit: newUnit.trim(),
-        startDate: selectedDate,
+        startDate: isValidDateISO(selectedDate) ? selectedDate : todayISO(),
         isArchived: false,
       },
     ]);
@@ -1264,7 +1392,7 @@ export default function Home() {
   function addMember() {
     if (!newMemberName.trim()) return;
 
-    const newMemberId = crypto.randomUUID();
+    const newMemberId = createId("member");
 
     setMembers((currentMembers) => [
       ...currentMembers,
@@ -1451,7 +1579,7 @@ export default function Home() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
-      version: 24,
+      version: APP_BACKUP_VERSION,
       selectedDate,
       calendarMonth,
       lastSavedAt,
@@ -1490,38 +1618,23 @@ export default function Home() {
         return;
       }
 
-      const importedMembers = normalizeMembers(parsed.members);
-      const importedTargets = normalizeTargets(parsed.targets);
-      const importedLogs = normalizeLogs(parsed.logs);
+      const safeState = makeSafeState(parsed);
 
-      if (importedMembers.length === 0) {
+      if (safeState.members.length === 0) {
         window.alert("This backup has no valid members.");
         return;
       }
 
-      const validMemberIds = new Set(importedMembers.map((member) => member.id));
-
-      const safeTargets = importedTargets.map((target) => ({
-        ...target,
-        ownerId: validMemberIds.has(target.ownerId)
-          ? target.ownerId
-          : importedMembers[0].id,
-      }));
-
-      const validTargetIds = new Set(safeTargets.map((target) => target.id));
-      const safeLogs = importedLogs.filter((log) =>
-        validTargetIds.has(log.targetId)
-      );
-
       const shouldImport = window.confirm(
-        `Import this backup? This will replace your current data with ${importedMembers.length} members, ${safeTargets.length} targets, and ${safeLogs.length} progress logs.`
+        `Import this backup? This will replace your current data with ${safeState.members.length} members, ${safeState.targets.length} targets, and ${safeState.logs.length} progress logs.`
       );
 
       if (!shouldImport) return;
 
-      setMembers(importedMembers);
-      setTargets(safeTargets);
-      setLogs(safeLogs);
+      setMembers(safeState.members);
+      setTargets(safeState.targets);
+      setLogs(safeState.logs);
+      setNewOwnerId(safeState.members[0]?.id ?? "me");
       setSelectedMemberId("all");
       setSearchQuery("");
       setPriorityFilter("all");
@@ -2400,7 +2513,7 @@ export default function Home() {
                               min="1"
                               value={editAmount}
                               onChange={(event) =>
-                                setEditAmount(Number(event.target.value))
+                                setEditAmount(parseNumberInput(event.target.value))
                               }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             />
@@ -2644,7 +2757,9 @@ export default function Home() {
                                             value={editLogAmount}
                                             onChange={(event) =>
                                               setEditLogAmount(
-                                                Number(event.target.value)
+                                                parseNumberInput(
+                                                  event.target.value
+                                                )
                                               )
                                             }
                                             className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white"
@@ -2919,7 +3034,7 @@ export default function Home() {
                     min="1"
                     value={newAmount}
                     onChange={(event) =>
-                      setNewAmount(Number(event.target.value))
+                      setNewAmount(parseNumberInput(event.target.value))
                     }
                     className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                   />
