@@ -361,6 +361,51 @@ function formatSavedTime(value: string | null) {
   });
 }
 
+function getTargetEmptyState({
+  hasTargets,
+  activeTargetsCount,
+  archiveFilter,
+  activeFilterCount,
+}: {
+  hasTargets: boolean;
+  activeTargetsCount: number;
+  archiveFilter: ArchiveFilter;
+  activeFilterCount: number;
+}) {
+  if (!hasTargets) {
+    return {
+      title: "No targets yet",
+      body: "Add your first target from the Add target panel. Start with something simple, like one daily task.",
+    };
+  }
+
+  if (archiveFilter === "active" && activeTargetsCount === 0) {
+    return {
+      title: "All targets are archived",
+      body: "Switch the archive filter to Archived targets or All targets if you want to view or restore old work.",
+    };
+  }
+
+  if (archiveFilter === "archived") {
+    return {
+      title: "No archived targets found",
+      body: "Archived targets will appear here after you archive an old target. Active target history stays preserved.",
+    };
+  }
+
+  if (activeFilterCount > 0) {
+    return {
+      title: "No targets match the current filters",
+      body: "Clear filters, change the selected member, or switch the archive filter to All targets.",
+    };
+  }
+
+  return {
+    title: "No matching targets found",
+    body: "Try changing the selected date, member, category, priority, status, or archive filter.",
+  };
+}
+
 export default function Home() {
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1406,7 +1451,7 @@ export default function Home() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
-      version: 22,
+      version: 23,
       selectedDate,
       calendarMonth,
       lastSavedAt,
@@ -1538,6 +1583,7 @@ export default function Home() {
   const totalRequired = visibleDashboard.reduce((sum, row) => sum + row.required, 0);
   const totalLogs = logs.length;
   const archivedCount = targets.filter((target) => target.isArchived).length;
+  const activeTargetsCount = targets.filter((target) => !target.isArchived).length;
 
   const selectedMemberName =
     selectedMemberId === "all"
@@ -1553,6 +1599,13 @@ export default function Home() {
     categoryFilter !== "all" ? "category" : "",
     archiveFilter !== "active" ? "archive" : "",
   ].filter(Boolean).length;
+
+  const targetEmptyState = getTargetEmptyState({
+    hasTargets: targets.length > 0,
+    activeTargetsCount,
+    archiveFilter,
+    activeFilterCount,
+  });
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-8 text-white">
@@ -1614,6 +1667,53 @@ export default function Home() {
           <StatCard label="Members" value={members.length} />
           <StatCard label="Logs" value={totalLogs} />
           <StatCard label="Archived" value={archivedCount} />
+        </section>
+
+        <section className="mb-8 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-5">
+          <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300">
+                Quick start
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">
+                Finish setup and start tracking
+              </h2>
+              <p className="mt-2 text-sm text-slate-300">
+                Use this checklist when starting a new workspace or testing the
+                prototype with a fresh browser.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
+              <p>
+                {members.length} members · {activeTargetsCount} active targets ·{" "}
+                {archivedCount} archived
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <OnboardingStep
+              number="1"
+              title="Add members"
+              body="Create people, students, team members, family members, or roles in the workspace."
+            />
+            <OnboardingStep
+              number="2"
+              title="Create targets"
+              body="Add daily, weekly, or monthly targets with a category, owner, priority, and unit."
+            />
+            <OnboardingStep
+              number="3"
+              title="Log progress"
+              body="Pick the correct date, then use Tick done, +1, +3, or a custom amount."
+            />
+            <OnboardingStep
+              number="4"
+              title="Back up data"
+              body="Export a full JSON backup before clearing browser data or changing devices."
+            />
+          </div>
         </section>
 
         <section className="mb-8 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
@@ -1901,9 +2001,10 @@ export default function Home() {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-slate-400">
-              No category data to show with the current filters.
-            </div>
+            <EmptyStateCard
+              title="No category data"
+              body="Category totals appear after visible targets match the selected date and filters."
+            />
           )}
         </section>
 
@@ -1923,8 +2024,8 @@ export default function Home() {
           </button>
 
           <p className="flex items-center text-sm text-slate-400">
-            Archived targets are hidden by default. Use the archive filter to
-            view or restore them.
+            Empty states now explain whether there is no data, archived data, or
+            filters hiding results.
           </p>
         </section>
 
@@ -2607,10 +2708,10 @@ export default function Home() {
               })}
 
               {visibleDashboard.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-slate-400">
-                  No matching targets found. Clear filters or change your
-                  search.
-                </div>
+                <EmptyStateCard
+                  title={targetEmptyState.title}
+                  body={targetEmptyState.body}
+                />
               )}
             </div>
           </section>
@@ -2899,5 +3000,34 @@ function FieldLabel({
       <p className="mb-2 text-sm text-slate-400">{label}</p>
       {children}
     </label>
+  );
+}
+
+function OnboardingStep({
+  number,
+  title,
+  body,
+}: {
+  number: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-cyan-400 font-bold text-slate-950">
+        {number}
+      </div>
+      <h3 className="font-bold">{title}</h3>
+      <p className="mt-2 text-sm text-slate-400">{body}</p>
+    </div>
+  );
+}
+
+function EmptyStateCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/40 p-8 text-center">
+      <h3 className="text-xl font-bold text-slate-200">{title}</h3>
+      <p className="mx-auto mt-2 max-w-xl text-sm text-slate-400">{body}</p>
+    </div>
   );
 }
