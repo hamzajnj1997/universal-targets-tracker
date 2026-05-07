@@ -1,6 +1,7 @@
 "use client";
 
 /* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/exhaustive-deps */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
@@ -9,6 +10,23 @@ type Frequency = "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
 type StatusFilter = "all" | "onTrack" | "close" | "behind";
 type ArchiveFilter = "active" | "archived" | "all";
+type ScreenSectionKey =
+  | "quickStart"
+  | "dashboardInsights"
+  | "localDataStatus"
+  | "completionHistory"
+  | "categoryOverview"
+  | "managementControls"
+  | "backupTools"
+  | "searchFilters"
+  | "loggingSummary"
+  | "monthCalendar"
+  | "selectedDayWork"
+  | "workspaceOverview"
+  | "addMember"
+  | "addTarget";
+type ScreenSettings = Record<ScreenSectionKey, boolean>;
+type ScreenPresetKey = "simple" | "manager" | "calendar" | "admin" | "full";
 
 type Member = {
   id: string;
@@ -42,6 +60,7 @@ type SavedAppState = {
   members: Member[];
   targets: Target[];
   logs: ProgressLog[];
+  screenSettings?: ScreenSettings;
   lastSavedAt?: string;
 };
 
@@ -54,7 +73,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 25;
+const APP_BACKUP_VERSION = 26;
 
 const roleOptions = [
   "Owner",
@@ -99,6 +118,143 @@ const archiveFilterOptions: { value: ArchiveFilter; label: string }[] = [
   { value: "active", label: "Active targets" },
   { value: "archived", label: "Archived targets" },
   { value: "all", label: "All targets" },
+];
+
+const screenSectionOptions: {
+  key: ScreenSectionKey;
+  label: string;
+  description: string;
+  group: "Core" | "Planning" | "Management" | "Admin";
+}[] = [
+  { key: "quickStart", label: "Quick start", description: "Setup checklist for new users and fresh workspaces.", group: "Core" },
+  { key: "dashboardInsights", label: "Dashboard insights", description: "Warnings, behind categories, and recommended focus.", group: "Core" },
+  { key: "localDataStatus", label: "Local data status", description: "Browser save status and record counts.", group: "Admin" },
+  { key: "completionHistory", label: "Completion history", description: "Streaks, recent completion rate, and day-by-day history.", group: "Planning" },
+  { key: "categoryOverview", label: "Category overview", description: "Pending, achieved, and required work grouped by category.", group: "Management" },
+  { key: "managementControls", label: "Management controls", description: "Reset and clear-progress actions.", group: "Admin" },
+  { key: "backupTools", label: "Backup and export tools", description: "CSV export, JSON backup, and backup restore.", group: "Admin" },
+  { key: "searchFilters", label: "Search and filters", description: "Search, member, category, priority, status, and archive filters.", group: "Core" },
+  { key: "loggingSummary", label: "Logging date summary", description: "Selected date summary before logging progress.", group: "Core" },
+  { key: "monthCalendar", label: "Month calendar", description: "Monthly forecast grid with day-level backlog.", group: "Planning" },
+  { key: "selectedDayWork", label: "Selected day work", description: "Main target cards, progress logging, editing, and logs.", group: "Core" },
+  { key: "workspaceOverview", label: "Workspace overview", description: "Member performance summary and member editing.", group: "Management" },
+  { key: "addMember", label: "Add member", description: "Create new workspace members and roles.", group: "Management" },
+  { key: "addTarget", label: "Add target", description: "Create new targets, units, categories, owners, and frequency.", group: "Core" },
+];
+
+const defaultScreenSettings: ScreenSettings = {
+  quickStart: false,
+  dashboardInsights: true,
+  localDataStatus: false,
+  completionHistory: false,
+  categoryOverview: false,
+  managementControls: false,
+  backupTools: false,
+  searchFilters: true,
+  loggingSummary: true,
+  monthCalendar: false,
+  selectedDayWork: true,
+  workspaceOverview: true,
+  addMember: false,
+  addTarget: true,
+};
+
+const screenPresetOptions: {
+  key: ScreenPresetKey;
+  label: string;
+  description: string;
+  settings: ScreenSettings;
+}[] = [
+  {
+    key: "simple",
+    label: "Simple View",
+    description: "Clean daily tracking with only the essentials.",
+    settings: defaultScreenSettings,
+  },
+  {
+    key: "manager",
+    label: "Manager View",
+    description: "Insights, categories, workspace performance, and work cards.",
+    settings: {
+      quickStart: false,
+      dashboardInsights: true,
+      localDataStatus: false,
+      completionHistory: false,
+      categoryOverview: true,
+      managementControls: false,
+      backupTools: false,
+      searchFilters: true,
+      loggingSummary: true,
+      monthCalendar: false,
+      selectedDayWork: true,
+      workspaceOverview: true,
+      addMember: false,
+      addTarget: false,
+    },
+  },
+  {
+    key: "calendar",
+    label: "Calendar View",
+    description: "Planning-first layout with calendar, streaks, and selected day work.",
+    settings: {
+      quickStart: false,
+      dashboardInsights: false,
+      localDataStatus: false,
+      completionHistory: true,
+      categoryOverview: false,
+      managementControls: false,
+      backupTools: false,
+      searchFilters: true,
+      loggingSummary: true,
+      monthCalendar: true,
+      selectedDayWork: true,
+      workspaceOverview: false,
+      addMember: false,
+      addTarget: false,
+    },
+  },
+  {
+    key: "admin",
+    label: "Admin View",
+    description: "Setup, backup, workspace, and maintenance controls.",
+    settings: {
+      quickStart: true,
+      dashboardInsights: false,
+      localDataStatus: true,
+      completionHistory: false,
+      categoryOverview: false,
+      managementControls: true,
+      backupTools: true,
+      searchFilters: true,
+      loggingSummary: false,
+      monthCalendar: false,
+      selectedDayWork: false,
+      workspaceOverview: true,
+      addMember: true,
+      addTarget: true,
+    },
+  },
+  {
+    key: "full",
+    label: "Full View",
+    description: "Everything visible for power users and internal testing.",
+    settings: {
+      quickStart: true,
+      dashboardInsights: true,
+      localDataStatus: true,
+      completionHistory: true,
+      categoryOverview: true,
+      managementControls: true,
+      backupTools: true,
+      searchFilters: true,
+      loggingSummary: true,
+      monthCalendar: true,
+      selectedDayWork: true,
+      workspaceOverview: true,
+      addMember: true,
+      addTarget: true,
+    },
+  },
 ];
 
 const initialMembers: Member[] = [
@@ -441,6 +597,28 @@ function getTargetEmptyState({
   };
 }
 
+function normalizeScreenSettings(value: unknown): ScreenSettings {
+  const normalized = { ...defaultScreenSettings };
+
+  if (!value || typeof value !== "object") return normalized;
+
+  const rawSettings = value as Partial<Record<ScreenSectionKey, unknown>>;
+
+  for (const section of screenSectionOptions) {
+    if (typeof rawSettings[section.key] === "boolean") {
+      normalized[section.key] = rawSettings[section.key] as boolean;
+    }
+  }
+
+  return normalized;
+}
+
+function screenSettingsEqual(a: ScreenSettings, b: ScreenSettings) {
+  return screenSectionOptions.every(
+    (section) => a[section.key] === b[section.key]
+  );
+}
+
 export default function Home() {
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -493,6 +671,11 @@ export default function Home() {
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editLogDate, setEditLogDate] = useState(todayISO());
   const [editLogAmount, setEditLogAmount] = useState(1);
+
+  const [screenSettings, setScreenSettings] = useState<ScreenSettings>(
+    defaultScreenSettings
+  );
+  const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
 
   const categoryOptions = useMemo(() => {
     const currentCategories = targets
@@ -660,6 +843,10 @@ export default function Home() {
         setLogs(safeState.logs);
         setNewOwnerId(safeState.members[0]?.id ?? "me");
 
+        if (parsedData.screenSettings) {
+          setScreenSettings(normalizeScreenSettings(parsedData.screenSettings));
+        }
+
         if (typeof parsedData.lastSavedAt === "string") {
           setLastSavedAt(parsedData.lastSavedAt);
         }
@@ -683,10 +870,11 @@ export default function Home() {
         members,
         targets,
         logs,
+        screenSettings,
         lastSavedAt: savedAt,
       })
     );
-  }, [members, targets, logs, hasLoadedSavedData]);
+  }, [members, targets, logs, screenSettings, hasLoadedSavedData]);
 
 
   useEffect(() => {
@@ -1585,6 +1773,7 @@ export default function Home() {
       selectedDate,
       calendarMonth,
       lastSavedAt,
+      screenSettings,
       members,
       targets,
       logs,
@@ -1644,6 +1833,7 @@ export default function Home() {
       setCategoryFilter("all");
       setArchiveFilter("active");
       setManualAmounts({});
+      setScreenSettings(normalizeScreenSettings(parsed.screenSettings));
       cancelEditingTarget();
       cancelEditingMember();
       cancelEditingProgressLog();
@@ -1687,6 +1877,8 @@ export default function Home() {
     setArchiveFilter("active");
     setNewOwnerId("me");
     setNewCategory("General");
+    setScreenSettings(defaultScreenSettings);
+    setIsCustomizeOpen(false);
     setManualAmounts({});
     cancelEditingTarget();
     cancelEditingMember();
@@ -1721,6 +1913,39 @@ export default function Home() {
     archiveFilter,
     activeFilterCount,
   });
+
+  const visibleScreenSections = screenSectionOptions.filter(
+    (section) => screenSettings[section.key]
+  ).length;
+  const currentScreenPreset = screenPresetOptions.find((preset) =>
+    screenSettingsEqual(screenSettings, preset.settings)
+  );
+  const currentScreenLabel = currentScreenPreset?.label ?? "Custom View";
+
+  function applyScreenPreset(presetKey: ScreenPresetKey) {
+    const preset = screenPresetOptions.find((item) => item.key === presetKey);
+    if (!preset) return;
+
+    setScreenSettings({ ...preset.settings });
+  }
+
+  function toggleScreenSection(sectionKey: ScreenSectionKey) {
+    setScreenSettings((currentSettings) => ({
+      ...currentSettings,
+      [sectionKey]: !currentSettings[sectionKey],
+    }));
+  }
+
+  function showAllScreenSections() {
+    const fullPreset = screenPresetOptions.find((preset) => preset.key === "full");
+    if (!fullPreset) return;
+
+    setScreenSettings({ ...fullPreset.settings });
+  }
+
+  function resetScreenView() {
+    setScreenSettings(defaultScreenSettings);
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
@@ -1784,7 +2009,116 @@ export default function Home() {
           <StatCard label="Archived" value={archivedCount} />
         </section>
 
-        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-white/5 p-4 sm:mb-8 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
+                Screen customization
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">{currentScreenLabel}</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                Choose exactly what appears on your dashboard. This keeps the app
+                simple for normal users while still keeping power tools available.
+              </p>
+            </div>
+
+            <div className="grid gap-2 sm:flex sm:flex-wrap">
+              <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
+                {visibleScreenSections}/{screenSectionOptions.length} panels visible
+              </div>
+
+              <button
+                onClick={() => setIsCustomizeOpen((isOpen) => !isOpen)}
+                className="rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 hover:bg-cyan-300"
+              >
+                {isCustomizeOpen ? "Close panel" : "Customize screen"}
+              </button>
+            </div>
+          </div>
+
+          {isCustomizeOpen && (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/50 p-4 sm:p-5">
+              <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h3 className="text-xl font-bold">View presets</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                    Start with a preset, then fine-tune individual panels. Your
+                    screen preferences are saved in this browser.
+                  </p>
+                </div>
+
+                <div className="grid gap-2 sm:flex sm:flex-wrap">
+                  <button
+                    onClick={resetScreenView}
+                    className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
+                  >
+                    Reset simple view
+                  </button>
+
+                  <button
+                    onClick={showAllScreenSections}
+                    className="rounded-xl border border-cyan-400/30 px-4 py-2 text-sm text-cyan-200 hover:bg-cyan-400/10"
+                  >
+                    Show everything
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                {screenPresetOptions.map((preset) => {
+                  const isActive = screenSettingsEqual(screenSettings, preset.settings);
+
+                  return (
+                    <button
+                      key={preset.key}
+                      onClick={() => applyScreenPreset(preset.key)}
+                      className={
+                        isActive
+                          ? "rounded-2xl border border-cyan-400 bg-cyan-400/10 p-4 text-left transition hover:-translate-y-0.5"
+                          : "rounded-2xl border border-white/10 bg-slate-900 p-4 text-left transition hover:-translate-y-0.5 hover:bg-white/10"
+                      }
+                    >
+                      <p className="font-bold">{preset.label}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">
+                        {preset.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {screenSectionOptions.map((section) => (
+                  <label
+                    key={section.key}
+                    className="flex cursor-pointer gap-3 rounded-2xl border border-white/10 bg-slate-900 p-4 hover:bg-white/10"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={screenSettings[section.key]}
+                      onChange={() => toggleScreenSection(section.key)}
+                      className="mt-1 h-4 w-4 accent-cyan-400"
+                    />
+
+                    <span>
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold">{section.label}</span>
+                        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-slate-400">
+                          {section.group}
+                        </span>
+                      </span>
+                      <span className="mt-1 block text-sm leading-6 text-slate-400">
+                        {section.description}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.quickStart ? undefined : "none" }}>
           <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
@@ -1831,7 +2165,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.dashboardInsights ? undefined : "none" }}>
           <div className="mb-5">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300 sm:text-sm sm:tracking-[0.25em]">
               Dashboard insights
@@ -1941,7 +2275,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.localDataStatus ? undefined : "none" }}>
           <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300 sm:text-sm sm:tracking-[0.25em]">
@@ -1965,7 +2299,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.completionHistory ? undefined : "none" }}>
           <div className="mb-5">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300 sm:text-sm sm:tracking-[0.25em]">
               Completion history
@@ -2044,7 +2378,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-violet-400/20 bg-violet-400/10 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-violet-400/20 bg-violet-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.categoryOverview ? undefined : "none" }}>
           <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-300 sm:text-sm sm:tracking-[0.25em]">
@@ -2123,7 +2457,7 @@ export default function Home() {
           )}
         </section>
 
-        <section className="mb-6 flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:flex-row sm:flex-wrap sm:p-5">
+        <section className="mb-6 flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:flex-row sm:flex-wrap sm:p-5" style={{ display: screenSettings.managementControls ? undefined : "none" }}>
           <button
             onClick={clearProgressLogs}
             className="rounded-xl border border-yellow-400/30 px-4 py-2 text-sm text-yellow-200 hover:bg-yellow-400/10"
@@ -2144,7 +2478,7 @@ export default function Home() {
           </p>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.backupTools ? undefined : "none" }}>
           <div className="mb-4">
             <h2 className="text-2xl font-bold">Backup, export, and import</h2>
             <p className="mt-1 text-sm leading-6 text-slate-400">
@@ -2192,7 +2526,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.searchFilters ? undefined : "none" }}>
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-2xl font-bold">Search and filters</h2>
@@ -2275,7 +2609,7 @@ export default function Home() {
             </select>
           </div>
         </section>
-                <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5">
+                <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.loggingSummary ? undefined : "none" }}>
           <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr_1fr]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
@@ -2305,7 +2639,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.monthCalendar ? undefined : "none" }}>
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-2xl font-bold">Month calendar</h2>
@@ -2413,7 +2747,7 @@ export default function Home() {
         </section>
 
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-          <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: screenSettings.selectedDayWork ? undefined : "none" }}>
             <div className="mb-5">
               <h2 className="text-2xl font-bold">Selected day&apos;s work</h2>
               <p className="mt-1 text-sm leading-6 text-slate-400">
@@ -2841,7 +3175,7 @@ export default function Home() {
           </section>
 
           <aside className="space-y-6">
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: screenSettings.workspaceOverview ? undefined : "none" }}>
               <h2 className="mb-4 text-2xl font-bold">Workspace overview</h2>
 
               <div className="space-y-3">
@@ -2957,7 +3291,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: screenSettings.addMember ? undefined : "none" }}>
               <h2 className="mb-4 text-2xl font-bold">Add member</h2>
 
               <div className="space-y-3">
@@ -2989,7 +3323,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: screenSettings.addTarget ? undefined : "none" }}>
               <h2 className="mb-4 text-2xl font-bold">Add target</h2>
 
               <div className="space-y-3">
