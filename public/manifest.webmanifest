@@ -1,0 +1,39 @@
+{
+  "name": "Universal Targets Tracker",
+  "short_name": "Targets",
+  "description": "Track recurring targets, missed work, backlog, progress, members, and catch-up status.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "categories": [
+    "productivity",
+    "business",
+    "education"
+  ],
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open Targets",
+      "short_name": "Targets",
+      "description": "Open your target dashboard",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/app-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

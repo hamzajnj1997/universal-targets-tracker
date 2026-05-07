@@ -73,7 +73,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 26;
+const APP_BACKUP_VERSION = 27;
 
 const roleOptions = [
   "Owner",
@@ -676,6 +676,32 @@ export default function Home() {
     defaultScreenSettings
   );
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+
+    const canRegister =
+      window.location.protocol === "https:" ||
+      window.location.hostname === "localhost";
+
+    if (!canRegister) return;
+
+    const registerServiceWorker = () => {
+      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    };
+
+    if (document.readyState === "complete") {
+      registerServiceWorker();
+    } else {
+      window.addEventListener("load", registerServiceWorker, { once: true });
+    }
+
+    return () => {
+      window.removeEventListener("load", registerServiceWorker);
+    };
+  }, []);
 
   const categoryOptions = useMemo(() => {
     const currentCategories = targets
