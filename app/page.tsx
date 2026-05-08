@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
+import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
 
 type Frequency = "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -27,6 +28,7 @@ type ScreenSectionKey =
   | "addTarget";
 type ScreenSettings = Record<ScreenSectionKey, boolean>;
 type ScreenPresetKey = "simple" | "manager" | "calendar" | "admin" | "full";
+type SupabaseConnectionStatus = "checking" | "connected" | "missing" | "error";
 
 type Member = {
   id: string;
@@ -73,7 +75,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 28;
+const APP_BACKUP_VERSION = 29;
 
 const roleOptions = [
   "Owner",
@@ -676,9 +678,67 @@ export default function Home() {
     defaultScreenSettings
   );
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator === "undefined" ? true : navigator.onLine
+  const [isOnline, setIsOnline] = useState(true);
+  const [supabaseConnectionStatus, setSupabaseConnectionStatus] =
+    useState<SupabaseConnectionStatus>("checking");
+  const [supabaseConnectionMessage, setSupabaseConnectionMessage] = useState(
+    "Checking backend connection..."
   );
+
+  useEffect(() => {
+    const config = getSupabaseConfigStatus();
+
+    if (!config.isConfigured) {
+      setSupabaseConnectionStatus("missing");
+      setSupabaseConnectionMessage(
+        "Supabase environment variables are missing. Local app mode is active."
+      );
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      setSupabaseConnectionStatus("missing");
+      setSupabaseConnectionMessage(
+        "Supabase client could not be created. Check environment variables."
+      );
+      return;
+    }
+
+    let isMounted = true;
+
+    supabase.auth
+      .getSession()
+      .then(({ error }) => {
+        if (!isMounted) return;
+
+        if (error) {
+          setSupabaseConnectionStatus("error");
+          setSupabaseConnectionMessage(error.message);
+          return;
+        }
+
+        setSupabaseConnectionStatus("connected");
+        setSupabaseConnectionMessage(
+          "Cloud backend is connected. Login and sync can now be added."
+        );
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) return;
+
+        setSupabaseConnectionStatus("error");
+        setSupabaseConnectionMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not reach Supabase backend."
+        );
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     function updateOnlineStatus() {
@@ -2043,6 +2103,42 @@ export default function Home() {
             </FieldLabel>
           </div>
         </header>
+
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
+                Cloud backend foundation
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">
+                {supabaseConnectionStatus === "connected"
+                  ? "Supabase connected"
+                  : supabaseConnectionStatus === "checking"
+                  ? "Checking backend"
+                  : supabaseConnectionStatus === "missing"
+                  ? "Local mode active"
+                  : "Backend connection issue"}
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                {supabaseConnectionMessage}
+              </p>
+            </div>
+
+            <span
+              className={
+                supabaseConnectionStatus === "connected"
+                  ? "rounded-full bg-emerald-500/20 px-3 py-1 text-sm font-semibold text-emerald-300"
+                  : supabaseConnectionStatus === "checking"
+                  ? "rounded-full bg-cyan-500/20 px-3 py-1 text-sm font-semibold text-cyan-300"
+                  : supabaseConnectionStatus === "missing"
+                  ? "rounded-full bg-yellow-500/20 px-3 py-1 text-sm font-semibold text-yellow-300"
+                  : "rounded-full bg-red-500/20 px-3 py-1 text-sm font-semibold text-red-300"
+              }
+            >
+              {supabaseConnectionStatus}
+            </span>
+          </div>
+        </section>
 
         {!isOnline && (
           <section className="mb-6 rounded-3xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-yellow-100 sm:mb-8">
