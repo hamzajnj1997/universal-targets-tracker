@@ -73,7 +73,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 27;
+const APP_BACKUP_VERSION = 28;
 
 const roleOptions = [
   "Owner",
@@ -676,6 +676,24 @@ export default function Home() {
     defaultScreenSettings
   );
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine
+  );
+
+  useEffect(() => {
+    function updateOnlineStatus() {
+      setIsOnline(window.navigator.onLine);
+    }
+
+    updateOnlineStatus();
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
@@ -2025,6 +2043,24 @@ export default function Home() {
             </FieldLabel>
           </div>
         </header>
+
+        {!isOnline && (
+          <section className="mb-6 rounded-3xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-yellow-100 sm:mb-8">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold">Offline mode</p>
+                <p className="mt-1 text-sm leading-6 text-yellow-100/80">
+                  You are offline. Changes stay on this device. Cloud sync will
+                  be added after login/database integration.
+                </p>
+              </div>
+
+              <span className="rounded-full bg-yellow-400/20 px-3 py-1 text-xs font-semibold">
+                Local-only
+              </span>
+            </div>
+          </section>
+        )}
 
         <section className="mb-6 grid grid-cols-2 gap-3 sm:mb-8 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
           <StatCard label="Pending" value={totalPending} />
