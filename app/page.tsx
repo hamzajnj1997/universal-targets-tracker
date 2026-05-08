@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
+import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
 
 type Frequency = "daily" | "weekly" | "monthly";
@@ -29,6 +30,7 @@ type ScreenSectionKey =
 type ScreenSettings = Record<ScreenSectionKey, boolean>;
 type ScreenPresetKey = "simple" | "manager" | "calendar" | "admin" | "full";
 type SupabaseConnectionStatus = "checking" | "connected" | "missing" | "error";
+type AuthMode = "login" | "signup";
 
 type Member = {
   id: string;
@@ -75,7 +77,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 29;
+const APP_BACKUP_VERSION = 30;
 
 const roleOptions = [
   "Owner",
@@ -685,6 +687,14 @@ export default function Home() {
     "Checking backend connection..."
   );
 
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authDisplayName, setAuthDisplayName] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
+
   useEffect(() => {
     const config = getSupabaseConfigStatus();
 
@@ -741,6 +751,36 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) return;
+
+    let isMounted = true;
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!isMounted) return;
+
+      if (error) {
+        setAuthMessage(error.message);
+        return;
+      }
+
+      setCurrentUser(data.session?.user ?? null);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     function updateOnlineStatus() {
       setIsOnline(window.navigator.onLine);
     }
@@ -760,10 +800,9 @@ export default function Home() {
       return;
     }
 
-    const canRegister =
-      window.location.protocol === "https:" ||
-      window.location.hostname === "localhost";
+    if (process.env.NODE_ENV !== "production") return;
 
+    const canRegister = window.location.protocol === "https:";
     if (!canRegister) return;
 
     const registerServiceWorker = () => {
@@ -2051,6 +2090,128 @@ export default function Home() {
     setScreenSettings(defaultScreenSettings);
   }
 
+  async function handleSignup() {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      setAuthMessage("Supabase is not configured yet.");
+      return;
+    }
+
+    const email = authEmail.trim().toLowerCase();
+    const password = authPassword.trim();
+    const displayName = authDisplayName.trim();
+
+    if (!email) {
+      setAuthMessage("Enter your email address.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setAuthMessage("Password must be at least 6 characters.");
+      return;
+    }
+
+    setIsAuthSubmitting(true);
+    setAuthMessage("Creating your account...");
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          display_name: displayName || email,
+        },
+      },
+    });
+
+    setIsAuthSubmitting(false);
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    if (data.session?.user) {
+      setCurrentUser(data.session.user);
+      setAuthMessage("Account created. You are signed in.");
+      setAuthPassword("");
+      return;
+    }
+
+    setAuthMessage(
+      "Account created. Check your email to confirm your account, then log in."
+    );
+    setAuthPassword("");
+    setAuthMode("login");
+  }
+
+  async function handleLogin() {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      setAuthMessage("Supabase is not configured yet.");
+      return;
+    }
+
+    const email = authEmail.trim().toLowerCase();
+    const password = authPassword.trim();
+
+    if (!email) {
+      setAuthMessage("Enter your email address.");
+      return;
+    }
+
+    if (!password) {
+      setAuthMessage("Enter your password.");
+      return;
+    }
+
+    setIsAuthSubmitting(true);
+    setAuthMessage("Signing in...");
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setIsAuthSubmitting(false);
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    setCurrentUser(data.user);
+    setAuthMessage("Signed in successfully. Cloud data sync comes next.");
+    setAuthPassword("");
+  }
+
+  async function handleLogout() {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      setAuthMessage("Supabase is not configured yet.");
+      return;
+    }
+
+    setIsAuthSubmitting(true);
+    setAuthMessage("Signing out...");
+
+    const { error } = await supabase.auth.signOut();
+
+    setIsAuthSubmitting(false);
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    setCurrentUser(null);
+    setAuthPassword("");
+    setAuthMessage("Signed out. Local demo data is still available on this device.");
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
       <div className="mx-auto max-w-7xl">
@@ -2138,6 +2299,140 @@ export default function Home() {
               {supabaseConnectionStatus}
             </span>
           </div>
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-4 sm:mb-8 sm:p-5">
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300 sm:text-sm sm:tracking-[0.25em]">
+                Cloud account
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">
+                {currentUser ? "Signed in" : "Sign in or create account"}
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                Accounts are now connected to Supabase Auth. Your existing data
+                still runs in local mode. Cloud syncing members, targets, logs,
+                and screen preferences comes in the next version.
+              </p>
+            </div>
+
+            <span
+              className={
+                currentUser
+                  ? "rounded-full bg-emerald-500/20 px-3 py-1 text-sm font-semibold text-emerald-300"
+                  : "rounded-full bg-slate-500/20 px-3 py-1 text-sm font-semibold text-slate-300"
+              }
+            >
+              {currentUser ? "account active" : "local mode"}
+            </span>
+          </div>
+
+          {currentUser ? (
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-sm text-slate-400">Signed in as</p>
+                  <p className="mt-1 break-all text-lg font-bold">
+                    {currentUser.email}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    User ID: {currentUser.id}
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  disabled={isAuthSubmitting}
+                  className="rounded-xl border border-red-400/30 px-4 py-3 font-semibold text-red-200 hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isAuthSubmitting ? "Working..." : "Sign out"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 sm:p-5">
+              <div className="mb-4 grid gap-2 sm:flex sm:flex-wrap">
+                <button
+                  onClick={() => {
+                    setAuthMode("login");
+                    setAuthMessage("");
+                  }}
+                  className={
+                    authMode === "login"
+                      ? "rounded-xl bg-emerald-400 px-4 py-2 font-semibold text-slate-950"
+                      : "rounded-xl border border-white/10 px-4 py-2 font-semibold hover:bg-white/10"
+                  }
+                >
+                  Login
+                </button>
+
+                <button
+                  onClick={() => {
+                    setAuthMode("signup");
+                    setAuthMessage("");
+                  }}
+                  className={
+                    authMode === "signup"
+                      ? "rounded-xl bg-emerald-400 px-4 py-2 font-semibold text-slate-950"
+                      : "rounded-xl border border-white/10 px-4 py-2 font-semibold hover:bg-white/10"
+                  }
+                >
+                  Create account
+                </button>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-3">
+                {authMode === "signup" && (
+                  <input
+                    value={authDisplayName}
+                    onChange={(event) => setAuthDisplayName(event.target.value)}
+                    placeholder="Display name"
+                    className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+                  />
+                )}
+
+                <input
+                  type="email"
+                  value={authEmail}
+                  onChange={(event) => setAuthEmail(event.target.value)}
+                  placeholder="Email address"
+                  className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+                />
+
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={(event) => setAuthPassword(event.target.value)}
+                  placeholder="Password"
+                  className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+                />
+
+                <button
+                  onClick={authMode === "signup" ? handleSignup : handleLogin}
+                  disabled={isAuthSubmitting}
+                  className="rounded-xl bg-emerald-400 px-4 py-3 font-semibold text-slate-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isAuthSubmitting
+                    ? "Working..."
+                    : authMode === "signup"
+                    ? "Create account"
+                    : "Login"}
+                </button>
+              </div>
+
+              {authMessage && (
+                <p className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
+                  {authMessage}
+                </p>
+              )}
+
+              <p className="mt-4 text-xs leading-5 text-slate-500">
+                Do not use a critical password yet. This is the first auth beta.
+                Cloud sync and account settings are still being added.
+              </p>
+            </div>
+          )}
         </section>
 
         {!isOnline && (
@@ -3649,3 +3944,5 @@ function EmptyStateCard({ title, body }: { title: string; body: string }) {
     </div>
   );
 }
+
+
