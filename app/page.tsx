@@ -8,7 +8,7 @@ import type { ChangeEvent, ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
 
-type Frequency = "daily" | "weekly" | "monthly";
+type Frequency = "once" | "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
 type StatusFilter = "all" | "onTrack" | "close" | "behind";
 type ArchiveFilter = "active" | "archived" | "all";
@@ -77,7 +77,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 30;
+const APP_BACKUP_VERSION = 31;
 
 const roleOptions = [
   "Owner",
@@ -434,7 +434,7 @@ function getMondayBasedWeekday(date: Date) {
 }
 
 function isFrequency(value: unknown): value is Frequency {
-  return value === "daily" || value === "weekly" || value === "monthly";
+  return value === "once" || value === "daily" || value === "weekly" || value === "monthly";
 }
 
 function isPriority(value: unknown): value is Priority {
@@ -448,6 +448,10 @@ function isPriority(value: unknown): value is Priority {
 
 function periodsDue(target: Target, dateISO: string) {
   if (dateISO < target.startDate) return 0;
+
+  if (target.frequency === "once") {
+    return 1;
+  }
 
   if (target.frequency === "daily") {
     return daysBetween(target.startDate, dateISO) + 1;
@@ -652,6 +656,7 @@ export default function Home() {
   const [newAmount, setNewAmount] = useState(1);
   const [newUnit, setNewUnit] = useState("tasks");
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
+  const [newStartDate, setNewStartDate] = useState(todayISO());
   const [newOwnerId, setNewOwnerId] = useState("me");
 
   const [manualAmounts, setManualAmounts] = useState<Record<string, string>>(
@@ -665,6 +670,7 @@ export default function Home() {
   const [editPriority, setEditPriority] = useState<Priority>("medium");
   const [editOwnerId, setEditOwnerId] = useState("me");
   const [editFrequency, setEditFrequency] = useState<Frequency>("daily");
+  const [editStartDate, setEditStartDate] = useState(todayISO());
   const [editAmount, setEditAmount] = useState(1);
   const [editUnit, setEditUnit] = useState("tasks");
 
@@ -1557,6 +1563,7 @@ export default function Home() {
     setEditPriority(target.priority ?? "medium");
     setEditOwnerId(target.ownerId);
     setEditFrequency(target.frequency);
+    setEditStartDate(target.startDate);
     setEditAmount(target.targetAmount);
     setEditUnit(target.unit);
   }
@@ -1569,6 +1576,7 @@ export default function Home() {
     setEditPriority("medium");
     setEditOwnerId("me");
     setEditFrequency("daily");
+    setEditStartDate(todayISO());
     setEditAmount(1);
     setEditUnit("tasks");
   }
@@ -1578,6 +1586,11 @@ export default function Home() {
 
     if (!editTitle.trim()) {
       window.alert("Target name cannot be empty.");
+      return;
+    }
+
+    if (!isValidDateISO(editStartDate)) {
+      window.alert("Edited target date must be a valid calendar date.");
       return;
     }
 
@@ -1607,6 +1620,7 @@ export default function Home() {
               priority: editPriority,
               ownerId: editOwnerId,
               frequency: editFrequency,
+              startDate: editStartDate,
               targetAmount: editAmount,
               unit: editUnit.trim(),
             }
@@ -1677,6 +1691,11 @@ export default function Home() {
   function addTarget() {
     if (!newTitle.trim()) return;
 
+    if (!isValidDateISO(newStartDate)) {
+      window.alert("Target date must be a valid calendar date.");
+      return;
+    }
+
     if (!isPositiveFiniteNumber(newAmount)) {
       window.alert("Target amount must be greater than 0.");
       return;
@@ -1708,7 +1727,7 @@ export default function Home() {
         frequency: newFrequency,
         targetAmount: newAmount,
         unit: newUnit.trim(),
-        startDate: isValidDateISO(selectedDate) ? selectedDate : todayISO(),
+        startDate: newStartDate,
         isArchived: false,
       },
     ]);
@@ -1720,6 +1739,7 @@ export default function Home() {
     setNewAmount(1);
     setNewUnit("tasks");
     setNewFrequency("daily");
+    setNewStartDate(todayISO());
   }
 
   function addMember() {
@@ -3282,6 +3302,22 @@ export default function Home() {
                             </select>
                           </FieldLabel>
 
+                          <FieldLabel label="Edit target date">
+                            <input
+                              type="date"
+                              value={editStartDate}
+                              onChange={(event) =>
+                                setEditStartDate(event.target.value)
+                              }
+                              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                            />
+                            <p className="mt-1 text-xs text-slate-500">
+                              {editFrequency === "once"
+                                ? "Due date for this one-time target."
+                                : "Start date for this recurring target."}
+                            </p>
+                          </FieldLabel>
+
                           <FieldLabel label="Frequency">
                             <select
                               value={editFrequency}
@@ -3290,6 +3326,7 @@ export default function Home() {
                               }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
+                              <option value="once">One-time</option>
                               <option value="daily">Daily</option>
                               <option value="weekly">Weekly</option>
                               <option value="monthly">Monthly</option>
@@ -3375,7 +3412,7 @@ export default function Home() {
                               </span>
 
                               <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-medium text-cyan-300">
-                                {row.target.frequency}
+                                {row.target.frequency === "once" ? "one-time" : row.target.frequency}
                               </span>
 
                               <span
@@ -3391,7 +3428,7 @@ export default function Home() {
                               Owner: {row.owner?.name ?? "Unknown"} · Role:{" "}
                               {row.owner?.role ?? "Unknown"} · Target:{" "}
                               {row.target.targetAmount} {row.target.unit} /{" "}
-                              {row.target.frequency}
+                              {row.target.frequency === "once" ? "one-time" : row.target.frequency}
                             </p>
 
                             {row.target.description && (
@@ -3836,6 +3873,23 @@ export default function Home() {
                   />
                 </div>
 
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    New target date
+                  </label>
+                  <input
+                    type="date"
+                    value={newStartDate}
+                    onChange={(event) => setNewStartDate(event.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    {newFrequency === "once"
+                      ? "Due date for this one-time target."
+                      : "Start date for this recurring target."}
+                  </p>
+                </div>
+
                 <select
                   value={newFrequency}
                   onChange={(event) =>
@@ -3843,6 +3897,7 @@ export default function Home() {
                   }
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 >
+                  <option value="once">One-time</option>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
