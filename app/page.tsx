@@ -3157,9 +3157,7 @@ export default function Home() {
                           onClick={() => claimTarget(row.target.id)}
                           disabled={row.target.isArchived}
                           className="rounded-xl border border-emerald-400/30 px-3 py-2 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          I'm working
-                        </button>
+                        >{"I'm working"}</button>
                       )}
 
                       <button
@@ -3358,7 +3356,7 @@ export default function Home() {
                 {currentUser ? "Cloud workspace ready" : "Sign in to sync data"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Save this device's members, targets, logs, and screen preferences
+                {"Save this device's members, targets, logs, and screen preferences "}
                 to Supabase, or load your cloud copy onto this device. This first
                 sync release is manual to prevent accidental overwrites.
               </p>
@@ -3833,7 +3831,7 @@ export default function Home() {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-              <p className="text-sm text-slate-400">Today's focus list</p>
+              <p className="text-sm text-slate-400">{"Today's focus list"}</p>
 
               {dashboardInsights.recommendedFocus.length > 0 ? (
                 <div className="mt-3 space-y-2">
@@ -4335,7 +4333,7 @@ export default function Home() {
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
           <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: screenSettings.selectedDayWork ? undefined : "none" }}>
             <div className="mb-5">
-              <h2 className="text-2xl font-bold">Selected day's work</h2>
+              <h2 className="text-2xl font-bold">{"Selected day's work"}</h2>
               <p className="mt-1 text-sm leading-6 text-slate-400">
                 {selectedDate} Â- Showing {selectedMemberName}
               </p>
