@@ -89,7 +89,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 37;
+const APP_BACKUP_VERSION = 38;
 
 const roleOptions = [
   "Owner",
@@ -1353,6 +1353,53 @@ export default function Home() {
     archiveFilter,
     members,
   ]);
+
+  const pendingApprovalLogs = useMemo(() => {
+    return logs
+      .filter((log) => normalizeProgressLogStatus(log.status) === "pending")
+      .map((log) => {
+        const target = targets.find((item) => item.id === log.targetId);
+        const submittedBy = members.find(
+          (member) => member.id === log.submittedByMemberId
+        );
+
+        return {
+          log,
+          target,
+          submittedBy,
+        };
+      })
+      .filter((row) => Boolean(row.target))
+      .sort((a, b) =>
+        (b.log.createdAt || b.log.date).localeCompare(
+          a.log.createdAt || a.log.date
+        )
+      );
+  }, [logs, targets, members]);
+
+  const rejectedApprovalLogs = useMemo(() => {
+    return logs
+      .filter((log) => normalizeProgressLogStatus(log.status) === "rejected")
+      .map((log) => {
+        const target = targets.find((item) => item.id === log.targetId);
+        const submittedBy = members.find(
+          (member) => member.id === log.submittedByMemberId
+        );
+
+        return {
+          log,
+          target,
+          submittedBy,
+        };
+      })
+      .filter((row) => Boolean(row.target))
+      .sort((a, b) =>
+        (b.log.createdAt || b.log.date).localeCompare(
+          a.log.createdAt || a.log.date
+        )
+      )
+      .slice(0, 5);
+  }, [logs, targets, members]);
 
   const categoryOverview = useMemo(() => {
     const groups = new Map<
@@ -3143,6 +3190,93 @@ export default function Home() {
               </div>
             )}
           </div>
+        </section>
+
+        <section
+          className="mb-6 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 sm:mb-8 sm:p-5"
+          style={{
+            display:
+              activeAppView === "dashboard" ||
+              activeAppView === "targets" ||
+              activeAppView === "workspace"
+                ? undefined
+                : "none",
+          }}
+        >
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300 sm:text-sm sm:tracking-[0.25em]">
+                Pending approval
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">
+                {pendingApprovalLogs.length} item
+                {pendingApprovalLogs.length === 1 ? "" : "s"} waiting
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                This panel is the approval queue foundation. In the next step,
+                member submissions will enter this queue before counting toward
+                progress.
+              </p>
+            </div>
+
+            <span
+              className={
+                authorityCapabilities.canApproveWork
+                  ? "rounded-full bg-emerald-500/20 px-3 py-1 text-sm font-semibold text-emerald-300"
+                  : "rounded-full bg-slate-500/20 px-3 py-1 text-sm font-semibold text-slate-300"
+              }
+            >
+              {authorityCapabilities.canApproveWork ? "Can approve" : "Cannot approve"}
+            </span>
+          </div>
+
+          {pendingApprovalLogs.length > 0 ? (
+            <div className="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50">
+              {pendingApprovalLogs.map(({ log, target, submittedBy }) => (
+                <div
+                  key={log.id}
+                  className="grid gap-3 p-4 lg:grid-cols-[1fr_auto] lg:items-center"
+                >
+                  <div>
+                    <p className="font-semibold">{target?.title ?? "Unknown task"}</p>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Submitted by {submittedBy?.name ?? "Unknown"} � {log.date} �{" "}
+                      {log.achievedAmount} {target?.unit ?? "units"}
+                    </p>
+                  </div>
+
+                  <span className="rounded-full bg-amber-500/20 px-3 py-1 text-sm font-semibold text-amber-200">
+                    Pending
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-5 text-sm text-slate-400">
+              No work is waiting for approval yet.
+            </div>
+          )}
+
+          {rejectedApprovalLogs.length > 0 && (
+            <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-400/10 p-4">
+              <p className="font-bold text-red-200">Recently rejected</p>
+
+              <div className="mt-3 grid gap-3">
+                {rejectedApprovalLogs.map(({ log, target, submittedBy }) => (
+                  <div
+                    key={log.id}
+                    className="rounded-xl border border-white/10 bg-slate-950/50 p-3"
+                  >
+                    <p className="font-semibold">{target?.title ?? "Unknown task"}</p>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Submitted by {submittedBy?.name ?? "Unknown"} � {log.date} �{" "}
+                      {log.rejectionReason || "No rejection reason provided."}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         <section
