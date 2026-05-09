@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react-hooks/exhaustive-deps */
@@ -474,8 +474,7 @@ function monthsBetween(startDate: string, endDate: string) {
 
   return (
     (end.getFullYear() - start.getFullYear()) * 12 +
-    end.getMonth() -
-    start.getMonth()
+    end.getMonth() - start.getMonth()
   );
 }
 
@@ -2999,7 +2998,7 @@ export default function Home() {
                 Clean task list
               </p>
               <h2 className="mt-2 text-2xl font-bold">
-                {activeAppView === "dashboard" ? "Today&apos;s work" : "Targets"}
+                {activeAppView === "dashboard" ? "Today's work" : "Targets"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
                 A focused list view for daily use. Advanced editing, logs,
@@ -3028,7 +3027,7 @@ export default function Home() {
             >
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
-                  {member.name} � {member.role}
+                  {member.name} - {member.role}
                 </option>
               ))}
             </select>
@@ -3115,8 +3114,8 @@ export default function Home() {
                       </div>
 
                       <p className="mt-1 text-sm text-slate-400">
-                        {row.owner?.name ?? "Unknown"} �{" "}
-                        {row.target.category || "General"} �{" "}
+                        {row.owner?.name ?? "Unknown"} -{" "}
+                        {row.target.category || "General"} -{" "}
                         {row.target.frequency === "once" ? "Due" : "Starts"}{" "}
                         {row.target.startDate}
                       </p>
@@ -3159,7 +3158,7 @@ export default function Home() {
                           disabled={row.target.isArchived}
                           className="rounded-xl border border-emerald-400/30 px-3 py-2 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          I&apos;m working
+                          I'm working
                         </button>
                       )}
 
@@ -3240,7 +3239,7 @@ export default function Home() {
                   <div>
                     <p className="font-semibold">{target?.title ?? "Unknown task"}</p>
                     <p className="mt-1 text-sm text-slate-400">
-                      Submitted by {submittedBy?.name ?? "Unknown"} � {log.date} �{" "}
+                      Submitted by {submittedBy?.name ?? "Unknown"} - {log.date} -{" "}
                       {log.achievedAmount} {target?.unit ?? "units"}
                     </p>
                   </div>
@@ -3269,7 +3268,7 @@ export default function Home() {
                   >
                     <p className="font-semibold">{target?.title ?? "Unknown task"}</p>
                     <p className="mt-1 text-sm text-slate-400">
-                      Submitted by {submittedBy?.name ?? "Unknown"} � {log.date} �{" "}
+                      Submitted by {submittedBy?.name ?? "Unknown"} - {log.date} -{" "}
                       {log.rejectionReason || "No rejection reason provided."}
                     </p>
                   </div>
@@ -3359,7 +3358,7 @@ export default function Home() {
                 {currentUser ? "Cloud workspace ready" : "Sign in to sync data"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Save this device&apos;s members, targets, logs, and screen preferences
+                Save this device's members, targets, logs, and screen preferences
                 to Supabase, or load your cloud copy onto this device. This first
                 sync release is manual to prevent accidental overwrites.
               </p>
@@ -3722,7 +3721,7 @@ export default function Home() {
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
               <p>
-                {members.length} members · {activeTargetsCount} active targets ·{" "}
+                {members.length} members Â- {activeTargetsCount} active targets Â-{" "}
                 {archivedCount} archived
               </p>
             </div>
@@ -3775,7 +3774,7 @@ export default function Home() {
                     {dashboardInsights.mostBehindCategory.category}
                   </p>
                   <p className="mt-1 text-sm text-slate-300">
-                    {dashboardInsights.mostBehindCategory.pending} pending ·{" "}
+                    {dashboardInsights.mostBehindCategory.pending} pending Â-{" "}
                     {dashboardInsights.mostBehindCategory.targetCount} targets
                   </p>
                 </>
@@ -3795,7 +3794,7 @@ export default function Home() {
                     {dashboardInsights.mostBehindMember.member.name}
                   </p>
                   <p className="mt-1 text-sm text-slate-300">
-                    {dashboardInsights.mostBehindMember.pending} pending ·{" "}
+                    {dashboardInsights.mostBehindMember.pending} pending Â-{" "}
                     {dashboardInsights.mostBehindMember.targetCount} targets
                   </p>
                 </>
@@ -3819,7 +3818,7 @@ export default function Home() {
                       dashboardInsights.highestPriorityOverdueTarget.target
                         .priority
                     )}{" "}
-                    · {dashboardInsights.highestPriorityOverdueTarget.pending}{" "}
+                    Â- {dashboardInsights.highestPriorityOverdueTarget.pending}{" "}
                     {
                       dashboardInsights.highestPriorityOverdueTarget.target.unit
                     }{" "}
@@ -3834,7 +3833,7 @@ export default function Home() {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-              <p className="text-sm text-slate-400">Today&apos;s focus list</p>
+              <p className="text-sm text-slate-400">Today's focus list</p>
 
               {dashboardInsights.recommendedFocus.length > 0 ? (
                 <div className="mt-3 space-y-2">
@@ -3847,7 +3846,7 @@ export default function Home() {
                         {index + 1}. {row.target.title}
                       </p>
                       <p className="text-xs text-slate-400">
-                        {row.pending} {row.target.unit} pending ·{" "}
+                        {row.pending} {row.target.unit} pending Â-{" "}
                         {priorityLabel(row.target.priority)}
                       </p>
                     </div>
@@ -3880,7 +3879,7 @@ export default function Home() {
             <StatusBox label="Last saved" value={formatSavedTime(lastSavedAt)} />
             <StatusBox
               label="Saved records"
-              value={`${members.length} members · ${targets.length} targets`}
+              value={`${members.length} members Â- ${targets.length} targets`}
             />
             <StatusBox label="Progress logs" value={`${logs.length} logs`} />
           </div>
@@ -4336,9 +4335,9 @@ export default function Home() {
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
           <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: screenSettings.selectedDayWork ? undefined : "none" }}>
             <div className="mb-5">
-              <h2 className="text-2xl font-bold">Selected day&apos;s work</h2>
+              <h2 className="text-2xl font-bold">Selected day's work</h2>
               <p className="mt-1 text-sm leading-6 text-slate-400">
-                {selectedDate} · Showing {selectedMemberName}
+                {selectedDate} Â- Showing {selectedMemberName}
               </p>
             </div>
 
@@ -4539,8 +4538,8 @@ export default function Home() {
                             </div>
 
                             <p className="mt-2 text-sm leading-6 text-slate-400">
-                              Owner: {row.owner?.name ?? "Unknown"} · Role:{" "}
-                              {row.owner?.role ?? "Unknown"} · Target:{" "}
+                              Owner: {row.owner?.name ?? "Unknown"} Â- Role:{" "}
+                              {row.owner?.role ?? "Unknown"} Â- Target:{" "}
                               {row.target.targetAmount} {row.target.unit} /{" "}
                               {row.target.frequency === "once" ? "one-time" : row.target.frequency}
                             </p>
@@ -4847,7 +4846,7 @@ export default function Home() {
                             <div>
                               <p className="font-semibold">{row.member.name}</p>
                               <p className="text-sm text-slate-400">
-                                {row.member.role} · {row.targetCount} targets
+                                {row.member.role} Â- {row.targetCount} targets
                               </p>
                             </div>
 
@@ -4868,7 +4867,7 @@ export default function Home() {
                           </div>
 
                           <p className="mt-3 text-sm leading-6 text-slate-300">
-                            Pending: {row.pending} · Achieved: {row.achieved} ·
+                            Pending: {row.pending} Â- Achieved: {row.achieved} Â-
                             Required: {row.required}
                           </p>
 
@@ -5143,5 +5142,7 @@ function EmptyStateCard({ title, body }: { title: string; body: string }) {
     </div>
   );
 }
+
+
 
 
