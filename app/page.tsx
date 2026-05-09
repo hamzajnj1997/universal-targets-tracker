@@ -2480,7 +2480,7 @@ export default function Home() {
         managementControls: false,
         backupTools: false,
         searchFilters: false,
-        loggingSummary: true,
+        loggingSummary: false,
         monthCalendar: false,
         selectedDayWork: false,
         workspaceOverview: false,
@@ -2502,10 +2502,10 @@ export default function Home() {
         searchFilters: true,
         loggingSummary: false,
         monthCalendar: false,
-        selectedDayWork: false,
+        selectedDayWork: true,
         workspaceOverview: false,
         addMember: false,
-        addTarget: false,
+        addTarget: true,
       };
     }
 
@@ -2515,11 +2515,11 @@ export default function Home() {
         quickStart: false,
         dashboardInsights: false,
         localDataStatus: false,
-        completionHistory: true,
+        completionHistory: false,
         categoryOverview: false,
         managementControls: false,
         backupTools: false,
-        searchFilters: true,
+        searchFilters: false,
         loggingSummary: true,
         monthCalendar: true,
         selectedDayWork: true,
@@ -2554,7 +2554,7 @@ export default function Home() {
         ...defaultScreenSettings,
         quickStart: false,
         dashboardInsights: true,
-        localDataStatus: true,
+        localDataStatus: false,
         completionHistory: true,
         categoryOverview: true,
         managementControls: false,
@@ -2571,13 +2571,13 @@ export default function Home() {
 
     return {
       ...defaultScreenSettings,
-      quickStart: true,
+      quickStart: false,
       dashboardInsights: false,
       localDataStatus: true,
       completionHistory: false,
       categoryOverview: false,
       managementControls: true,
-      backupTools: true,
+      backupTools: false,
       searchFilters: false,
       loggingSummary: false,
       monthCalendar: false,
@@ -2995,12 +2995,7 @@ export default function Home() {
 
         <section
           className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5"
-          style={{
-            display:
-              activeAppView === "dashboard" || activeAppView === "targets"
-                ? undefined
-                : "none",
-          }}
+          style={{ display: activeAppView === "dashboard" || activeAppView === "targets" ? undefined : "none" }}
         >
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -3201,14 +3196,7 @@ export default function Home() {
 
         <section
           className="mb-6 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 sm:mb-8 sm:p-5"
-          style={{
-            display:
-              activeAppView === "dashboard" ||
-              activeAppView === "targets" ||
-              activeAppView === "workspace"
-                ? undefined
-                : "none",
-          }}
+          style={{ display: activeAppView === "workspace" ? undefined : "none" }}
         >
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -3594,7 +3582,7 @@ export default function Home() {
           </section>
         )}
 
-        <section className="mb-6 grid grid-cols-2 gap-3 sm:mb-8 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
+        <section className="mb-6 grid grid-cols-2 gap-3 sm:mb-8 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6" style={{ display: activeAppView === "dashboard" ? undefined : "none" }}>
           <StatCard label="Pending" value={totalPending} />
           <StatCard label="Achieved" value={totalAchieved} />
           <StatCard label="Required" value={totalRequired} />
@@ -3712,7 +3700,7 @@ export default function Home() {
           )}
         </section>
 
-        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.quickStart ? undefined : "none" }}>
+        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" && screenSettings.quickStart ? undefined : "none" }}>
           <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
@@ -3759,7 +3747,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.dashboardInsights ? undefined : "none" }}>
+        <section className="mb-6 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "dashboard" || activeAppView === "reports" ? undefined : "none" }}>
           <div className="mb-5">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300 sm:text-sm sm:tracking-[0.25em]">
               Dashboard insights
@@ -3869,7 +3857,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.localDataStatus ? undefined : "none" }}>
+        <section className="mb-6 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" ? undefined : "none" }}>
           <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300 sm:text-sm sm:tracking-[0.25em]">
@@ -3893,7 +3881,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.completionHistory ? undefined : "none" }}>
+        <section className="mb-6 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "reports" ? undefined : "none" }}>
           <div className="mb-5">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300 sm:text-sm sm:tracking-[0.25em]">
               Completion history
@@ -3972,7 +3960,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-violet-400/20 bg-violet-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.categoryOverview ? undefined : "none" }}>
+        <section className="mb-6 rounded-3xl border border-violet-400/20 bg-violet-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "reports" ? undefined : "none" }}>
           <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-300 sm:text-sm sm:tracking-[0.25em]">
@@ -4051,7 +4039,7 @@ export default function Home() {
           )}
         </section>
 
-        <section className="mb-6 flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:flex-row sm:flex-wrap sm:p-5" style={{ display: screenSettings.managementControls ? undefined : "none" }}>
+        <section className="mb-6 flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:flex-row sm:flex-wrap sm:p-5" style={{ display: activeAppView === "settings" ? undefined : "none" }}>
           <button
             onClick={clearProgressLogs}
             className="rounded-xl border border-yellow-400/30 px-4 py-2 text-sm text-yellow-200 hover:bg-yellow-400/10"
@@ -4072,7 +4060,7 @@ export default function Home() {
           </p>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.backupTools ? undefined : "none" }}>
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "reports" ? undefined : "none" }}>
           <div className="mb-4">
             <h2 className="text-2xl font-bold">Backup, export, and import</h2>
             <p className="mt-1 text-sm leading-6 text-slate-400">
@@ -4120,7 +4108,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.searchFilters ? undefined : "none" }}>
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "targets" ? undefined : "none" }}>
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-2xl font-bold">Search and filters</h2>
@@ -4203,7 +4191,7 @@ export default function Home() {
             </select>
           </div>
         </section>
-                <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.loggingSummary ? undefined : "none" }}>
+                <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "calendar" ? undefined : "none" }}>
           <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr_1fr]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
@@ -4233,7 +4221,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.monthCalendar ? undefined : "none" }}>
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "calendar" ? undefined : "none" }}>
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-2xl font-bold">Month calendar</h2>
@@ -4341,7 +4329,7 @@ export default function Home() {
         </section>
 
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-          <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: screenSettings.selectedDayWork ? undefined : "none" }}>
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: activeAppView === "calendar" || activeAppView === "targets" ? undefined : "none" }}>
             <div className="mb-5">
               <h2 className="text-2xl font-bold">{"Selected day's work"}</h2>
               <p className="mt-1 text-sm leading-6 text-slate-400">
@@ -4786,7 +4774,7 @@ export default function Home() {
           </section>
 
           <aside className="space-y-6">
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: screenSettings.workspaceOverview ? undefined : "none" }}>
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: activeAppView === "workspace" ? undefined : "none" }}>
               <h2 className="mb-4 text-2xl font-bold">Workspace overview</h2>
 
               <div className="space-y-3">
@@ -4904,7 +4892,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: screenSettings.addMember ? undefined : "none" }}>
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: activeAppView === "workspace" ? undefined : "none" }}>
               <h2 className="mb-4 text-2xl font-bold">Add member</h2>
 
               <div className="space-y-3">
@@ -4936,7 +4924,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: screenSettings.addTarget ? undefined : "none" }}>
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: activeAppView === "targets" ? undefined : "none" }}>
               <h2 className="mb-4 text-2xl font-bold">Add target</h2>
 
               <div className="space-y-3">
