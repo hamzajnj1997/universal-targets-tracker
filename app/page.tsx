@@ -34,6 +34,7 @@ type SupabaseConnectionStatus = "checking" | "connected" | "missing" | "error";
 type AuthMode = "login" | "signup";
 type AppView = "dashboard" | "targets" | "calendar" | "workspace" | "reports" | "settings";
 type WorkspaceAuthorityRole = "owner" | "admin" | "leader" | "parent" | "member" | "viewer";
+type ProgressLogStatus = "pending" | "approved" | "rejected";
 
 type Member = {
   id: string;
@@ -63,6 +64,11 @@ type ProgressLog = {
   date: string;
   achievedAmount: number;
   createdAt: string;
+  status?: ProgressLogStatus;
+  submittedByMemberId?: string;
+  approvedByMemberId?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
 };
 
 type SavedAppState = {
@@ -83,7 +89,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 36;
+const APP_BACKUP_VERSION = 37;
 
 const roleOptions = [
   "Owner",
@@ -723,6 +729,14 @@ function isWorkspaceAuthorityRole(value: unknown): value is WorkspaceAuthorityRo
 }
 
 
+
+function normalizeProgressLogStatus(value: unknown): ProgressLogStatus {
+  if (value === "pending" || value === "approved" || value === "rejected") {
+    return value;
+  }
+
+  return "approved";
+}
 
 function getAuthorityCapabilities(role: WorkspaceAuthorityRole) {
   const canManageEverything = role === "owner";
@@ -1637,6 +1651,7 @@ export default function Home() {
         date: selectedDate,
         achievedAmount: amount,
         createdAt: new Date().toISOString(),
+        status: normalizeProgressLogStatus("approved"),
       },
     ]);
   }

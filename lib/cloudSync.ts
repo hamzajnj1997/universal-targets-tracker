@@ -2,6 +2,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 export type CloudFrequency = "once" | "daily" | "weekly" | "monthly";
 export type CloudPriority = "low" | "medium" | "high" | "urgent";
+export type CloudProgressLogStatus = "pending" | "approved" | "rejected";
 
 export type CloudMember = {
   id: string;
@@ -31,6 +32,11 @@ export type CloudProgressLog = {
   date: string;
   achievedAmount: number;
   createdAt: string;
+  status?: CloudProgressLogStatus;
+  submittedByMemberId?: string;
+  approvedByMemberId?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
 };
 
 export type CloudSyncPayload = {
