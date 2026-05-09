@@ -847,7 +847,7 @@ export default function Home() {
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
 
   const [cloudSyncMessage, setCloudSyncMessage] = useState(
-    "Cloud sync is ready. Save local data to cloud or load cloud data when signed in."
+    "Manual cloud sync is ready. Save this device to cloud or load your latest cloud copy. Sync is not automatic yet."
   );
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudWorkspaceName, setCloudWorkspaceName] = useState("");
@@ -3363,7 +3363,7 @@ export default function Home() {
                 Cloud data sync
               </p>
               <h2 className="mt-2 text-2xl font-bold">
-                {currentUser ? "Cloud workspace ready" : "Sign in to sync data"}
+                {currentUser ? "Manual cloud sync ready" : "Sign in to sync data"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
                 {"Save this device's members, targets, logs, and screen preferences "}
@@ -3373,7 +3373,7 @@ export default function Home() {
             </div>
 
             <span className="rounded-full bg-blue-500/20 px-3 py-1 text-sm font-semibold text-blue-300">
-              {cloudWorkspaceName || "Workspace"}
+              {cloudWorkspaceName || "Cloud workspace not loaded yet"}
             </span>
           </div>
 
