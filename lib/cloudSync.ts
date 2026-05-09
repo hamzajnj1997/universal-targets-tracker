@@ -21,6 +21,8 @@ export type CloudTarget = {
   unit: string;
   startDate: string;
   isArchived: boolean;
+  claimedByMemberId?: string;
+  claimedAt?: string;
 };
 
 export type CloudProgressLog = {
@@ -177,6 +179,10 @@ export async function saveLocalDataToCloud(
     unit: target.unit || "tasks",
     start_date: target.startDate,
     is_archived: Boolean(target.isArchived),
+    claimed_by_member_id: target.claimedByMemberId
+      ? memberIdMap.get(target.claimedByMemberId) ?? null
+      : null,
+    claimed_at: target.claimedAt ?? null,
   }));
 
   const { data: insertedTargets, error: targetsError } = targetRows.length
@@ -255,7 +261,7 @@ export async function loadCloudDataFromCloud(
 
   const { data: targetRows, error: targetsError } = await supabase
     .from("targets")
-    .select("id,owner_member_id,title,description,category,priority,frequency,target_amount,unit,start_date,is_archived")
+    .select("id,owner_member_id,title,description,category,priority,frequency,target_amount,unit,start_date,is_archived,claimed_by_member_id,claimed_at")
     .eq("workspace_id", workspace.id)
     .order("created_at", { ascending: true });
 
@@ -274,6 +280,8 @@ export async function loadCloudDataFromCloud(
       unit: target.unit || "tasks",
       startDate: target.start_date,
       isArchived: Boolean(target.is_archived),
+      claimedByMemberId: target.claimed_by_member_id ?? undefined,
+      claimedAt: target.claimed_at ?? undefined,
     })) ?? [];
 
   const { data: logRows, error: logsError } = await supabase

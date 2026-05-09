@@ -53,6 +53,8 @@ type Target = {
   unit: string;
   startDate: string;
   isArchived: boolean;
+  claimedByMemberId?: string;
+  claimedAt?: string;
 };
 
 type ProgressLog = {
@@ -81,7 +83,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 35;
+const APP_BACKUP_VERSION = 36;
 
 const roleOptions = [
   "Owner",
@@ -747,6 +749,7 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [calendarMonth, setCalendarMonth] = useState(monthStartISO(todayISO()));
   const [selectedMemberId, setSelectedMemberId] = useState("all");
+  const [activeWorkerId, setActiveWorkerId] = useState("me");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
@@ -1034,6 +1037,15 @@ export default function Home() {
           : todayISO(),
         isArchived:
           typeof target.isArchived === "boolean" ? target.isArchived : false,
+        claimedByMemberId:
+          typeof target.claimedByMemberId === "string" &&
+          target.claimedByMemberId.trim()
+            ? target.claimedByMemberId.trim()
+            : undefined,
+        claimedAt:
+          typeof target.claimedAt === "string" && target.claimedAt
+            ? target.claimedAt
+            : undefined,
       });
     }
 
@@ -1090,6 +1102,14 @@ export default function Home() {
       ownerId: validMemberIds.has(target.ownerId)
         ? target.ownerId
         : safeMembers[0].id,
+      claimedByMemberId:
+        target.claimedByMemberId && validMemberIds.has(target.claimedByMemberId)
+          ? target.claimedByMemberId
+          : undefined,
+      claimedAt:
+        target.claimedByMemberId && validMemberIds.has(target.claimedByMemberId)
+          ? target.claimedAt
+          : undefined,
     }));
 
     const validTargetIds = new Set(safeTargets.map((target) => target.id));
@@ -1166,6 +1186,10 @@ export default function Home() {
       setSelectedMemberId("all");
     }
 
+    if (!validMemberIds.has(activeWorkerId)) {
+      setActiveWorkerId(fallbackMemberId);
+    }
+
     if (!validMemberIds.has(newOwnerId)) {
       setNewOwnerId(fallbackMemberId);
     }
@@ -1173,7 +1197,7 @@ export default function Home() {
     if (!validMemberIds.has(editOwnerId)) {
       setEditOwnerId(fallbackMemberId);
     }
-  }, [members, selectedMemberId, newOwnerId, editOwnerId]);
+  }, [members, selectedMemberId, activeWorkerId, newOwnerId, editOwnerId]);
 
   function calculateTargetSnapshot(target: Target, dateISO: string) {
     const owner = members.find((member) => member.id === target.ownerId);
@@ -1816,6 +1840,97 @@ export default function Home() {
     );
 
     cancelEditingMember();
+  }
+
+  function getActiveWorkerId() {
+    if (members.some((member) => member.id === activeWorkerId)) {
+      return activeWorkerId;
+    }
+
+    if (
+      selectedMemberId !== "all" &&
+      members.some((member) => member.id === selectedMemberId)
+    ) {
+      return selectedMemberId;
+    }
+
+    return members[0]?.id ?? "";
+  }
+
+  function getClaimedMemberName(memberId?: string) {
+    if (!memberId) return "";
+
+    return members.find((member) => member.id === memberId)?.name ?? "Unknown";
+  }
+
+  function claimTarget(targetId: string) {
+    if (!authorityCapabilities.canSubmitWork) {
+      window.alert("Viewer role cannot claim tasks.");
+      return;
+    }
+
+    const workerId = getActiveWorkerId();
+
+    if (!workerId) {
+      window.alert("Add or select a member before claiming a task.");
+      return;
+    }
+
+    const target = targets.find((item) => item.id === targetId);
+
+    if (!target) return;
+
+    if (target.isArchived) {
+      window.alert("Archived tasks cannot be claimed.");
+      return;
+    }
+
+    if (target.claimedByMemberId && target.claimedByMemberId !== workerId) {
+      window.alert(
+        `This task is already being worked on by ${getClaimedMemberName(
+          target.claimedByMemberId
+        )}.`
+      );
+      return;
+    }
+
+    setTargets((currentTargets) =>
+      currentTargets.map((item) =>
+        item.id === targetId
+          ? {
+              ...item,
+              claimedByMemberId: workerId,
+              claimedAt: new Date().toISOString(),
+            }
+          : item
+      )
+    );
+  }
+
+  function releaseTargetClaim(targetId: string) {
+    const workerId = getActiveWorkerId();
+    const target = targets.find((item) => item.id === targetId);
+
+    if (!target) return;
+
+    const isOwnClaim = target.claimedByMemberId === workerId;
+
+    if (!isOwnClaim && !authorityCapabilities.canAssignTargets) {
+      window.alert("Only the person working on it or an authority role can release this claim.");
+      return;
+    }
+
+    setTargets((currentTargets) =>
+      currentTargets.map((item) =>
+        item.id === targetId
+          ? {
+              ...item,
+              claimedByMemberId: undefined,
+              claimedAt: undefined,
+            }
+          : item
+      )
+    );
   }
 
   function addQuickTaskFromList() {
@@ -2836,6 +2951,27 @@ export default function Home() {
             </div>
           </div>
 
+          <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">Working as</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Claims and quick tasks will use this member.
+              </p>
+            </div>
+
+            <select
+              value={activeWorkerId}
+              onChange={(event) => setActiveWorkerId(event.target.value)}
+              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+            >
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name} � {member.role}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
             <input
               value={quickTaskTitle}
@@ -2922,6 +3058,17 @@ export default function Home() {
                         {row.target.frequency === "once" ? "Due" : "Starts"}{" "}
                         {row.target.startDate}
                       </p>
+
+                      {row.target.claimedByMemberId ? (
+                        <p className="mt-2 inline-flex rounded-full bg-fuchsia-500/20 px-3 py-1 text-xs font-semibold text-fuchsia-200">
+                          Already working:{" "}
+                          {getClaimedMemberName(row.target.claimedByMemberId)}
+                        </p>
+                      ) : (
+                        <p className="mt-2 inline-flex rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
+                          Available
+                        </p>
+                      )}
                     </div>
 
                     <div className="grid gap-2 sm:flex sm:items-center sm:justify-end">
@@ -2936,6 +3083,23 @@ export default function Home() {
                       >
                         +1
                       </button>
+
+                      {row.target.claimedByMemberId ? (
+                        <button
+                          onClick={() => releaseTargetClaim(row.target.id)}
+                          className="rounded-xl border border-fuchsia-400/30 px-3 py-2 text-sm text-fuchsia-200 hover:bg-fuchsia-400/10"
+                        >
+                          Release
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => claimTarget(row.target.id)}
+                          disabled={row.target.isArchived}
+                          className="rounded-xl border border-emerald-400/30 px-3 py-2 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          I&apos;m working
+                        </button>
+                      )}
 
                       <button
                         onClick={() => {
