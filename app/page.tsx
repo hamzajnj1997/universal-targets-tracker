@@ -2510,7 +2510,7 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-3 sm:mb-8 sm:p-4" style={{ display: activeAppView === "dashboard" ? undefined : "none" }}>
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-3 sm:mb-8 sm:p-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
