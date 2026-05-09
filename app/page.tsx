@@ -31,6 +31,7 @@ type ScreenSettings = Record<ScreenSectionKey, boolean>;
 type ScreenPresetKey = "simple" | "manager" | "calendar" | "admin" | "full";
 type SupabaseConnectionStatus = "checking" | "connected" | "missing" | "error";
 type AuthMode = "login" | "signup";
+type AppView = "dashboard" | "targets" | "calendar" | "workspace" | "reports" | "settings";
 
 type Member = {
   id: string;
@@ -77,7 +78,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 31;
+const APP_BACKUP_VERSION = 32;
 
 const roleOptions = [
   "Owner",
@@ -258,6 +259,43 @@ const screenPresetOptions: {
       addMember: true,
       addTarget: true,
     },
+  },
+];
+
+const appViewOptions: {
+  key: AppView;
+  label: string;
+  description: string;
+}[] = [
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    description: "Today, warnings, and recommended focus.",
+  },
+  {
+    key: "targets",
+    label: "Targets",
+    description: "Search, add, edit, archive, and log target progress.",
+  },
+  {
+    key: "calendar",
+    label: "Calendar",
+    description: "Plan by date and review the monthly forecast.",
+  },
+  {
+    key: "workspace",
+    label: "Workspace",
+    description: "Members, roles, and team setup.",
+  },
+  {
+    key: "reports",
+    label: "Reports",
+    description: "History, categories, exports, and backups.",
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    description: "Account, backend, local status, and screen controls.",
   },
 ];
 
@@ -686,6 +724,8 @@ export default function Home() {
     defaultScreenSettings
   );
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
+  const [activeAppView, setActiveAppView] = useState<AppView>("dashboard");
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [supabaseConnectionStatus, setSupabaseConnectionStatus] =
     useState<SupabaseConnectionStatus>("checking");
@@ -2110,6 +2150,191 @@ export default function Home() {
     setScreenSettings(defaultScreenSettings);
   }
 
+  function getAppViewSettings(view: AppView): ScreenSettings {
+    if (view === "dashboard") {
+      return {
+        ...defaultScreenSettings,
+        quickStart: false,
+        dashboardInsights: true,
+        localDataStatus: false,
+        completionHistory: false,
+        categoryOverview: false,
+        managementControls: false,
+        backupTools: false,
+        searchFilters: false,
+        loggingSummary: true,
+        monthCalendar: false,
+        selectedDayWork: true,
+        workspaceOverview: false,
+        addMember: false,
+        addTarget: false,
+      };
+    }
+
+    if (view === "targets") {
+      return {
+        ...defaultScreenSettings,
+        quickStart: false,
+        dashboardInsights: false,
+        localDataStatus: false,
+        completionHistory: false,
+        categoryOverview: false,
+        managementControls: false,
+        backupTools: false,
+        searchFilters: true,
+        loggingSummary: false,
+        monthCalendar: false,
+        selectedDayWork: true,
+        workspaceOverview: false,
+        addMember: false,
+        addTarget: true,
+      };
+    }
+
+    if (view === "calendar") {
+      return {
+        ...defaultScreenSettings,
+        quickStart: false,
+        dashboardInsights: false,
+        localDataStatus: false,
+        completionHistory: true,
+        categoryOverview: false,
+        managementControls: false,
+        backupTools: false,
+        searchFilters: true,
+        loggingSummary: true,
+        monthCalendar: true,
+        selectedDayWork: true,
+        workspaceOverview: false,
+        addMember: false,
+        addTarget: false,
+      };
+    }
+
+    if (view === "workspace") {
+      return {
+        ...defaultScreenSettings,
+        quickStart: false,
+        dashboardInsights: false,
+        localDataStatus: false,
+        completionHistory: false,
+        categoryOverview: false,
+        managementControls: false,
+        backupTools: false,
+        searchFilters: false,
+        loggingSummary: false,
+        monthCalendar: false,
+        selectedDayWork: false,
+        workspaceOverview: true,
+        addMember: true,
+        addTarget: false,
+      };
+    }
+
+    if (view === "reports") {
+      return {
+        ...defaultScreenSettings,
+        quickStart: false,
+        dashboardInsights: true,
+        localDataStatus: true,
+        completionHistory: true,
+        categoryOverview: true,
+        managementControls: false,
+        backupTools: true,
+        searchFilters: false,
+        loggingSummary: false,
+        monthCalendar: false,
+        selectedDayWork: false,
+        workspaceOverview: false,
+        addMember: false,
+        addTarget: false,
+      };
+    }
+
+    return {
+      ...defaultScreenSettings,
+      quickStart: true,
+      dashboardInsights: false,
+      localDataStatus: true,
+      completionHistory: false,
+      categoryOverview: false,
+      managementControls: true,
+      backupTools: true,
+      searchFilters: false,
+      loggingSummary: false,
+      monthCalendar: false,
+      selectedDayWork: false,
+      workspaceOverview: false,
+      addMember: false,
+      addTarget: false,
+    };
+  }
+
+  function openAppView(view: AppView) {
+    setActiveAppView(view);
+    setIsActionMenuOpen(false);
+    setScreenSettings(getAppViewSettings(view));
+
+    if (view !== "settings") {
+      setIsCustomizeOpen(false);
+    }
+
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function openAction(
+    action: "addTarget" | "addMember" | "logProgress" | "backup" | "customize"
+  ) {
+    if (action === "addTarget") {
+      setActiveAppView("targets");
+      setIsActionMenuOpen(false);
+      setScreenSettings({
+        ...getAppViewSettings("targets"),
+        addTarget: true,
+        selectedDayWork: true,
+      });
+      return;
+    }
+
+    if (action === "addMember") {
+      setActiveAppView("workspace");
+      setIsActionMenuOpen(false);
+      setScreenSettings({
+        ...getAppViewSettings("workspace"),
+        addMember: true,
+        workspaceOverview: true,
+      });
+      return;
+    }
+
+    if (action === "logProgress") {
+      setActiveAppView("targets");
+      setIsActionMenuOpen(false);
+      setScreenSettings({
+        ...getAppViewSettings("targets"),
+        selectedDayWork: true,
+      });
+      return;
+    }
+
+    if (action === "backup") {
+      setActiveAppView("reports");
+      setIsActionMenuOpen(false);
+      setScreenSettings({
+        ...getAppViewSettings("reports"),
+        backupTools: true,
+      });
+      return;
+    }
+
+    setActiveAppView("settings");
+    setIsActionMenuOpen(false);
+    setIsCustomizeOpen(true);
+    setScreenSettings(getAppViewSettings("settings"));
+  }
+
   async function handleSignup() {
     const supabase = getSupabaseClient();
 
@@ -2285,7 +2510,84 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-3 sm:mb-8 sm:p-4" style={{ display: activeAppView === "dashboard" ? undefined : "none" }}>
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
+                Main navigation
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Choose what you want to do first. The app now shows focused
+                sections instead of forcing every tool onto one screen.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:flex-wrap">
+                {appViewOptions.map((view) => (
+                  <button
+                    key={view.key}
+                    onClick={() => openAppView(view.key)}
+                    className={
+                      activeAppView === view.key
+                        ? "rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950"
+                        : "rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10"
+                    }
+                    title={view.description}
+                  >
+                    {view.label}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="relative">
+                <button
+                  onClick={() => setIsActionMenuOpen((isOpen) => !isOpen)}
+                  className="w-full rounded-xl bg-emerald-400 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-300 lg:w-auto"
+                >
+                  + Add / Actions
+                </button>
+
+                {isActionMenuOpen && (
+                  <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-white/10 bg-slate-950 p-2 shadow-2xl">
+                    <button
+                      onClick={() => openAction("addTarget")}
+                      className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
+                    >
+                      Add target
+                    </button>
+                    <button
+                      onClick={() => openAction("addMember")}
+                      className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
+                    >
+                      Add member
+                    </button>
+                    <button
+                      onClick={() => openAction("logProgress")}
+                      className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
+                    >
+                      Log progress
+                    </button>
+                    <button
+                      onClick={() => openAction("backup")}
+                      className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
+                    >
+                      Backup / export
+                    </button>
+                    <button
+                      onClick={() => openAction("customize")}
+                      className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
+                    >
+                      Customize screen
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" ? undefined : "none" }}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
@@ -2321,7 +2623,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" ? undefined : "none" }}>
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300 sm:text-sm sm:tracking-[0.25em]">
@@ -2482,7 +2784,7 @@ export default function Home() {
           <StatCard label="Archived" value={archivedCount} />
         </section>
 
-        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-white/5 p-4 sm:mb-8 sm:p-5">
+        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" ? undefined : "none" }}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
