@@ -553,8 +553,14 @@ function periodsDue(target: Target, dateISO: string) {
   return monthsBetween(target.startDate, dateISO) + 1;
 }
 
-function getStatus(pending: number, progress: number) {
+function getStatus(pending: number, progress: number, dateISO?: string) {
   if (pending === 0) return "On Track";
+
+  const today = todayISO();
+
+  if (dateISO && dateISO > today) return "Upcoming";
+  if (dateISO && dateISO === today) return progress >= 80 ? "Close" : "Due Today";
+
   if (progress >= 80) return "Close";
   return "Behind";
 }
@@ -1244,7 +1250,7 @@ export default function Home() {
       surplus,
       progress,
       recentLogs,
-      status: getStatus(pending, progress),
+      status: getStatus(pending, progress, dateISO),
     };
   }
 
@@ -1312,7 +1318,7 @@ export default function Home() {
       achieved,
       pending,
       progress,
-      status: getStatus(pending, progress),
+      status: getStatus(pending, progress, dateISO),
     };
   }
 
@@ -1480,10 +1486,10 @@ export default function Home() {
         pending,
         progress,
         targetCount: memberRows.length,
-        status: getStatus(pending, progress),
+        status: getStatus(pending, progress, selectedDate),
       };
     });
-  }, [members, dashboard, archiveFilter]);
+  }, [members, dashboard, archiveFilter, selectedDate]);
 
   const dashboardInsights = useMemo(() => {
     const mostBehindCategory =
@@ -3719,7 +3725,7 @@ export default function Home() {
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
               <p>
-                {members.length} members Â- {activeTargetsCount} active targets Â-{" "}
+                {members.length} members - {activeTargetsCount} active targets -{" "}
                 {archivedCount} archived
               </p>
             </div>
@@ -3772,7 +3778,7 @@ export default function Home() {
                     {dashboardInsights.mostBehindCategory.category}
                   </p>
                   <p className="mt-1 text-sm text-slate-300">
-                    {dashboardInsights.mostBehindCategory.pending} pending Â-{" "}
+                    {dashboardInsights.mostBehindCategory.pending} pending -{" "}
                     {dashboardInsights.mostBehindCategory.targetCount} targets
                   </p>
                 </>
@@ -3792,7 +3798,7 @@ export default function Home() {
                     {dashboardInsights.mostBehindMember.member.name}
                   </p>
                   <p className="mt-1 text-sm text-slate-300">
-                    {dashboardInsights.mostBehindMember.pending} pending Â-{" "}
+                    {dashboardInsights.mostBehindMember.pending} pending -{" "}
                     {dashboardInsights.mostBehindMember.targetCount} targets
                   </p>
                 </>
@@ -3816,7 +3822,7 @@ export default function Home() {
                       dashboardInsights.highestPriorityOverdueTarget.target
                         .priority
                     )}{" "}
-                    Â- {dashboardInsights.highestPriorityOverdueTarget.pending}{" "}
+                    - {dashboardInsights.highestPriorityOverdueTarget.pending}{" "}
                     {
                       dashboardInsights.highestPriorityOverdueTarget.target.unit
                     }{" "}
@@ -3844,7 +3850,7 @@ export default function Home() {
                         {index + 1}. {row.target.title}
                       </p>
                       <p className="text-xs text-slate-400">
-                        {row.pending} {row.target.unit} pending Â-{" "}
+                        {row.pending} {row.target.unit} pending -{" "}
                         {priorityLabel(row.target.priority)}
                       </p>
                     </div>
@@ -3877,7 +3883,7 @@ export default function Home() {
             <StatusBox label="Last saved" value={formatSavedTime(lastSavedAt)} />
             <StatusBox
               label="Saved records"
-              value={`${members.length} members Â- ${targets.length} targets`}
+              value={`${members.length} members - ${targets.length} targets`}
             />
             <StatusBox label="Progress logs" value={`${logs.length} logs`} />
           </div>
@@ -4335,7 +4341,7 @@ export default function Home() {
             <div className="mb-5">
               <h2 className="text-2xl font-bold">{"Selected day's work"}</h2>
               <p className="mt-1 text-sm leading-6 text-slate-400">
-                {selectedDate} Â- Showing {selectedMemberName}
+                {selectedDate} - Showing {selectedMemberName}
               </p>
             </div>
 
@@ -4536,8 +4542,8 @@ export default function Home() {
                             </div>
 
                             <p className="mt-2 text-sm leading-6 text-slate-400">
-                              Owner: {row.owner?.name ?? "Unknown"} Â- Role:{" "}
-                              {row.owner?.role ?? "Unknown"} Â- Target:{" "}
+                              Owner: {row.owner?.name ?? "Unknown"} - Role:{" "}
+                              {row.owner?.role ?? "Unknown"} - Target:{" "}
                               {row.target.targetAmount} {row.target.unit} /{" "}
                               {row.target.frequency === "once" ? "one-time" : row.target.frequency}
                             </p>
@@ -4844,7 +4850,7 @@ export default function Home() {
                             <div>
                               <p className="font-semibold">{row.member.name}</p>
                               <p className="text-sm text-slate-400">
-                                {row.member.role} Â- {row.targetCount} targets
+                                {row.member.role} - {row.targetCount} targets
                               </p>
                             </div>
 
@@ -4865,7 +4871,7 @@ export default function Home() {
                           </div>
 
                           <p className="mt-3 text-sm leading-6 text-slate-300">
-                            Pending: {row.pending} Â- Achieved: {row.achieved} Â-
+                            Pending: {row.pending} - Achieved: {row.achieved} -
                             Required: {row.required}
                           </p>
 
@@ -5140,6 +5146,7 @@ function EmptyStateCard({ title, body }: { title: string; body: string }) {
     </div>
   );
 }
+
 
 
 
