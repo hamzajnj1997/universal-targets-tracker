@@ -81,7 +81,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 34;
+const APP_BACKUP_VERSION = 35;
 
 const roleOptions = [
   "Owner",
@@ -764,6 +764,7 @@ export default function Home() {
   const [newMemberRole, setNewMemberRole] = useState("Member");
 
   const [newTitle, setNewTitle] = useState("");
+  const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newCategory, setNewCategory] = useState("General");
   const [newPriority, setNewPriority] = useState<Priority>("medium");
@@ -1817,6 +1818,42 @@ export default function Home() {
     cancelEditingMember();
   }
 
+  function addQuickTaskFromList() {
+    const title = quickTaskTitle.trim();
+
+    if (!title) return;
+
+    if (!authorityCapabilities.canAssignTargets) {
+      window.alert("Only workspace authority roles can add or assign tasks.");
+      return;
+    }
+
+    const ownerId =
+      selectedMemberId !== "all" &&
+      members.some((member) => member.id === selectedMemberId)
+        ? selectedMemberId
+        : members[0]?.id ?? "me";
+
+    setTargets((currentTargets) => [
+      ...currentTargets,
+      {
+        id: createId("target"),
+        title,
+        description: "",
+        category: "General",
+        priority: "medium",
+        ownerId,
+        frequency: "once",
+        targetAmount: 1,
+        unit: "task",
+        startDate: selectedDate,
+        isArchived: false,
+      },
+    ]);
+
+    setQuickTaskTitle("");
+  }
+
   function addTarget() {
     if (!newTitle.trim()) return;
 
@@ -2259,7 +2296,7 @@ export default function Home() {
         searchFilters: false,
         loggingSummary: true,
         monthCalendar: false,
-        selectedDayWork: true,
+        selectedDayWork: false,
         workspaceOverview: false,
         addMember: false,
         addTarget: false,
@@ -2279,10 +2316,10 @@ export default function Home() {
         searchFilters: true,
         loggingSummary: false,
         monthCalendar: false,
-        selectedDayWork: true,
+        selectedDayWork: false,
         workspaceOverview: false,
         addMember: false,
-        addTarget: true,
+        addTarget: false,
       };
     }
 
@@ -2767,6 +2804,165 @@ export default function Home() {
                 )}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section
+          className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5"
+          style={{
+            display:
+              activeAppView === "dashboard" || activeAppView === "targets"
+                ? undefined
+                : "none",
+          }}
+        >
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
+                Clean task list
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">
+                {activeAppView === "dashboard" ? "Today&apos;s work" : "Targets"}
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+                A focused list view for daily use. Advanced editing, logs,
+                archive, backup, and reports are still available from details,
+                settings, and reports.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
+              {visibleDashboard.length} visible
+            </div>
+          </div>
+
+          <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+            <input
+              value={quickTaskTitle}
+              onChange={(event) => setQuickTaskTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") addQuickTaskFromList();
+              }}
+              placeholder="Add a task for the selected date..."
+              className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-500"
+            />
+
+            <button
+              onClick={addQuickTaskFromList}
+              className="rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 hover:bg-cyan-300"
+            >
+              Add task
+            </button>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50">
+            {visibleDashboard.length > 0 ? (
+              <div className="divide-y divide-white/10">
+                {visibleDashboard.map((row) => (
+                  <div
+                    key={row.target.id}
+                    className="grid gap-3 p-4 hover:bg-white/5 lg:grid-cols-[auto_1fr_auto] lg:items-center"
+                  >
+                    <button
+                      onClick={() =>
+                        logProgress(
+                          row.target.id,
+                          row.pending || row.target.targetAmount
+                        )
+                      }
+                      disabled={row.target.isArchived}
+                      className={
+                        row.pending === 0
+                          ? "h-7 w-7 rounded-full border border-emerald-400 bg-emerald-400/20 text-emerald-200"
+                          : "h-7 w-7 rounded-full border border-slate-500 hover:border-cyan-300"
+                      }
+                      title="Mark done"
+                    >
+                      {row.pending === 0 ? "?" : ""}
+                    </button>
+
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate text-base font-semibold">
+                          {row.target.title}
+                        </h3>
+
+                        {row.target.isArchived && (
+                          <span className="rounded-full border border-slate-400/30 bg-slate-500/20 px-2 py-0.5 text-xs text-slate-200">
+                            Archived
+                          </span>
+                        )}
+
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-xs ${priorityClass(
+                            row.target.priority
+                          )}`}
+                        >
+                          {priorityLabel(row.target.priority)}
+                        </span>
+
+                        <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs text-cyan-300">
+                          {row.target.frequency === "once"
+                            ? "one-time"
+                            : row.target.frequency}
+                        </span>
+
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs ${statusClass(
+                            row.status
+                          )}`}
+                        >
+                          {row.status}
+                        </span>
+                      </div>
+
+                      <p className="mt-1 text-sm text-slate-400">
+                        {row.owner?.name ?? "Unknown"} �{" "}
+                        {row.target.category || "General"} �{" "}
+                        {row.target.frequency === "once" ? "Due" : "Starts"}{" "}
+                        {row.target.startDate}
+                      </p>
+                    </div>
+
+                    <div className="grid gap-2 sm:flex sm:items-center sm:justify-end">
+                      <div className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-300">
+                        Need {row.pending} / {row.required} {row.target.unit}
+                      </div>
+
+                      <button
+                        onClick={() => logProgress(row.target.id, 1)}
+                        disabled={row.target.isArchived}
+                        className="rounded-xl border border-white/10 px-3 py-2 text-sm hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        +1
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setActiveAppView("targets");
+                          startEditingTarget(row.target);
+                          setScreenSettings((currentSettings) => ({
+                            ...currentSettings,
+                            searchFilters: true,
+                            selectedDayWork: true,
+                          }));
+                        }}
+                        className="rounded-xl border border-cyan-400/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-400/10"
+                      >
+                        Details
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 text-center">
+                <p className="text-lg font-bold">{targetEmptyState.title}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  {targetEmptyState.body}
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
