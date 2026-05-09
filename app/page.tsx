@@ -554,20 +554,24 @@ function periodsDue(target: Target, dateISO: string) {
 }
 
 function getStatus(pending: number, progress: number, dateISO?: string) {
-  if (pending === 0) return "On Track";
+  if (pending === 0) return "Done";
 
   const today = todayISO();
 
   if (dateISO && dateISO > today) return "Upcoming";
-  if (dateISO && dateISO === today) return progress >= 80 ? "Close" : "Due Today";
+  if (dateISO && dateISO === today) {
+    return progress >= 80 ? "Almost Done" : "Due Today";
+  }
 
-  if (progress >= 80) return "Close";
-  return "Behind";
+  if (progress >= 80) return "Almost Done";
+  return "Overdue";
 }
 
 function statusClass(status: string) {
-  if (status === "Behind") return "bg-red-500/20 text-red-300";
-  if (status === "Close") return "bg-yellow-500/20 text-yellow-300";
+  if (status === "Overdue") return "bg-red-500/20 text-red-300";
+  if (status === "Due Today") return "bg-orange-500/20 text-orange-300";
+  if (status === "Upcoming") return "bg-blue-500/20 text-blue-300";
+  if (status === "Almost Done") return "bg-yellow-500/20 text-yellow-300";
   return "bg-emerald-500/20 text-emerald-300";
 }
 
@@ -603,9 +607,9 @@ function priorityClass(priority: Priority) {
 
 function statusMatchesFilter(status: string, filter: StatusFilter) {
   if (filter === "all") return true;
-  if (filter === "behind") return status === "Behind";
-  if (filter === "close") return status === "Close";
-  if (filter === "onTrack") return status === "On Track";
+  if (filter === "behind") return status === "Overdue";
+  if (filter === "close") return status === "Almost Done";
+  if (filter === "onTrack") return status === "Done";
   return true;
 }
 
@@ -3770,7 +3774,7 @@ export default function Home() {
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-              <p className="text-sm text-slate-400">Most behind category</p>
+              <p className="text-sm text-slate-400">Most overdue category</p>
 
               {dashboardInsights.mostBehindCategory ? (
                 <>
@@ -3790,7 +3794,7 @@ export default function Home() {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-              <p className="text-sm text-slate-400">Most behind member</p>
+              <p className="text-sm text-slate-400">Most overdue member</p>
 
               {dashboardInsights.mostBehindMember ? (
                 <>
