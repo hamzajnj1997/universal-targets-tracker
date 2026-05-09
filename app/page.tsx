@@ -1233,9 +1233,9 @@ export default function Home() {
     const pending = Math.max(0, required - achieved);
     const surplus = Math.max(0, achieved - required);
     const progress =
-      required === 0
-        ? 100
-        : Math.min(100, Math.round((achieved / required) * 100));
+          required === 0
+            ? 0
+            : Math.min(100, Math.round((achieved / required) * 100));
 
     const recentLogs = logs
       .filter((log) => log.targetId === target.id)
@@ -1312,9 +1312,9 @@ export default function Home() {
     const achieved = rows.reduce((sum, row) => sum + row.achieved, 0);
     const pending = rows.reduce((sum, row) => sum + row.pending, 0);
     const progress =
-      required === 0
-        ? 100
-        : Math.min(100, Math.round((achieved / required) * 100));
+          required === 0
+            ? 0
+            : Math.min(100, Math.round((achieved / required) * 100));
 
     return {
       date: dateISO,
@@ -1479,9 +1479,9 @@ export default function Home() {
       const achieved = memberRows.reduce((sum, row) => sum + row.achieved, 0);
       const pending = memberRows.reduce((sum, row) => sum + row.pending, 0);
       const progress =
-        required === 0
-          ? 100
-          : Math.min(100, Math.round((achieved / required) * 100));
+          required === 0
+            ? 0
+            : Math.min(100, Math.round((achieved / required) * 100));
 
       return {
         member,
@@ -4859,11 +4859,13 @@ export default function Home() {
                             </div>
 
                             <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${statusClass(
-                                row.status
-                              )}`}
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                row.required === 0
+                                  ? "bg-slate-500/20 text-slate-300"
+                                  : statusClass(row.status)
+                              }`}
                             >
-                              {row.progress}%
+                              {row.required === 0 ? "No targets" : `${row.progress}%`}
                             </span>
                           </div>
 
