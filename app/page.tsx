@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
+import { loadCloudDataFromCloud, saveLocalDataToCloud } from "../lib/cloudSync";
 
 type Frequency = "once" | "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -78,7 +79,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 32;
+const APP_BACKUP_VERSION = 33;
 
 const roleOptions = [
   "Owner",
@@ -740,6 +741,13 @@ export default function Home() {
   const [authDisplayName, setAuthDisplayName] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
+
+  const [cloudSyncMessage, setCloudSyncMessage] = useState(
+    "Cloud sync is ready. Save local data to cloud or load cloud data when signed in."
+  );
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [cloudWorkspaceName, setCloudWorkspaceName] = useState("");
+  const [lastCloudSyncAt, setLastCloudSyncAt] = useState<string | null>(null);
 
   useEffect(() => {
     const config = getSupabaseConfigStatus();
@@ -2457,6 +2465,89 @@ export default function Home() {
     setAuthMessage("Signed out. Local demo data is still available on this device.");
   }
 
+  async function handleSaveLocalDataToCloud() {
+    const supabase = getSupabaseClient();
+
+    if (!currentUser || !supabase) {
+      setCloudSyncMessage("Sign in before saving data to cloud.");
+      return;
+    }
+
+    const shouldSave = window.confirm(
+      "Save this device's local data to your cloud workspace? This will overwrite the current cloud copy."
+    );
+
+    if (!shouldSave) return;
+
+    setIsCloudSyncing(true);
+    setCloudSyncMessage("Saving local data to cloud...");
+
+    try {
+      const result = await saveLocalDataToCloud(supabase, currentUser, {
+        members,
+        targets,
+        logs,
+        screenSettings,
+      });
+
+      setCloudWorkspaceName(result.workspace.name);
+      setLastCloudSyncAt(new Date().toISOString());
+      setCloudSyncMessage(
+        `Saved to cloud: ${result.memberCount} members, ${result.targetCount} targets, ${result.logCount} logs.`
+      );
+    } catch (error) {
+      setCloudSyncMessage(
+        error instanceof Error ? error.message : "Cloud save failed."
+      );
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  }
+
+  async function handleLoadCloudDataFromCloud() {
+    const supabase = getSupabaseClient();
+
+    if (!currentUser || !supabase) {
+      setCloudSyncMessage("Sign in before loading cloud data.");
+      return;
+    }
+
+    const shouldLoad = window.confirm(
+      "Load cloud data into this device? This will replace the current local data shown in the app."
+    );
+
+    if (!shouldLoad) return;
+
+    setIsCloudSyncing(true);
+    setCloudSyncMessage("Loading cloud data...");
+
+    try {
+      const result = await loadCloudDataFromCloud(supabase, currentUser);
+
+      setMembers(result.members.length > 0 ? result.members : members);
+      setTargets(result.targets);
+      setLogs(result.logs);
+
+      if (result.screenSettings) {
+        setScreenSettings(normalizeScreenSettings(result.screenSettings));
+      }
+
+      setSelectedMemberId("all");
+      setNewOwnerId(result.members[0]?.id ?? "me");
+      setCloudWorkspaceName(result.workspace.name);
+      setLastCloudSyncAt(new Date().toISOString());
+      setCloudSyncMessage(
+        `Loaded from cloud: ${result.members.length} members, ${result.targets.length} targets, ${result.logs.length} logs.`
+      );
+    } catch (error) {
+      setCloudSyncMessage(
+        error instanceof Error ? error.message : "Cloud load failed."
+      );
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
       <div className="mx-auto max-w-7xl">
@@ -2585,6 +2676,59 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section
+          className="mb-6 rounded-3xl border border-blue-400/20 bg-blue-400/10 p-4 sm:mb-8 sm:p-5"
+          style={{ display: activeAppView === "settings" ? undefined : "none" }}
+        >
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-300 sm:text-sm sm:tracking-[0.25em]">
+                Cloud data sync
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">
+                {currentUser ? "Cloud workspace ready" : "Sign in to sync data"}
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                Save this device&apos;s members, targets, logs, and screen preferences
+                to Supabase, or load your cloud copy onto this device. This first
+                sync release is manual to prevent accidental overwrites.
+              </p>
+            </div>
+
+            <span className="rounded-full bg-blue-500/20 px-3 py-1 text-sm font-semibold text-blue-300">
+              {cloudWorkspaceName || "Workspace"}
+            </span>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <button
+              onClick={handleSaveLocalDataToCloud}
+              disabled={!currentUser || isCloudSyncing}
+              className="rounded-xl bg-blue-400 px-4 py-3 font-semibold text-slate-950 hover:bg-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isCloudSyncing ? "Working..." : "Save local data to cloud"}
+            </button>
+
+            <button
+              onClick={handleLoadCloudDataFromCloud}
+              disabled={!currentUser || isCloudSyncing}
+              className="rounded-xl border border-blue-400/40 px-4 py-3 font-semibold text-blue-100 hover:bg-blue-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isCloudSyncing ? "Working..." : "Load cloud data"}
+            </button>
+          </div>
+
+          <p className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
+            {cloudSyncMessage}
+          </p>
+
+          {lastCloudSyncAt && (
+            <p className="mt-3 text-xs text-slate-500">
+              Last cloud action: {formatSavedTime(lastCloudSyncAt)}
+            </p>
+          )}
         </section>
 
         <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" ? undefined : "none" }}>
