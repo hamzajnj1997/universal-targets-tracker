@@ -33,6 +33,7 @@ type ScreenPresetKey = "simple" | "manager" | "calendar" | "admin" | "full";
 type SupabaseConnectionStatus = "checking" | "connected" | "missing" | "error";
 type AuthMode = "login" | "signup";
 type AppView = "dashboard" | "targets" | "calendar" | "workspace" | "reports" | "settings";
+type WorkspaceAuthorityRole = "owner" | "admin" | "leader" | "parent" | "member" | "viewer";
 
 type Member = {
   id: string;
@@ -67,6 +68,7 @@ type SavedAppState = {
   targets: Target[];
   logs: ProgressLog[];
   screenSettings?: ScreenSettings;
+  currentAuthorityRole?: WorkspaceAuthorityRole;
   lastSavedAt?: string;
 };
 
@@ -79,15 +81,19 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 33;
+const APP_BACKUP_VERSION = 34;
 
 const roleOptions = [
   "Owner",
   "Admin",
+  "Team Leader",
   "Parent",
-  "Teacher",
   "Manager",
+  "Teacher",
+  "Coach",
   "Member",
+  "Friend",
+  "Sibling",
   "Student",
   "Child",
   "Viewer",
@@ -124,6 +130,43 @@ const archiveFilterOptions: { value: ArchiveFilter; label: string }[] = [
   { value: "active", label: "Active targets" },
   { value: "archived", label: "Archived targets" },
   { value: "all", label: "All targets" },
+];
+
+const authorityRoleOptions: {
+  value: WorkspaceAuthorityRole;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "owner",
+    label: "Owner",
+    description: "Full authority over workspace, members, targets, approvals, and settings.",
+  },
+  {
+    value: "admin",
+    label: "Admin",
+    description: "Can manage members, assign work, and approve team activity.",
+  },
+  {
+    value: "leader",
+    label: "Team Leader",
+    description: "Can assign work, monitor progress, and approve submitted work.",
+  },
+  {
+    value: "parent",
+    label: "Parent",
+    description: "Can manage family members, assign work, and approve completion.",
+  },
+  {
+    value: "member",
+    label: "Member",
+    description: "Can work on assigned/shared tasks and submit progress.",
+  },
+  {
+    value: "viewer",
+    label: "Viewer",
+    description: "Can view progress but cannot change workspace data.",
+  },
 ];
 
 const screenSectionOptions: {
@@ -666,6 +709,38 @@ function screenSettingsEqual(a: ScreenSettings, b: ScreenSettings) {
   );
 }
 
+function isWorkspaceAuthorityRole(value: unknown): value is WorkspaceAuthorityRole {
+  return (
+    value === "owner" ||
+    value === "admin" ||
+    value === "leader" ||
+    value === "parent" ||
+    value === "member" ||
+    value === "viewer"
+  );
+}
+
+
+
+function getAuthorityCapabilities(role: WorkspaceAuthorityRole) {
+  const canManageEverything = role === "owner";
+  const canManageMembers =
+    role === "owner" || role === "admin" || role === "leader" || role === "parent";
+  const canAssignTargets = canManageMembers;
+  const canApproveWork = canManageMembers;
+  const canSubmitWork = role !== "viewer";
+  const canEditSettings = role === "owner" || role === "admin";
+
+  return {
+    canManageEverything,
+    canManageMembers,
+    canAssignTargets,
+    canApproveWork,
+    canSubmitWork,
+    canEditSettings,
+  };
+}
+
 export default function Home() {
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -725,6 +800,8 @@ export default function Home() {
     defaultScreenSettings
   );
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
+  const [currentAuthorityRole, setCurrentAuthorityRole] =
+    useState<WorkspaceAuthorityRole>("owner");
   const [activeAppView, setActiveAppView] = useState<AppView>("dashboard");
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -1042,6 +1119,10 @@ export default function Home() {
 
         if (parsedData.screenSettings) {
           setScreenSettings(normalizeScreenSettings(parsedData.screenSettings));
+        }
+
+        if (isWorkspaceAuthorityRole(parsedData.currentAuthorityRole)) {
+          setCurrentAuthorityRole(parsedData.currentAuthorityRole);
         }
 
         if (typeof parsedData.lastSavedAt === "string") {
@@ -1791,6 +1872,11 @@ export default function Home() {
   }
 
   function addMember() {
+    if (!authorityCapabilities.canManageMembers) {
+      window.alert("Only workspace authority roles can add members.");
+      return;
+    }
+
     if (!newMemberName.trim()) return;
 
     const newMemberId = createId("member");
@@ -2089,6 +2175,7 @@ export default function Home() {
     setNewOwnerId("me");
     setNewCategory("General");
     setScreenSettings(defaultScreenSettings);
+    setCurrentAuthorityRole("owner");
     setIsCustomizeOpen(false);
     setManualAmounts({});
     cancelEditingTarget();
@@ -2548,6 +2635,11 @@ export default function Home() {
     }
   }
 
+  const authorityCapabilities = getAuthorityCapabilities(currentAuthorityRole);
+  const currentAuthorityLabel =
+    authorityRoleOptions.find((role) => role.value === currentAuthorityRole)
+      ?.label ?? "Owner";
+
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
       <div className="mx-auto max-w-7xl">
@@ -2676,6 +2768,73 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section
+          className="mb-6 rounded-3xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-4 sm:mb-8 sm:p-5"
+          style={{ display: activeAppView === "workspace" ? undefined : "none" }}
+        >
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-300 sm:text-sm sm:tracking-[0.25em]">
+                Workspace authority
+              </p>
+              <h2 className="mt-2 text-2xl font-bold">
+                Current role: {currentAuthorityLabel}
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                This is the authority foundation for team leaders, parents,
+                siblings, friends, coaches, and managers. Role-based approvals,
+                task claiming, and shared-task permissions will build on this.
+              </p>
+            </div>
+
+            <select
+              value={currentAuthorityRole}
+              onChange={(event) =>
+                setCurrentAuthorityRole(event.target.value as WorkspaceAuthorityRole)
+              }
+              className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+            >
+              {authorityRoleOptions.map((role) => (
+                <option key={role.value} value={role.value}>
+                  {role.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-3">
+            {authorityRoleOptions.map((role) => (
+              <button
+                key={role.value}
+                onClick={() => setCurrentAuthorityRole(role.value)}
+                className={
+                  currentAuthorityRole === role.value
+                    ? "rounded-2xl border border-fuchsia-300 bg-fuchsia-400/20 p-4 text-left"
+                    : "rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-left hover:bg-white/10"
+                }
+              >
+                <p className="font-bold">{role.label}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  {role.description}
+                </p>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <AuthorityBadge label="Manage members" active={authorityCapabilities.canManageMembers} />
+            <AuthorityBadge label="Assign targets" active={authorityCapabilities.canAssignTargets} />
+            <AuthorityBadge label="Approve work" active={authorityCapabilities.canApproveWork} />
+            <AuthorityBadge label="Submit work" active={authorityCapabilities.canSubmitWork} />
+            <AuthorityBadge label="Edit settings" active={authorityCapabilities.canEditSettings} />
+          </div>
+
+          <p className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
+            Current rule: members can be added only by Owner, Admin, Team Leader,
+            or Parent roles. Viewer mode cannot add members.
+          </p>
         </section>
 
         <section
@@ -4373,6 +4532,36 @@ export default function Home() {
         </div>
       </div>
     </main>
+  );
+}
+
+
+function AuthorityBadge({
+  label,
+  active,
+}: {
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <div
+      className={
+        active
+          ? "rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4"
+          : "rounded-2xl border border-white/10 bg-slate-950/50 p-4"
+      }
+    >
+      <p className="text-sm font-semibold">{label}</p>
+      <p
+        className={
+          active
+            ? "mt-2 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300"
+            : "mt-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500"
+        }
+      >
+        {active ? "Allowed" : "Blocked"}
+      </p>
+    </div>
   );
 }
 

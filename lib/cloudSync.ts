@@ -60,6 +60,20 @@ function normalizeFrequency(value: unknown): CloudFrequency {
   return "daily";
 }
 
+function inferAppRoleFromDisplayRole(role: string, index: number) {
+  const normalizedRole = role.trim().toLowerCase();
+
+  if (index === 0 || normalizedRole === "owner") return "owner";
+  if (normalizedRole === "admin" || normalizedRole === "manager") return "admin";
+  if (normalizedRole === "team leader" || normalizedRole === "leader") return "leader";
+  if (normalizedRole === "parent" || normalizedRole === "teacher" || normalizedRole === "coach") {
+    return "parent";
+  }
+  if (normalizedRole === "viewer") return "viewer";
+
+  return "member";
+}
+
 export async function ensureUserWorkspace(
   supabase: SupabaseClient,
   user: User
@@ -130,7 +144,7 @@ export async function saveLocalDataToCloud(
     user_id: index === 0 ? user.id : null,
     display_name: member.name || "Unnamed member",
     role: member.role || (index === 0 ? "Owner" : "Member"),
-    app_role: index === 0 ? "owner" : "member",
+    app_role: inferAppRoleFromDisplayRole(member.role, index),
   }));
 
   const { data: insertedMembers, error: membersError } = await supabase
