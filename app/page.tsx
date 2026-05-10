@@ -1,6 +1,6 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 ﻿"use client";
 
-/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -852,7 +852,7 @@ export default function Home() {
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudWorkspaceName, setCloudWorkspaceName] = useState("");
   const [lastCloudSyncAt, setLastCloudSyncAt] = useState<string | null>(null);
-  const [hasDismissedSampleBanner, setHasDismissedSampleBanner] = useState(false);
+  const [, setHasDismissedSampleBanner] = useState(false);
 
   useEffect(() => {
     const config = getSupabaseConfigStatus();
@@ -2862,12 +2862,21 @@ export default function Home() {
     }
 
     const shouldLoad = window.confirm(
-      "Load cloud data into this device? This will replace the current local data shown in the app."
+      [
+        "This will replace this device's current local data with your cloud copy.",
+        "",
+        "Local members, targets, logs, claims, and screen settings on this device may change.",
+        "Your cloud copy will NOT change from loading.",
+        "",
+        "Continue?"
+      ].join("\n")
     );
 
-    if (!shouldLoad) return;
-
-    setIsCloudSyncing(true);
+    if (!shouldLoad) {
+      setCloudSyncMessage("Cloud load cancelled. This device was not changed.");
+      return;
+    }
+setIsCloudSyncing(true);
     setCloudSyncMessage("Loading cloud data...");
 
     try {
