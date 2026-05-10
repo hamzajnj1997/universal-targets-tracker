@@ -3266,9 +3266,7 @@ setIsCloudSyncing(true);
                 {pendingApprovalLogs.length === 1 ? "" : "s"} waiting
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                This panel is the approval queue foundation. In the next step,
-                member submissions will enter this queue before counting toward
-                progress.
+                Work submitted by members for approval will appear here before it counts toward progress.
               </p>
             </div>
 
@@ -3345,9 +3343,7 @@ setIsCloudSyncing(true);
                 Current role: {currentAuthorityLabel}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                This is the authority foundation for team leaders, parents,
-                siblings, friends, coaches, and managers. Role-based approvals,
-                task claiming, and shared-task permissions will build on this.
+                Roles control who can manage members, assign targets, approve work, submit progress, and edit settings.
               </p>
             </div>
 
@@ -3498,9 +3494,7 @@ setIsCloudSyncing(true);
                 {currentUser ? "Signed in" : "Sign in or create account"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Accounts are now connected to Supabase Auth. Your existing data
-                still runs in local mode. Cloud syncing members, targets, logs,
-                and screen preferences comes in the next version.
+                Accounts use Supabase Auth. Manual cloud sync is available after login. Automatic real-time sync is not enabled yet.
               </p>
             </div>
 
@@ -3615,8 +3609,7 @@ setIsCloudSyncing(true);
               )}
 
               <p className="mt-4 text-xs leading-5 text-slate-500">
-                Do not use a critical password yet. This is the first auth beta.
-                Cloud sync and account settings are still being added.
+                Early beta: export a backup before relying on cloud sync for important workspace data.
               </p>
             </div>
           )}
