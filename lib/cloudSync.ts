@@ -40,6 +40,7 @@ export type CloudProgressLog = {
 };
 
 export type CloudSyncPayload = {
+  workspaceName?: string;
   members: CloudMember[];
   targets: CloudTarget[];
   logs: CloudProgressLog[];
@@ -66,6 +67,16 @@ function normalizeFrequency(value: unknown): CloudFrequency {
   }
 
   return "daily";
+}
+
+function normalizeWorkspaceName(value: unknown, fallback = "My Workspace") {
+  if (typeof value !== "string") return fallback;
+
+  const trimmed = value.trim();
+
+  if (!trimmed) return fallback;
+
+  return trimmed.slice(0, 80);
 }
 
 function inferAppRoleFromDisplayRole(role: string, index: number) {
@@ -136,7 +147,22 @@ export async function saveLocalDataToCloud(
   user: User,
   payload: CloudSyncPayload
 ) {
-  const workspace = await ensureUserWorkspace(supabase, user);
+  let workspace = await ensureUserWorkspace(supabase, user);
+
+  const requestedWorkspaceName = normalizeWorkspaceName(payload.workspaceName, workspace.name);
+
+  if (requestedWorkspaceName !== workspace.name) {
+    const { data: updatedWorkspace, error: workspaceNameError } = await supabase
+      .from("workspaces")
+      .update({ name: requestedWorkspaceName })
+      .eq("id", workspace.id)
+      .select("id,name,owner_id")
+      .single();
+
+    if (workspaceNameError) throw workspaceNameError;
+
+    workspace = updatedWorkspace as WorkspaceRow;
+  }
 
   const safeMembers =
     payload.members.length > 0

@@ -72,6 +72,7 @@ type ProgressLog = {
 };
 
 type SavedAppState = {
+  workspaceName?: string;
   members: Member[];
   targets: Target[];
   logs: ProgressLog[];
@@ -89,7 +90,9 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
-const APP_BACKUP_VERSION = 38;
+const APP_BACKUP_VERSION = 39;
+const DEFAULT_WORKSPACE_NAME = "My Workspace";
+const DEMO_WORKSPACE_NAME = "Demo Workspace";
 
 const roleOptions = [
   "Owner",
@@ -726,6 +729,16 @@ function screenSettingsEqual(a: ScreenSettings, b: ScreenSettings) {
   );
 }
 
+function normalizeWorkspaceName(value: unknown) {
+  if (typeof value !== "string") return DEFAULT_WORKSPACE_NAME;
+
+  const trimmed = value.trim();
+
+  if (!trimmed) return DEFAULT_WORKSPACE_NAME;
+
+  return trimmed.slice(0, 80);
+}
+
 function isWorkspaceAuthorityRole(value: unknown): value is WorkspaceAuthorityRole {
   return (
     value === "owner" ||
@@ -779,6 +792,9 @@ export default function Home() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>("active");
+
+  const [workspaceName, setWorkspaceName] = useState(DEMO_WORKSPACE_NAME);
+
 
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [targets, setTargets] = useState<Target[]>(initialTargets);
@@ -1160,6 +1176,7 @@ export default function Home() {
         setMembers(safeState.members);
         setTargets(safeState.targets);
         setLogs(safeState.logs);
+        setWorkspaceName(normalizeWorkspaceName(parsedData.workspaceName));
         setNewOwnerId(safeState.members[0]?.id ?? "me");
 
         if (parsedData.screenSettings) {
@@ -1190,6 +1207,7 @@ export default function Home() {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
+        workspaceName: normalizeWorkspaceName(workspaceName),
         members,
         targets,
         logs,
@@ -1197,7 +1215,7 @@ export default function Home() {
         lastSavedAt: savedAt,
       })
     );
-  }, [members, targets, logs, screenSettings, hasLoadedSavedData]);
+  }, [workspaceName, members, targets, logs, screenSettings, hasLoadedSavedData]);
 
 
   useEffect(() => {
@@ -2299,6 +2317,7 @@ export default function Home() {
     const backup = {
       exportedAt: new Date().toISOString(),
       appName: "Universal Targets Tracker",
+      workspaceName: normalizeWorkspaceName(workspaceName),
       version: APP_BACKUP_VERSION,
       selectedDate,
       calendarMonth,
@@ -2340,6 +2359,7 @@ export default function Home() {
       }
 
       const safeState = makeSafeState(parsed);
+      const importedWorkspaceName = normalizeWorkspaceName(parsed.workspaceName);
 
       if (safeState.members.length === 0) {
         window.alert("This backup has no valid members.");
@@ -2347,7 +2367,7 @@ export default function Home() {
       }
 
       const shouldImport = window.confirm(
-        `Import this backup?\n\nThis will replace the current local workspace on this device with:\n\n${safeState.members.length} members\n${safeState.targets.length} targets\n${safeState.logs.length} progress logs\n\nExport a backup first if you may need the current workspace.\n\nContinue?`
+        `Import this backup?\n\nThis will replace the current local workspace on this device with:\n\nWorkspace: ${importedWorkspaceName}\n${safeState.members.length} members\n${safeState.targets.length} targets\n${safeState.logs.length} progress logs\n\nExport a backup first if you may need the current workspace.\n\nContinue?`
       );
 
       if (!shouldImport) return;
@@ -2355,6 +2375,7 @@ export default function Home() {
       setMembers(safeState.members);
       setTargets(safeState.targets);
       setLogs(safeState.logs);
+      setWorkspaceName(importedWorkspaceName);
       setNewOwnerId(safeState.members[0]?.id ?? "me");
       setSelectedMemberId("all");
       setSearchQuery("");
@@ -2407,6 +2428,7 @@ export default function Home() {
     setMembers(initialMembers);
     setTargets(initialTargets);
     setLogs([]);
+    setWorkspaceName(DEMO_WORKSPACE_NAME);
     setSelectedMemberId("all");
     setSelectedDate(todayISO());
     setCalendarMonth(monthStartISO(todayISO()));
@@ -2515,6 +2537,7 @@ export default function Home() {
     setMembers([freshMember]);
     setTargets([]);
     setLogs([]);
+    setWorkspaceName(DEFAULT_WORKSPACE_NAME);
     setSelectedMemberId("all");
     setActiveWorkerId(freshMember.id);
     setNewOwnerId(freshMember.id);
@@ -2865,9 +2888,11 @@ export default function Home() {
         members,
         targets,
         logs,
+        workspaceName: normalizeWorkspaceName(workspaceName),
         screenSettings,
       });
 
+      setWorkspaceName(normalizeWorkspaceName(result.workspace.name));
       setCloudWorkspaceName(result.workspace.name);
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
@@ -2924,6 +2949,7 @@ setIsCloudSyncing(true);
 
       setSelectedMemberId("all");
       setNewOwnerId(result.members[0]?.id ?? "me");
+      setWorkspaceName(normalizeWorkspaceName(result.workspace.name));
       setCloudWorkspaceName(result.workspace.name);
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
@@ -2961,6 +2987,11 @@ setIsCloudSyncing(true);
             <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
               Workspace targets, backlog, and progress
             </h1>
+
+            <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+              <span className="text-slate-400">Workspace:</span>
+              <span className="truncate font-semibold text-white">{workspaceName || DEFAULT_WORKSPACE_NAME}</span>
+            </div>
 
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
               Track daily, weekly, and monthly targets for individuals,
@@ -3425,6 +3456,33 @@ setIsCloudSyncing(true);
             Current rule: members can be added only by Owner, Admin, Team Leader,
             or Parent roles. Viewer mode cannot add members.
           </p>
+        </section>
+
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" ? undefined : "none" }}>
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-300 sm:text-sm sm:tracking-[0.25em]">
+              Workspace identity
+            </p>
+            <h2 className="mt-2 text-2xl font-bold">Name this workspace</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              This name appears in the header, backups, and manual cloud sync so you know which workspace you are saving or restoring.
+            </p>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+            <input
+              value={workspaceName}
+              onChange={(event) => setWorkspaceName(event.target.value.slice(0, 80))}
+              onBlur={() => setWorkspaceName(normalizeWorkspaceName(workspaceName))}
+              maxLength={80}
+              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+              placeholder="Example: Sales Team, Family Goals, Class 8A"
+            />
+
+            <span className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">
+              {workspaceName.length}/80 characters
+            </span>
+          </div>
         </section>
 
         <section
