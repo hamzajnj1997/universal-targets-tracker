@@ -1771,7 +1771,7 @@ export default function Home() {
     if (!log) return;
 
     const shouldDelete = window.confirm(
-      `Delete this progress log of +${log.achievedAmount} from ${log.date}?`
+      `Delete this progress log?\n\nAmount: +${log.achievedAmount}\nDate: ${log.date}\n\nThis cannot be undone.`
     );
 
     if (!shouldDelete) return;
@@ -2120,7 +2120,7 @@ export default function Home() {
     if (!target) return;
 
     const shouldDelete = window.confirm(
-      `Delete target "${target.title}"? Its progress logs will also be removed. Use Archive instead if you want to keep history.`
+      `Delete target "${target.title}"?\n\nThis will also delete all progress logs for this target.\n\nUse Archive instead if you want to keep history.\n\nThis cannot be undone.`
     );
 
     if (!shouldDelete) return;
@@ -2150,7 +2150,7 @@ export default function Home() {
     );
 
     const shouldDelete = window.confirm(
-      `Delete member "${member.name}"? This will also delete ${memberTargets.length} targets assigned to this member.`
+      `Delete member "${member.name}"?\n\nThis will also delete ${memberTargets.length} assigned targets and their related progress logs.\n\nThis cannot be undone.`
     );
 
     if (!shouldDelete) return;
@@ -2190,7 +2190,16 @@ export default function Home() {
 
   function clearProgressLogs() {
     const shouldClear = window.confirm(
-      "Clear all progress logs? Targets and members will stay, but achieved values will reset to zero."
+      [
+      "Clear all progress logs?",
+      "",
+      "Targets and members will stay.",
+      "All achieved progress values will reset to zero.",
+      "",
+      "Export a backup first if this workspace matters.",
+      "",
+      "Continue?"
+    ].join("\n")
     );
 
     if (!shouldClear) return;
@@ -2338,7 +2347,7 @@ export default function Home() {
       }
 
       const shouldImport = window.confirm(
-        `Import this backup? This will replace your current data with ${safeState.members.length} members, ${safeState.targets.length} targets, and ${safeState.logs.length} progress logs.`
+        `Import this backup?\n\nThis will replace the current local workspace on this device with:\n\n${safeState.members.length} members\n${safeState.targets.length} targets\n${safeState.logs.length} progress logs\n\nExport a backup first if you may need the current workspace.\n\nContinue?`
       );
 
       if (!shouldImport) return;
@@ -2379,7 +2388,17 @@ export default function Home() {
 
   function resetDemoData() {
     const shouldReset = window.confirm(
-      "Load demo workspace? This will restore the sample members, targets, and starter progress on this device."
+      [
+      "Load demo workspace?",
+      "",
+      "This will replace the current local workspace on this device with sample members, targets, and starter progress.",
+      "",
+      "Your cloud copy will NOT change unless you later click Save local data to cloud.",
+      "",
+      "Export a backup first if this workspace matters.",
+      "",
+      "Continue?"
+    ].join("\n")
     );
 
     if (!shouldReset) return;
@@ -2476,6 +2495,8 @@ export default function Home() {
         "",
         "This will remove local members, targets, and logs from this browser.",
         "Your cloud copy will NOT change unless you later click Save local data to cloud.",
+        "",
+        "Export a backup first if this workspace matters.",
         "",
         "Continue?"
       ].join("\n")
@@ -2823,7 +2844,15 @@ export default function Home() {
     }
 
     const shouldSave = window.confirm(
-      "Save this device's local data to your cloud workspace? This will overwrite the current cloud copy."
+      [
+      "Save local data to cloud?",
+      "",
+      "This will overwrite the current cloud copy with the data on this device.",
+      "",
+      "Use this only when this device has the version you want to keep.",
+      "",
+      "Continue?"
+    ].join("\n")
     );
 
     if (!shouldSave) return;
@@ -2863,10 +2892,13 @@ export default function Home() {
 
     const shouldLoad = window.confirm(
       [
-        "This will replace this device's current local data with your cloud copy.",
+        "Load cloud data into this device?",
         "",
+        "This will replace this device's current local workspace with your cloud copy.",
         "Local members, targets, logs, claims, and screen settings on this device may change.",
         "Your cloud copy will NOT change from loading.",
+        "",
+        "Export a backup first if this device has data you may need.",
         "",
         "Continue?"
       ].join("\n")
@@ -3949,8 +3981,7 @@ setIsCloudSyncing(true);
                 Saved in this browser
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Your prototype data is stored locally in this browser. Export a
-                JSON backup before clearing browser data or changing devices.
+                Your workspace data is stored locally in this browser. Export a JSON backup before clearing browser data, changing devices, or testing cloud sync.
               </p>
             </div>
 
