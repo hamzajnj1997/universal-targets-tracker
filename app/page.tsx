@@ -3456,7 +3456,7 @@ setIsCloudSyncing(true);
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
-                Cloud backend foundation
+                Cloud backend status
               </p>
               <h2 className="mt-2 text-2xl font-bold">
                 {supabaseConnectionStatus === "connected"
