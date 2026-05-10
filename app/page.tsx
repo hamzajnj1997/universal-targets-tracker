@@ -2379,7 +2379,7 @@ export default function Home() {
 
   function resetDemoData() {
     const shouldReset = window.confirm(
-      "Reset demo data? This will restore the original members and targets."
+      "Load demo workspace? This will restore the sample members, targets, and starter progress on this device."
     );
 
     if (!shouldReset) return;
@@ -2811,7 +2811,7 @@ export default function Home() {
 
     setCurrentUser(null);
     setAuthPassword("");
-    setAuthMessage("Signed out. Local demo data is still available on this device.");
+    setAuthMessage("Signed out. Local workspace data is still available on this device.");
   }
 
   async function handleSaveLocalDataToCloud() {
@@ -3761,9 +3761,40 @@ setIsCloudSyncing(true);
                 Finish setup and start tracking
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Use this checklist when starting a new workspace or testing the
-                prototype with a fresh browser.
+                Choose how you want to begin: explore the demo workspace, start with an empty workspace, or restore a backup.
               </p>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <button
+                  onClick={resetDemoData}
+                  className="rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-left hover:bg-sky-400/15"
+                >
+                  <span className="block text-sm font-semibold text-sky-100">Try demo workspace</span>
+                  <span className="mt-1 block text-xs leading-5 text-sky-200/80">
+                    Load sample members and targets so you can explore the app quickly.
+                  </span>
+                </button>
+
+                <button
+                  onClick={startFreshWorkspace}
+                  className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-left hover:bg-amber-400/15"
+                >
+                  <span className="block text-sm font-semibold text-amber-100">Start empty workspace</span>
+                  <span className="mt-1 block text-xs leading-5 text-amber-200/80">
+                    Clear local sample data and begin with one owner profile.
+                  </span>
+                </button>
+
+                <button
+                  onClick={triggerImportBackup}
+                  className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-left hover:bg-emerald-400/15"
+                >
+                  <span className="block text-sm font-semibold text-emerald-100">Import backup</span>
+                  <span className="mt-1 block text-xs leading-5 text-emerald-200/80">
+                    Restore workspace data from a JSON backup exported by this app.
+                  </span>
+                </button>
+              </div>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
@@ -4110,7 +4141,7 @@ setIsCloudSyncing(true);
             onClick={resetDemoData}
             className="rounded-xl border border-red-400/30 px-4 py-2 text-sm text-red-200 hover:bg-red-400/10"
           >
-            Reset demo data
+            Reload demo workspace
           </button>
 
           <p className="flex items-center text-sm leading-6 text-slate-400">
