@@ -852,6 +852,7 @@ export default function Home() {
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudWorkspaceName, setCloudWorkspaceName] = useState("");
   const [lastCloudSyncAt, setLastCloudSyncAt] = useState<string | null>(null);
+  const [hasDismissedSampleBanner, setHasDismissedSampleBanner] = useState(false);
 
   useEffect(() => {
     const config = getSupabaseConfigStatus();
@@ -2468,6 +2469,44 @@ export default function Home() {
     setScreenSettings(defaultScreenSettings);
   }
 
+  function startFreshWorkspace() {
+    const shouldStartFresh = window.confirm(
+      [
+        "Start fresh on this device?",
+        "",
+        "This will remove local members, targets, and logs from this browser.",
+        "Your cloud copy will NOT change unless you later click Save local data to cloud.",
+        "",
+        "Continue?"
+      ].join("\n")
+    );
+
+    if (!shouldStartFresh) return;
+
+    const freshMember = {
+      id: "me",
+      name: "Me",
+      role: "Owner",
+    };
+
+    const freshDate = todayISO();
+
+    setMembers([freshMember]);
+    setTargets([]);
+    setLogs([]);
+    setSelectedMemberId("all");
+    setActiveWorkerId(freshMember.id);
+    setNewOwnerId(freshMember.id);
+    setSelectedDate(freshDate);
+    setCalendarMonth(monthStartISO(freshDate));
+    setHasDismissedSampleBanner(true);
+    setActiveAppView("dashboard");
+    setScreenSettings(getAppViewSettings("dashboard"));
+    setCloudSyncMessage(
+      "Started fresh locally. Save to cloud only if you want to replace your cloud copy."
+    );
+  }
+
   function getAppViewSettings(view: AppView): ScreenSettings {
     if (view === "dashboard") {
       return {
@@ -2985,6 +3024,16 @@ export default function Home() {
                       className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
                     >
                       Customize screen
+                    </button>
+                    <button
+                      aria-label="Start fresh this device"
+                      onClick={() => {
+                        setIsActionMenuOpen(false);
+                        startFreshWorkspace();
+                      }}
+                      className="block w-full rounded-xl px-3 py-2 text-left text-sm text-amber-200 hover:bg-amber-400/10"
+                    >
+                      Start fresh
                     </button>
                   </div>
                 )}
@@ -4045,6 +4094,14 @@ export default function Home() {
             className="rounded-xl border border-yellow-400/30 px-4 py-2 text-sm text-yellow-200 hover:bg-yellow-400/10"
           >
             Clear progress only
+          </button>
+
+          <button
+            aria-label="Start fresh locally"
+            onClick={startFreshWorkspace}
+            className="rounded-xl border border-amber-400/30 px-4 py-2 text-sm text-amber-200 hover:bg-amber-400/10"
+          >
+            Start fresh locally
           </button>
 
           <button
