@@ -739,6 +739,16 @@ function normalizeWorkspaceName(value: unknown) {
   return trimmed.slice(0, 80);
 }
 
+function formatWorkspaceFileSlug(value: unknown) {
+  return (
+    normalizeWorkspaceName(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 48) || "workspace"
+  );
+}
+
 function isWorkspaceAuthorityRole(value: unknown): value is WorkspaceAuthorityRole {
   return (
     value === "owner" ||
@@ -2329,7 +2339,7 @@ export default function Home() {
     };
 
     downloadTextFile(
-      `universal-targets-tracker-backup-${todayISO()}.json`,
+      `universal-targets-tracker-${formatWorkspaceFileSlug(workspaceName)}-backup-${todayISO()}.json`,
       JSON.stringify(backup, null, 2),
       "application/json;charset=utf-8"
     );
@@ -2896,7 +2906,7 @@ export default function Home() {
       setCloudWorkspaceName(result.workspace.name);
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
-        `Saved to cloud: ${result.memberCount} members, ${result.targetCount} targets, ${result.logCount} logs.`
+        `Saved "${result.workspace.name}" to cloud: ${result.memberCount} members, ${result.targetCount} targets, ${result.logCount} logs.`
       );
     } catch (error) {
       setCloudSyncMessage(
@@ -2953,7 +2963,7 @@ setIsCloudSyncing(true);
       setCloudWorkspaceName(result.workspace.name);
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
-        `Loaded from cloud: ${result.members.length} members, ${result.targets.length} targets, ${result.logs.length} logs.`
+        `Loaded "${result.workspace.name}" from cloud: ${result.members.length} members, ${result.targets.length} targets, ${result.logs.length} logs.`
       );
     } catch (error) {
       setCloudSyncMessage(
@@ -4044,6 +4054,7 @@ setIsCloudSyncing(true);
             </div>
 
             <StatusBox label="Last saved" value={formatSavedTime(lastSavedAt)} />
+            <StatusBox label="Workspace" value={normalizeWorkspaceName(workspaceName)} />
             <StatusBox
               label="Saved records"
               value={`${members.length} members - ${targets.length} targets`}
@@ -4243,8 +4254,9 @@ setIsCloudSyncing(true);
           <div className="mb-4">
             <h2 className="text-2xl font-bold">Backup, export, and import</h2>
             <p className="mt-1 text-sm leading-6 text-slate-400">
-              Download your data or restore a full JSON backup created by this
-              app.
+              Download your workspace data, including workspace name, members,
+              targets, logs, screen settings, and selected calendar state. Restore
+              only from JSON backups created by this app.
             </p>
           </div>
 
