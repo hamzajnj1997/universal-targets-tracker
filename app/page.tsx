@@ -71,11 +71,33 @@ type ProgressLog = {
   rejectionReason?: string;
 };
 
+type ActivityEventAction =
+  | "workspace_renamed"
+  | "progress_log_deleted"
+  | "target_deleted"
+  | "member_deleted"
+  | "progress_cleared"
+  | "backup_imported"
+  | "demo_workspace_loaded"
+  | "fresh_workspace_started"
+  | "cloud_saved"
+  | "cloud_loaded";
+
+type ActivityEvent = {
+  id: string;
+  action: ActivityEventAction;
+  message: string;
+  createdAt: string;
+  workspaceName: string;
+  metadata?: Record<string, string | number | boolean | null>;
+};
+
 type SavedAppState = {
   workspaceName?: string;
   members: Member[];
   targets: Target[];
   logs: ProgressLog[];
+  activityEvents?: ActivityEvent[];
   screenSettings?: ScreenSettings;
   currentAuthorityRole?: WorkspaceAuthorityRole;
   lastSavedAt?: string;
@@ -90,6 +112,7 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
+const MAX_ACTIVITY_EVENTS = 100;
 const APP_BACKUP_VERSION = 39;
 const DEFAULT_WORKSPACE_NAME = "My Workspace";
 const DEMO_WORKSPACE_NAME = "Demo Workspace";
@@ -770,6 +793,110 @@ function normalizeProgressLogStatus(value: unknown): ProgressLogStatus {
   return "approved";
 }
 
+
+
+function isActivityEventAction(value: unknown): value is ActivityEventAction {
+  return (
+    value === "workspace_renamed" ||
+    value === "progress_log_deleted" ||
+    value === "target_deleted" ||
+    value === "member_deleted" ||
+    value === "progress_cleared" ||
+    value === "backup_imported" ||
+    value === "demo_workspace_loaded" ||
+    value === "fresh_workspace_started" ||
+    value === "cloud_saved" ||
+    value === "cloud_loaded"
+  );
+}
+
+function normalizeActivityMetadata(
+  value: unknown
+): ActivityEvent["metadata"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized: Record<string, string | number | boolean | null> = {};
+
+  for (const [key, rawValue] of Object.entries(value)) {
+    const safeKey = key.slice(0, 60);
+
+    if (typeof rawValue === "string") {
+      normalized[safeKey] = rawValue.slice(0, 160);
+    } else if (
+      typeof rawValue === "number" ||
+      typeof rawValue === "boolean" ||
+      rawValue === null
+    ) {
+      normalized[safeKey] = rawValue;
+    }
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizeActivityEvents(value: unknown): ActivityEvent[] {
+  if (!Array.isArray(value)) return [];
+
+  const events: ActivityEvent[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+
+    const rawEvent = item as Partial<ActivityEvent>;
+    const createdAt = new Date(String(rawEvent.createdAt));
+
+    if (
+      typeof rawEvent.id !== "string" ||
+      !isActivityEventAction(rawEvent.action) ||
+      typeof rawEvent.message !== "string" ||
+      Number.isNaN(createdAt.getTime())
+    ) {
+      continue;
+    }
+
+    const event: ActivityEvent = {
+      id: rawEvent.id,
+      action: rawEvent.action,
+      message: rawEvent.message.slice(0, 240),
+      createdAt: createdAt.toISOString(),
+      workspaceName: normalizeWorkspaceName(rawEvent.workspaceName),
+    };
+
+    const metadata = normalizeActivityMetadata(rawEvent.metadata);
+
+    if (metadata) {
+      event.metadata = metadata;
+    }
+
+    events.push(event);
+  }
+
+  return events
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, MAX_ACTIVITY_EVENTS);
+}
+
+function formatActivityAction(action: ActivityEventAction) {
+  const labels: Record<ActivityEventAction, string> = {
+    workspace_renamed: "Workspace renamed",
+    progress_log_deleted: "Progress log deleted",
+    target_deleted: "Target deleted",
+    member_deleted: "Member deleted",
+    progress_cleared: "Progress cleared",
+    backup_imported: "Backup imported",
+    demo_workspace_loaded: "Demo workspace loaded",
+    fresh_workspace_started: "Fresh workspace started",
+    cloud_saved: "Cloud saved",
+    cloud_loaded: "Cloud loaded",
+  };
+
+  return labels[action];
+}
 function getAuthorityCapabilities(role: WorkspaceAuthorityRole) {
   const canManageEverything = role === "owner";
   const canManageMembers =
@@ -791,6 +918,7 @@ function getAuthorityCapabilities(role: WorkspaceAuthorityRole) {
 
 export default function Home() {
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const workspaceNameBeforeEditRef = useRef(DEMO_WORKSPACE_NAME);
 
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [calendarMonth, setCalendarMonth] = useState(monthStartISO(todayISO()));
@@ -809,6 +937,7 @@ export default function Home() {
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [targets, setTargets] = useState<Target[]>(initialTargets);
   const [logs, setLogs] = useState<ProgressLog[]>([]);
+  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [hasLoadedSavedData, setHasLoadedSavedData] = useState(false);
 
@@ -1186,6 +1315,7 @@ export default function Home() {
         setMembers(safeState.members);
         setTargets(safeState.targets);
         setLogs(safeState.logs);
+        setActivityEvents(normalizeActivityEvents(parsedData.activityEvents));
         setWorkspaceName(normalizeWorkspaceName(parsedData.workspaceName));
         setNewOwnerId(safeState.members[0]?.id ?? "me");
 
@@ -1221,12 +1351,61 @@ export default function Home() {
         members,
         targets,
         logs,
+        activityEvents,
         screenSettings,
         lastSavedAt: savedAt,
       })
     );
-  }, [workspaceName, members, targets, logs, screenSettings, hasLoadedSavedData]);
+  }, [workspaceName, members, targets, logs, activityEvents, screenSettings, hasLoadedSavedData]);
 
+
+  
+
+  function addActivityEvent(
+    action: ActivityEventAction,
+    message: string,
+    metadata: ActivityEvent["metadata"] = {},
+    eventWorkspaceName = workspaceName
+  ) {
+    const event: ActivityEvent = {
+      id: createId("activity"),
+      action,
+      message: message.slice(0, 240),
+      createdAt: new Date().toISOString(),
+      workspaceName: normalizeWorkspaceName(eventWorkspaceName),
+    };
+
+    const safeMetadata = normalizeActivityMetadata(metadata);
+
+    if (safeMetadata) {
+      event.metadata = safeMetadata;
+    }
+
+    setActivityEvents((currentEvents) =>
+      [event, ...currentEvents].slice(0, MAX_ACTIVITY_EVENTS)
+    );
+  }
+
+
+  function commitWorkspaceNameChange() {
+    const previousName = normalizeWorkspaceName(
+      workspaceNameBeforeEditRef.current
+    );
+    const nextName = normalizeWorkspaceName(workspaceName);
+
+    setWorkspaceName(nextName);
+
+    if (previousName !== nextName) {
+      addActivityEvent(
+        "workspace_renamed",
+        `Workspace renamed from "${previousName}" to "${nextName}".`,
+        { from: previousName, to: nextName },
+        nextName
+      );
+    }
+
+    workspaceNameBeforeEditRef.current = nextName;
+  }
 
   useEffect(() => {
     if (members.length === 0) return;
@@ -1798,6 +1977,8 @@ export default function Home() {
     const log = logs.find((item) => item.id === logId);
     if (!log) return;
 
+    const target = targets.find((item) => item.id === log.targetId);
+
     const shouldDelete = window.confirm(
       `Delete this progress log?\n\nAmount: +${log.achievedAmount}\nDate: ${log.date}\n\nThis cannot be undone.`
     );
@@ -1805,6 +1986,18 @@ export default function Home() {
     if (!shouldDelete) return;
 
     setLogs((currentLogs) => currentLogs.filter((item) => item.id !== logId));
+
+    addActivityEvent(
+      "progress_log_deleted",
+      `Progress log deleted: +${log.achievedAmount} on ${log.date}${target ? ` for "${target.title}"` : ""}.`,
+      {
+        logId,
+        targetId: log.targetId,
+        targetTitle: target?.title ?? "Unknown target",
+        amount: log.achievedAmount,
+        date: log.date,
+      }
+    );
 
     if (editingLogId === logId) cancelEditingProgressLog();
   }
@@ -2147,6 +2340,8 @@ export default function Home() {
     const target = targets.find((item) => item.id === targetId);
     if (!target) return;
 
+    const removedLogCount = logs.filter((log) => log.targetId === targetId).length;
+
     const shouldDelete = window.confirm(
       `Delete target "${target.title}"?\n\nThis will also delete all progress logs for this target.\n\nUse Archive instead if you want to keep history.\n\nThis cannot be undone.`
     );
@@ -2159,6 +2354,16 @@ export default function Home() {
 
     setLogs((currentLogs) =>
       currentLogs.filter((log) => log.targetId !== targetId)
+    );
+
+    addActivityEvent(
+      "target_deleted",
+      `Target deleted: "${target.title}" (${removedLogCount} progress logs removed).`,
+      {
+        targetId,
+        targetTitle: target.title,
+        removedLogCount,
+      }
     );
 
     if (editingTargetId === targetId) cancelEditingTarget();
@@ -2184,6 +2389,9 @@ export default function Home() {
     if (!shouldDelete) return;
 
     const memberTargetIds = memberTargets.map((target) => target.id);
+    const removedLogCount = logs.filter((log) =>
+      memberTargetIds.includes(log.targetId)
+    ).length;
 
     setMembers((currentMembers) =>
       currentMembers.filter((item) => item.id !== memberId)
@@ -2195,6 +2403,17 @@ export default function Home() {
 
     setLogs((currentLogs) =>
       currentLogs.filter((log) => !memberTargetIds.includes(log.targetId))
+    );
+
+    addActivityEvent(
+      "member_deleted",
+      `Member deleted: "${member.name}" (${memberTargets.length} targets and ${removedLogCount} progress logs removed).`,
+      {
+        memberId,
+        memberName: member.name,
+        removedTargetCount: memberTargets.length,
+        removedLogCount,
+      }
     );
 
     if (selectedMemberId === memberId) setSelectedMemberId("all");
@@ -2232,7 +2451,14 @@ export default function Home() {
 
     if (!shouldClear) return;
 
+    const clearedLogCount = logs.length;
+
     setLogs([]);
+    addActivityEvent(
+      "progress_cleared",
+      `Progress cleared: ${clearedLogCount} progress logs removed.`,
+      { clearedLogCount }
+    );
     cancelEditingProgressLog();
   }
 
@@ -2336,6 +2562,7 @@ export default function Home() {
       members,
       targets,
       logs,
+      activityEvents,
     };
 
     downloadTextFile(
@@ -2385,7 +2612,19 @@ export default function Home() {
       setMembers(safeState.members);
       setTargets(safeState.targets);
       setLogs(safeState.logs);
+      setActivityEvents(normalizeActivityEvents(parsed.activityEvents));
       setWorkspaceName(importedWorkspaceName);
+
+      addActivityEvent(
+        "backup_imported",
+        `Backup imported into "${importedWorkspaceName}": ${safeState.members.length} members, ${safeState.targets.length} targets, ${safeState.logs.length} progress logs.`,
+        {
+          memberCount: safeState.members.length,
+          targetCount: safeState.targets.length,
+          logCount: safeState.logs.length,
+        },
+        importedWorkspaceName
+      );
       setNewOwnerId(safeState.members[0]?.id ?? "me");
       setSelectedMemberId("all");
       setSearchQuery("");
@@ -2438,7 +2677,22 @@ export default function Home() {
     setMembers(initialMembers);
     setTargets(initialTargets);
     setLogs([]);
+    setActivityEvents([
+      {
+        id: createId("activity"),
+        action: "demo_workspace_loaded",
+        message: `Demo workspace loaded: "${DEMO_WORKSPACE_NAME}".`,
+        createdAt: new Date().toISOString(),
+        workspaceName: DEMO_WORKSPACE_NAME,
+        metadata: {
+          memberCount: initialMembers.length,
+          targetCount: initialTargets.length,
+          logCount: 0,
+        },
+      },
+    ]);
     setWorkspaceName(DEMO_WORKSPACE_NAME);
+    workspaceNameBeforeEditRef.current = DEMO_WORKSPACE_NAME;
     setSelectedMemberId("all");
     setSelectedDate(todayISO());
     setCalendarMonth(monthStartISO(todayISO()));
@@ -2547,7 +2801,22 @@ export default function Home() {
     setMembers([freshMember]);
     setTargets([]);
     setLogs([]);
+    setActivityEvents([
+      {
+        id: createId("activity"),
+        action: "fresh_workspace_started",
+        message: `Fresh workspace started: "${DEFAULT_WORKSPACE_NAME}".`,
+        createdAt: new Date().toISOString(),
+        workspaceName: DEFAULT_WORKSPACE_NAME,
+        metadata: {
+          memberCount: 1,
+          targetCount: 0,
+          logCount: 0,
+        },
+      },
+    ]);
     setWorkspaceName(DEFAULT_WORKSPACE_NAME);
+    workspaceNameBeforeEditRef.current = DEFAULT_WORKSPACE_NAME;
     setSelectedMemberId("all");
     setActiveWorkerId(freshMember.id);
     setNewOwnerId(freshMember.id);
@@ -2902,11 +3171,25 @@ export default function Home() {
         screenSettings,
       });
 
-      setWorkspaceName(normalizeWorkspaceName(result.workspace.name));
+      const savedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
+
+      setWorkspaceName(savedWorkspaceName);
       setCloudWorkspaceName(result.workspace.name);
+      workspaceNameBeforeEditRef.current = savedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
         `Saved "${result.workspace.name}" to cloud: ${result.memberCount} members, ${result.targetCount} targets, ${result.logCount} logs.`
+      );
+
+      addActivityEvent(
+        "cloud_saved",
+        `Cloud saved: "${result.workspace.name}" with ${result.memberCount} members, ${result.targetCount} targets, and ${result.logCount} progress logs.`,
+        {
+          memberCount: result.memberCount,
+          targetCount: result.targetCount,
+          logCount: result.logCount,
+        },
+        result.workspace.name
       );
     } catch (error) {
       setCloudSyncMessage(
@@ -2959,11 +3242,25 @@ setIsCloudSyncing(true);
 
       setSelectedMemberId("all");
       setNewOwnerId(result.members[0]?.id ?? "me");
-      setWorkspaceName(normalizeWorkspaceName(result.workspace.name));
+      const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
+
+      setWorkspaceName(loadedWorkspaceName);
       setCloudWorkspaceName(result.workspace.name);
+      workspaceNameBeforeEditRef.current = loadedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
         `Loaded "${result.workspace.name}" from cloud: ${result.members.length} members, ${result.targets.length} targets, ${result.logs.length} logs.`
+      );
+
+      addActivityEvent(
+        "cloud_loaded",
+        `Cloud loaded: "${result.workspace.name}" with ${result.members.length} members, ${result.targets.length} targets, and ${result.logs.length} progress logs.`,
+        {
+          memberCount: result.members.length,
+          targetCount: result.targets.length,
+          logCount: result.logs.length,
+        },
+        result.workspace.name
       );
     } catch (error) {
       setCloudSyncMessage(
@@ -3482,8 +3779,14 @@ setIsCloudSyncing(true);
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
             <input
               value={workspaceName}
-              onChange={(event) => setWorkspaceName(event.target.value.slice(0, 80))}
-              onBlur={() => setWorkspaceName(normalizeWorkspaceName(workspaceName))}
+              onChange={(event) =>
+                setWorkspaceName(event.target.value.slice(0, 80))
+              }
+              onFocus={() => {
+                workspaceNameBeforeEditRef.current =
+                  normalizeWorkspaceName(workspaceName);
+              }}
+              onBlur={commitWorkspaceNameChange}
               maxLength={80}
               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
               placeholder="Example: Sales Team, Family Goals, Class 8A"
@@ -3928,6 +4231,50 @@ setIsCloudSyncing(true);
             />
           </div>
         </section>
+        <section className="mb-6 rounded-3xl border border-slate-400/20 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "reports" ? undefined : "none" }}>
+          <div className="mb-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300 sm:text-sm sm:tracking-[0.25em]">
+              Activity history
+            </p>
+            <h2 className="mt-2 text-2xl font-bold">Safety ledger</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Recent destructive actions, imports, fresh starts, and manual cloud movement on this device.
+            </p>
+          </div>
+
+          {activityEvents.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/40 p-5 text-sm leading-6 text-slate-400">
+              No activity history yet. Destructive actions and data movement will appear here.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activityEvents.slice(0, 25).map((event) => (
+                <div
+                  key={event.id}
+                  className="rounded-2xl border border-white/10 bg-slate-950/50 p-4"
+                >
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-sm font-semibold text-white">
+                      {formatActivityAction(event.action)}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {formatSavedTime(event.createdAt)}
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    {event.message}
+                  </p>
+
+                  <p className="mt-2 text-xs text-slate-500">
+                    Workspace: {event.workspaceName}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
 
         <section className="mb-6 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "dashboard" || activeAppView === "reports" ? undefined : "none" }}>
           <div className="mb-5">
