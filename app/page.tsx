@@ -260,9 +260,9 @@ const screenSectionOptions: {
   { key: "loggingSummary", label: "Logging date summary", description: "Selected date summary before logging progress.", group: "Core" },
   { key: "monthCalendar", label: "Month calendar", description: "Monthly forecast grid with day-level backlog.", group: "Planning" },
   { key: "selectedDayWork", label: "Selected day work", description: "Main target cards, progress logging, editing, and logs.", group: "Core" },
-  { key: "workspaceOverview", label: "Workspace overview", description: "Teammate profile performance summary and editing.", group: "Management" },
-  { key: "addMember", label: "Add teammate profile", description: "Create local teammate profiles until email invites are added.", group: "Management" },
-  { key: "addTarget", label: "Add target", description: "Create new targets, units, categories, owners, and frequency.", group: "Core" },
+  { key: "workspaceOverview", label: "Workspace overview", description: "Local profile performance summary and editing.", group: "Management" },
+  { key: "addMember", label: "Add local profile", description: "Create local assignment profiles until email invites are added.", group: "Management" },
+  { key: "addTarget", label: "Add target", description: "Create new targets, units, categories, assigned profiles, and frequency.", group: "Core" },
 ];
 
 const defaultScreenSettings: ScreenSettings = {
@@ -1303,7 +1303,7 @@ export default function Home() {
         name:
           typeof member.name === "string" && member.name.trim()
             ? member.name.trim()
-            : "Unnamed member",
+            : "Unnamed profile",
         role: LOCAL_PROFILE_ROLE,
       });
     }
@@ -1664,7 +1664,6 @@ export default function Home() {
       row.target.isArchived ? "archived" : "active",
       priorityLabel(row.target.priority),
       row.owner?.name ?? "",
-      row.owner?.role ?? "",
     ]
       .join(" ")
       .toLowerCase();
@@ -2453,7 +2452,7 @@ export default function Home() {
       : members[0]?.id;
 
     if (!ownerId) {
-      window.alert("Add at least one teammate profile before creating a target.");
+      window.alert("Add at least one local profile before creating a target.");
       return;
     }
 
@@ -2541,7 +2540,7 @@ export default function Home() {
     if (!member) return;
 
     if (members.length <= 1) {
-      window.alert("You must keep at least one teammate profile.");
+      window.alert("You must keep at least one local profile.");
       return;
     }
 
@@ -2607,7 +2606,7 @@ export default function Home() {
       [
       "Clear all progress logs?",
       "",
-      "Targets and teammate profiles will stay.",
+      "Targets and local profiles will stay.",
       "All achieved progress values will reset to zero.",
       "",
       "Export a backup first if this workspace matters.",
@@ -3572,7 +3571,7 @@ setIsCloudSyncing(true);
                       onClick={() => openAction("addMember")}
                       className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
                     >
-                      Add teammate profile
+                      Add local profile
                     </button>
                     <button
                       onClick={() => openAction("logProgress")}
@@ -3648,7 +3647,7 @@ setIsCloudSyncing(true);
             >
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
-                  {member.name} - {member.role}
+                  {member.name}
                 </option>
               ))}
             </select>
@@ -3940,7 +3939,7 @@ setIsCloudSyncing(true);
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <AuthorityBadge label="Manage teammates" active={authorityCapabilities.canManageMembers} />
+            <AuthorityBadge label="Manage profiles" active={authorityCapabilities.canManageMembers} />
             <AuthorityBadge label="Assign targets" active={authorityCapabilities.canAssignTargets} />
             <AuthorityBadge label="Approve work" active={authorityCapabilities.canApproveWork} />
             <AuthorityBadge label="Submit work" active={authorityCapabilities.canSubmitWork} />
@@ -4020,7 +4019,7 @@ setIsCloudSyncing(true);
           </div>
 
           <p className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm leading-6 text-slate-300">
-            Pending invites {FREE_PLAN_PENDING_INVITES_COUNT ? "count" : "do not count"} toward owned teammate seats. Current beta uses local teammate profiles. Real email invitations, accepted workspace membership, and quota enforcement are the next backend step.
+            Pending invites {FREE_PLAN_PENDING_INVITES_COUNT ? "count" : "do not count"} toward owned seats. Current beta uses local assignment profiles. Real email invitations, accepted workspace membership, per-member permissions, and quota enforcement are the next backend step.
           </p>
         </section>
 
@@ -5649,7 +5648,7 @@ setIsCloudSyncing(true);
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: activeAppView === "workspace" ? undefined : "none" }}>
-              <h2 className="mb-4 text-2xl font-bold">Add teammate profile</h2>
+              <h2 className="mb-4 text-2xl font-bold">Add local profile</h2>
 
               
 
@@ -5683,7 +5682,7 @@ setIsCloudSyncing(true);
                   onClick={addMember}
                   className="w-full rounded-xl bg-white px-4 py-3 font-semibold text-slate-950 hover:bg-slate-200"
                 >
-                  Add teammate profile
+                  Add local profile
                 </button>
               </div>
             </section>
