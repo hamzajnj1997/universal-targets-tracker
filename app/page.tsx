@@ -34,7 +34,30 @@ type SupabaseConnectionStatus = "checking" | "connected" | "missing" | "error";
 type AuthMode = "login" | "signup";
 type AppView = "dashboard" | "targets" | "calendar" | "workspace" | "reports" | "settings";
 type WorkspaceAuthorityRole = "owner" | "admin" | "leader" | "parent" | "member" | "viewer";
+type WorkspaceMembershipStatus = "active" | "removed";
+type WorkspaceInviteStatus = "pending" | "accepted" | "expired" | "revoked";
 type ProgressLogStatus = "pending" | "approved" | "rejected";
+
+type WorkspaceMembership = {
+  workspaceId: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  role: WorkspaceAuthorityRole;
+  status: WorkspaceMembershipStatus;
+  joinedAt: string;
+};
+
+type WorkspaceInvite = {
+  id: string;
+  workspaceId: string;
+  email: string;
+  role: WorkspaceAuthorityRole;
+  status: WorkspaceInviteStatus;
+  invitedByUserId: string;
+  createdAt: string;
+  expiresAt: string;
+};
 
 type Member = {
   id: string;
@@ -122,6 +145,7 @@ const FREE_PERSONAL_WORKSPACE_LIMIT = 1;
 const FREE_TEAM_WORKSPACE_LIMIT = 3;
 const FREE_OWNED_TEAM_SEAT_LIMIT = 10;
 const FREE_PLAN_PENDING_INVITES_COUNT = true;
+const DEFAULT_INVITE_EXPIRY_DAYS = 7;
 
 const roleOptions = [
   "Owner",
@@ -208,6 +232,21 @@ const authorityRoleOptions: {
     description: "Can view progress but cannot change workspace data.",
   },
 ];
+
+const workspaceMembershipStatusLabels: Record<
+  WorkspaceMembership["status"],
+  string
+> = {
+  active: "Active member",
+  removed: "Removed member",
+};
+
+const workspaceInviteStatusLabels: Record<WorkspaceInvite["status"], string> = {
+  pending: "Pending invite",
+  accepted: "Accepted invite",
+  expired: "Expired invite",
+  revoked: "Revoked invite",
+};
 
 const screenSectionOptions: {
   key: ScreenSectionKey;
@@ -4255,7 +4294,7 @@ setIsCloudSyncing(true);
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <OnboardingStep
               number="1"
-              title="Add teammates"
+              title="Add teammate profiles"
               body="Create local people, students, family, or team profiles. Registered email invites come next."
             />
             <OnboardingStep
@@ -5476,6 +5515,26 @@ setIsCloudSyncing(true);
 
             <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: activeAppView === "workspace" ? undefined : "none" }}>
               <h2 className="mb-4 text-2xl font-bold">Add teammate profile</h2>
+
+              
+
+              <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-50">
+                <p className="font-semibold">Invite model foundation</p>
+                <p className="mt-2 text-amber-100/90">
+                  This beta creates a local teammate profile only. The next backend step is email invitation, registered user acceptance, and workspace membership. Pending invites will count toward the {FREE_OWNED_TEAM_SEAT_LIMIT} free owned-team seats.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
+                    {workspaceInviteStatusLabels.pending}
+                  </span>
+                  <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
+                    {workspaceMembershipStatusLabels.active}
+                  </span>
+                  <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
+                    Expires after {DEFAULT_INVITE_EXPIRY_DAYS} days
+                  </span>
+                </div>
+              </div>
 
               <div className="space-y-3">
                 <input
