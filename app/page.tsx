@@ -43,7 +43,7 @@ type WorkspaceMembership = {
   userId: string;
   email: string;
   displayName: string;
-  role: WorkspaceAuthorityRole;
+  permissionPreset: WorkspaceAuthorityRole;
   status: WorkspaceMembershipStatus;
   joinedAt: string;
 };
@@ -52,7 +52,7 @@ type WorkspaceInvite = {
   id: string;
   workspaceId: string;
   email: string;
-  role: WorkspaceAuthorityRole;
+  permissionPreset: WorkspaceAuthorityRole;
   status: WorkspaceInviteStatus;
   invitedByUserId: string;
   createdAt: string;
@@ -148,21 +148,9 @@ const FREE_PLAN_PENDING_INVITES_COUNT = true;
 const DEFAULT_INVITE_EXPIRY_DAYS = 7;
 const SUPABASE_CONNECTION_TIMEOUT_MS = 6000;
 
-const roleOptions = [
-  "Owner",
-  "Admin",
-  "Team Leader",
-  "Parent",
-  "Manager",
-  "Teacher",
-  "Coach",
-  "Member",
-  "Friend",
-  "Sibling",
-  "Student",
-  "Child",
-  "Viewer",
-];
+const LOCAL_PROFILE_ROLE = "Local assignment profile";
+
+
 
 const suggestedCategories = [
   "General",
@@ -204,33 +192,39 @@ const authorityRoleOptions: {
 }[] = [
   {
     value: "owner",
-    label: "Owner",
-    description: "Full authority over workspace, teammate profiles, targets, approvals, and settings.",
+    label: "Full access",
+    description:
+      "Can manage workspace settings, local profiles, targets, approvals, backups, and cloud sync.",
   },
   {
     value: "admin",
-    label: "Admin",
-    description: "Can manage teammate profiles, assign work, and approve team activity.",
+    label: "Workspace manager",
+    description:
+      "Can manage local profiles, assign work, approve progress, and operate most workspace tools.",
   },
   {
     value: "leader",
-    label: "Team Leader",
-    description: "Can assign work, monitor progress, and approve submitted work.",
+    label: "Work coordinator",
+    description:
+      "Can assign targets, monitor progress, and approve submitted work.",
   },
   {
     value: "parent",
-    label: "Parent",
-    description: "Can manage family or team profiles, assign work, and approve completion.",
+    label: "Profile manager",
+    description:
+      "Legacy-compatible preset for managing local assignment profiles and approvals.",
   },
   {
     value: "member",
-    label: "Member",
-    description: "Can work on assigned/shared tasks and submit progress.",
+    label: "Contributor",
+    description:
+      "Can work on assigned/shared targets and submit progress.",
   },
   {
     value: "viewer",
-    label: "Viewer",
-    description: "Can view progress but cannot change workspace data.",
+    label: "View only",
+    description:
+      "Can view progress but cannot change workspace data.",
   },
 ];
 
@@ -238,8 +232,8 @@ const workspaceMembershipStatusLabels: Record<
   WorkspaceMembership["status"],
   string
 > = {
-  active: "Active member",
-  removed: "Removed member",
+  active: "Active workspace member",
+  removed: "Removed workspace member",
 };
 
 const workspaceInviteStatusLabels: Record<WorkspaceInvite["status"], string> = {
@@ -262,7 +256,7 @@ const screenSectionOptions: {
   { key: "categoryOverview", label: "Category overview", description: "Pending, achieved, and required work grouped by category.", group: "Management" },
   { key: "managementControls", label: "Management controls", description: "Reset and clear-progress actions.", group: "Admin" },
   { key: "backupTools", label: "Backup and export tools", description: "CSV export, JSON backup, and backup restore.", group: "Admin" },
-  { key: "searchFilters", label: "Search and filters", description: "Search, member, category, priority, status, and archive filters.", group: "Core" },
+  { key: "searchFilters", label: "Search and filters", description: "Search, profile, category, priority, status, and archive filters.", group: "Core" },
   { key: "loggingSummary", label: "Logging date summary", description: "Selected date summary before logging progress.", group: "Core" },
   { key: "monthCalendar", label: "Month calendar", description: "Monthly forecast grid with day-level backlog.", group: "Planning" },
   { key: "selectedDayWork", label: "Selected day work", description: "Main target cards, progress logging, editing, and logs.", group: "Core" },
@@ -409,7 +403,7 @@ const appViewOptions: {
   {
     key: "workspace",
     label: "Workspace",
-    description: "Teammate profiles, roles, and team setup.",
+    description: "Local assignment profiles, invites, and workspace setup.",
   },
   {
     key: "reports",
@@ -424,9 +418,9 @@ const appViewOptions: {
 ];
 
 const initialMembers: Member[] = [
-  { id: "me", name: "Me", role: "Owner" },
-  { id: "team", name: "Team Member", role: "Member" },
-  { id: "student", name: "Student", role: "Student" },
+  { id: "me", name: "Me", role: LOCAL_PROFILE_ROLE },
+  { id: "team", name: "Sales profile", role: LOCAL_PROFILE_ROLE },
+  { id: "student", name: "Study profile", role: LOCAL_PROFILE_ROLE },
 ];
 
 function formatDateISO(date: Date) {
@@ -859,13 +853,13 @@ function getTargetEmptyState({
   if (activeFilterCount > 0) {
     return {
       title: "No targets match the current filters",
-      body: "Clear filters, change the selected member, or switch the archive filter to All targets.",
+      body: "Clear filters, change the selected profile, or switch the archive filter to All targets.",
     };
   }
 
   return {
     title: "No matching targets found",
-    body: "Try changing the selected date, member, category, priority, status, or archive filter.",
+    body: "Try changing the selected date, profile, category, priority, status, or archive filter.",
   };
 }
 
@@ -1025,7 +1019,7 @@ function formatActivityAction(action: ActivityEventAction) {
     workspace_renamed: "Workspace renamed",
     progress_log_deleted: "Progress log deleted",
     target_deleted: "Target deleted",
-    member_deleted: "Member deleted",
+    member_deleted: "Local profile deleted",
     progress_cleared: "Progress cleared",
     backup_imported: "Backup imported",
     demo_workspace_loaded: "Demo workspace loaded",
@@ -1081,7 +1075,6 @@ export default function Home() {
   const [hasLoadedSavedData, setHasLoadedSavedData] = useState(false);
 
   const [newMemberName, setNewMemberName] = useState("");
-  const [newMemberRole, setNewMemberRole] = useState("Member");
 
   const [newTitle, setNewTitle] = useState("");
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
@@ -1111,7 +1104,6 @@ export default function Home() {
 
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editMemberName, setEditMemberName] = useState("");
-  const [editMemberRole, setEditMemberRole] = useState("Member");
 
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editLogDate, setEditLogDate] = useState(todayISO());
@@ -1312,10 +1304,7 @@ export default function Home() {
           typeof member.name === "string" && member.name.trim()
             ? member.name.trim()
             : "Unnamed member",
-        role:
-          typeof member.role === "string" && member.role.trim()
-            ? member.role.trim()
-            : "Member",
+        role: LOCAL_PROFILE_ROLE,
       });
     }
 
@@ -1906,7 +1895,7 @@ export default function Home() {
         {
           id: row.target.ownerId,
           name: "Unknown",
-          role: "Unknown",
+          role: LOCAL_PROFILE_ROLE,
         };
 
       const existing =
@@ -2233,7 +2222,7 @@ export default function Home() {
     }
 
     if (!members.some((member) => member.id === editOwnerId)) {
-      window.alert("Choose a valid assigned member.");
+      window.alert("Choose a valid assigned local profile.");
       return;
     }
 
@@ -2288,27 +2277,25 @@ export default function Home() {
   function startEditingMember(member: Member) {
     setEditingMemberId(member.id);
     setEditMemberName(member.name);
-    setEditMemberRole(member.role);
   }
 
   function cancelEditingMember() {
     setEditingMemberId(null);
     setEditMemberName("");
-    setEditMemberRole("Member");
   }
 
   function saveEditedMember() {
     if (!editingMemberId) return;
 
     if (!editMemberName.trim()) {
-      window.alert("Member name cannot be empty.");
+      window.alert("Local profile name cannot be empty.");
       return;
     }
 
     setMembers((currentMembers) =>
       currentMembers.map((member) =>
         member.id === editingMemberId
-          ? { ...member, name: editMemberName.trim(), role: editMemberRole }
+          ? { ...member, name: editMemberName.trim(), role: LOCAL_PROFILE_ROLE }
           : member
       )
     );
@@ -2339,14 +2326,14 @@ export default function Home() {
 
   function claimTarget(targetId: string) {
     if (!authorityCapabilities.canSubmitWork) {
-      window.alert("Viewer role cannot claim tasks.");
+      window.alert("View-only permission cannot claim tasks.");
       return;
     }
 
     const workerId = getActiveWorkerId();
 
     if (!workerId) {
-      window.alert("Add or select a member before claiming a task.");
+      window.alert("Add or select a local profile before claiming a task.");
       return;
     }
 
@@ -2390,7 +2377,7 @@ export default function Home() {
     const isOwnClaim = target.claimedByMemberId === workerId;
 
     if (!isOwnClaim && !authorityCapabilities.canAssignTargets) {
-      window.alert("Only the person working on it or an authority role can release this claim.");
+      window.alert("Only the person working on it or someone with assign-target permission can release this claim.");
       return;
     }
 
@@ -2413,7 +2400,7 @@ export default function Home() {
     if (!title) return;
 
     if (!authorityCapabilities.canAssignTargets) {
-      window.alert("Only workspace authority roles can add or assign tasks.");
+      window.alert("Only permission presets with target-management access can add or assign tasks.");
       return;
     }
 
@@ -2499,7 +2486,7 @@ export default function Home() {
 
   function addMember() {
     if (!authorityCapabilities.canManageMembers) {
-      window.alert("Only workspace authority roles can add teammate profiles.");
+      window.alert("Only permission presets with profile-management access can add local profiles.");
       return;
     }
 
@@ -2509,12 +2496,11 @@ export default function Home() {
 
     setMembers((currentMembers) => [
       ...currentMembers,
-      { id: newMemberId, name: newMemberName.trim(), role: newMemberRole },
+      { id: newMemberId, name: newMemberName.trim(), role: LOCAL_PROFILE_ROLE },
     ]);
 
     setNewOwnerId(newMemberId);
     setNewMemberName("");
-    setNewMemberRole("Member");
   }
 
   function deleteTarget(targetId: string) {
@@ -2564,7 +2550,7 @@ export default function Home() {
     );
 
     const shouldDelete = window.confirm(
-      `Delete member "${member.name}"?\n\nThis will also delete ${memberTargets.length} assigned targets and their related progress logs.\n\nThis cannot be undone.`
+      `Delete local profile "${member.name}"?\n\nThis will also delete ${memberTargets.length} assigned targets and their related progress logs.\n\nThis cannot be undone.`
     );
 
     if (!shouldDelete) return;
@@ -2588,7 +2574,7 @@ export default function Home() {
 
     addActivityEvent(
       "member_deleted",
-      `Member deleted: "${member.name}" (${memberTargets.length} targets and ${removedLogCount} progress logs removed).`,
+      `Local profile deleted: "${member.name}" (${memberTargets.length} targets and ${removedLogCount} progress logs removed).`,
       {
         memberId,
         memberName: member.name,
@@ -2655,7 +2641,6 @@ export default function Home() {
         priorityLabel(target.priority),
         target.isArchived ? "Archived" : "Active",
         owner?.name ?? "Unknown",
-        owner?.role ?? "Unknown",
         target.frequency,
         target.targetAmount,
         target.unit,
@@ -2671,8 +2656,7 @@ export default function Home() {
         "Category",
         "Priority",
         "Archive Status",
-        "Owner",
-        "Owner Role",
+        "Assigned Profile",
         "Frequency",
         "Target Amount",
         "Unit",
@@ -2701,7 +2685,6 @@ export default function Home() {
         target?.isArchived ? "Archived" : "Active",
         log.targetId,
         owner?.name ?? "Unknown",
-        owner?.role ?? "Unknown",
         log.createdAt,
       ];
     });
@@ -2716,8 +2699,7 @@ export default function Home() {
         "Category",
         "Archive Status",
         "Target ID",
-        "Owner",
-        "Owner Role",
+        "Assigned Profile",
         "Created At",
       ],
       rows
@@ -2771,7 +2753,7 @@ export default function Home() {
         !Array.isArray(parsed.logs)
       ) {
         window.alert(
-          "This backup is not valid. It must contain teammate profiles, targets, and logs."
+          "This backup is not valid. It must contain local profiles, targets, and logs."
         );
         return;
       }
@@ -2780,12 +2762,12 @@ export default function Home() {
       const importedWorkspaceName = normalizeWorkspaceName(parsed.workspaceName);
 
       if (safeState.members.length === 0) {
-        window.alert("This backup has no valid teammate profiles.");
+        window.alert("This backup has no valid local profiles.");
         return;
       }
 
       const shouldImport = window.confirm(
-        `Import this backup?\n\nThis will replace the current local workspace on this device with:\n\nWorkspace: ${importedWorkspaceName}\n${safeState.members.length} members\n${safeState.targets.length} targets\n${safeState.logs.length} progress logs\n\nExport a backup first if you may need the current workspace.\n\nContinue?`
+        `Import this backup?\n\nThis will replace the current local workspace on this device with:\n\nWorkspace: ${importedWorkspaceName}\n${safeState.members.length} local profiles\n${safeState.targets.length} targets\n${safeState.logs.length} progress logs\n\nExport a backup first if you may need the current workspace.\n\nContinue?`
       );
 
       if (!shouldImport) return;
@@ -2798,7 +2780,7 @@ export default function Home() {
 
       addActivityEvent(
         "backup_imported",
-        `Backup imported into "${importedWorkspaceName}": ${safeState.members.length} members, ${safeState.targets.length} targets, ${safeState.logs.length} progress logs.`,
+        `Backup imported into "${importedWorkspaceName}": ${safeState.members.length} local profiles, ${safeState.targets.length} targets, ${safeState.logs.length} progress logs.`,
         {
           memberCount: safeState.members.length,
           targetCount: safeState.targets.length,
@@ -2842,7 +2824,7 @@ export default function Home() {
       [
       "Load demo workspace?",
       "",
-      "This will replace the current local workspace on this device with sample teammate profiles, targets, and starter progress.",
+      "This will replace the current local workspace on this device with sample local profiles, targets, and starter progress.",
       "",
       "Your cloud copy will NOT change unless you later click Save local data to cloud.",
       "",
@@ -2904,13 +2886,13 @@ export default function Home() {
 
   const selectedMemberName =
     selectedMemberId === "all"
-      ? "All members"
+      ? "All profiles"
       : members.find((member) => member.id === selectedMemberId)?.name ??
         "Unknown";
 
   const activeFilterCount = [
     searchQuery.trim() ? "search" : "",
-    selectedMemberId !== "all" ? "member" : "",
+    selectedMemberId !== "all" ? "profile" : "",
     priorityFilter !== "all" ? "priority" : "",
     statusFilter !== "all" ? "status" : "",
     categoryFilter !== "all" ? "category" : "",
@@ -2962,7 +2944,7 @@ export default function Home() {
       [
         "Start fresh on this device?",
         "",
-        "This will remove local teammate profiles, targets, and logs from this browser.",
+        "This will remove local profiles, targets, and logs from this browser.",
         "Your cloud copy will NOT change unless you later click Save local data to cloud.",
         "",
         "Export a backup first if this workspace matters.",
@@ -2976,7 +2958,7 @@ export default function Home() {
     const freshMember = {
       id: "me",
       name: "Me",
-      role: "Owner",
+      role: LOCAL_PROFILE_ROLE,
     };
 
     const freshDate = todayISO();
@@ -3376,12 +3358,12 @@ export default function Home() {
       workspaceNameBeforeEditRef.current = savedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
-        `Saved "${result.workspace.name}" to cloud: ${result.memberCount} members, ${result.targetCount} targets, ${result.logCount} logs, plus activity history.`
+        `Saved "${result.workspace.name}" to cloud: ${result.memberCount} local profiles, ${result.targetCount} targets, ${result.logCount} logs, plus activity history.`
       );
 
       addActivityEvent(
         "cloud_saved",
-        `Cloud saved: "${result.workspace.name}" with ${result.memberCount} members, ${result.targetCount} targets, and ${result.logCount} progress logs.`,
+        `Cloud saved: "${result.workspace.name}" with ${result.memberCount} local profiles, ${result.targetCount} targets, and ${result.logCount} progress logs.`,
         {
           memberCount: result.memberCount,
           targetCount: result.targetCount,
@@ -3418,7 +3400,7 @@ export default function Home() {
         "Load cloud data into this device?",
         "",
         "This will replace this device's current local workspace with your cloud copy.",
-        "Local teammate profiles, targets, logs, claims, activity history, and screen settings on this device may change.",
+        "Local profiles, targets, logs, claims, activity history, and screen settings on this device may change.",
         "Your cloud copy will NOT change from loading.",
         "",
         "Export a backup first if this device has data you may need.",
@@ -3455,12 +3437,12 @@ setIsCloudSyncing(true);
       workspaceNameBeforeEditRef.current = loadedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
-        `Loaded "${result.workspace.name}" from cloud: ${result.members.length} members, ${result.targets.length} targets, ${result.logs.length} logs, plus activity history.`
+        `Loaded "${result.workspace.name}" from cloud: ${result.members.length} local profiles, ${result.targets.length} targets, ${result.logs.length} logs, plus activity history.`
       );
 
       addActivityEvent(
         "cloud_loaded",
-        `Cloud loaded: "${result.workspace.name}" with ${result.members.length} members, ${result.targets.length} targets, and ${result.logs.length} progress logs.`,
+        `Cloud loaded: "${result.workspace.name}" with ${result.members.length} local profiles, ${result.targets.length} targets, and ${result.logs.length} progress logs.`,
         {
           memberCount: result.members.length,
           targetCount: result.targets.length,
@@ -3480,7 +3462,7 @@ setIsCloudSyncing(true);
   const authorityCapabilities = getAuthorityCapabilities(currentAuthorityRole);
   const currentAuthorityLabel =
     authorityRoleOptions.find((role) => role.value === currentAuthorityRole)
-      ?.label ?? "Owner";
+      ?.label ?? "Full access";
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
@@ -3523,13 +3505,13 @@ setIsCloudSyncing(true);
               />
             </FieldLabel>
 
-            <FieldLabel label="View member">
+            <FieldLabel label="View profile">
               <select
                 value={selectedMemberId}
                 onChange={(event) => setSelectedMemberId(event.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"
               >
-                <option value="all">All members</option>
+                <option value="all">All profiles</option>
                 {members.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
@@ -3653,9 +3635,9 @@ setIsCloudSyncing(true);
 
           <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/50 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold">Working as</p>
+              <p className="text-sm font-semibold">Logging as local profile</p>
               <p className="mt-1 text-xs text-slate-500">
-                Claims and quick tasks will use this member.
+                Claims and quick tasks will use this local profile.
               </p>
             </div>
 
@@ -3842,7 +3824,7 @@ setIsCloudSyncing(true);
                 {pendingApprovalLogs.length === 1 ? "" : "s"} waiting
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Work submitted by members for approval will appear here before it counts toward progress.
+                Work submitted by local profiles for approval will appear here before it counts toward progress.
               </p>
             </div>
 
@@ -3913,13 +3895,13 @@ setIsCloudSyncing(true);
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-300 sm:text-sm sm:tracking-[0.25em]">
-                Workspace authority
+                Workspace permissions
               </p>
               <h2 className="mt-2 text-2xl font-bold">
-                Current role: {currentAuthorityLabel}
+                Current permission preset: {currentAuthorityLabel}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Roles control who can manage teammate profiles, assign targets, approve work, submit progress, and edit settings.
+                Permission presets control who can manage local profiles, assign targets, approve work, submit progress, and edit settings.
               </p>
             </div>
 
@@ -3966,7 +3948,7 @@ setIsCloudSyncing(true);
           </div>
 
           <p className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
-            Current beta rule: local teammate profiles can be added only by Owner, Admin, Team Leader, or Parent roles. Email invites and registered workspace membership come next.
+            Current beta rule: local assignment profiles can be created by permission presets with profile-management access. Email invites, accepted workspace membership, and per-member permissions come next.
           </p>
         </section>
 
@@ -4055,7 +4037,7 @@ setIsCloudSyncing(true);
                 {currentUser ? "Manual cloud sync ready" : "Sign in to sync data"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                {"Save this device's teammate profiles, targets, logs, activity history, and screen preferences "}
+                {"Save this device's local profiles, targets, logs, activity history, and screen preferences "}
                 to Supabase, or load your cloud copy onto this device. This first
                 sync release is manual to prevent accidental overwrites.
               </p>
@@ -4286,7 +4268,7 @@ setIsCloudSyncing(true);
           <StatCard label="Pending" value={totalPending} />
           <StatCard label="Achieved" value={totalAchieved} />
           <StatCard label="Required" value={totalRequired} />
-          <StatCard label="People" value={members.length} />
+          <StatCard label="Profiles" value={members.length} />
           <StatCard label="Logs" value={totalLogs} />
           <StatCard label="Archived" value={archivedCount} />
         </section>
@@ -4420,7 +4402,7 @@ setIsCloudSyncing(true);
                 >
                   <span className="block text-sm font-semibold text-sky-100">Try demo workspace</span>
                   <span className="mt-1 block text-xs leading-5 text-sky-200/80">
-                    Load sample teammate profiles and targets so you can explore the app quickly.
+                    Load sample local profiles and targets so you can explore the app quickly.
                   </span>
                 </button>
 
@@ -4430,7 +4412,7 @@ setIsCloudSyncing(true);
                 >
                   <span className="block text-sm font-semibold text-amber-100">Start empty workspace</span>
                   <span className="mt-1 block text-xs leading-5 text-amber-200/80">
-                    Clear local sample data and begin with one owner profile.
+                    Clear local sample data and begin with one local profile.
                   </span>
                 </button>
 
@@ -4457,13 +4439,13 @@ setIsCloudSyncing(true);
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <OnboardingStep
               number="1"
-              title="Add teammate profiles"
-              body="Create local people, students, family, or team profiles. Registered email invites come next."
+              title="Add local profiles"
+              body="Create local assignment profiles. Registered users join later through email invites."
             />
             <OnboardingStep
               number="2"
               title="Create targets"
-              body="Add daily, weekly, or monthly targets with a category, owner, priority, and unit."
+              body="Add daily, weekly, or monthly targets with a category, assigned profile, priority, and unit."
             />
             <OnboardingStep
               number="3"
@@ -4557,7 +4539,7 @@ setIsCloudSyncing(true);
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-              <p className="text-sm text-slate-400">Most overdue member</p>
+              <p className="text-sm text-slate-400">Most overdue profile</p>
 
               {dashboardInsights.mostBehindMember ? (
                 <>
@@ -4856,7 +4838,7 @@ setIsCloudSyncing(true);
           <div className="mb-4">
             <h2 className="text-2xl font-bold">Backup, export, and import</h2>
             <p className="mt-1 text-sm leading-6 text-slate-400">
-              Download your workspace data, including workspace name, teammate profiles,
+              Download your workspace data, including workspace name, local profiles,
               targets, logs, screen settings, and selected calendar state. Restore
               only from JSON backups created by this app.
             </p>
@@ -4923,7 +4905,7 @@ setIsCloudSyncing(true);
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search targets, categories, notes, units, owners, or roles..."
+              placeholder="Search targets, categories, notes, units, or assigned profiles..."
               className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white md:col-span-2 xl:col-span-1"
             />
 
@@ -5019,7 +5001,7 @@ setIsCloudSyncing(true);
             <div>
               <h2 className="text-2xl font-bold">Month calendar</h2>
               <p className="mt-1 text-sm leading-6 text-slate-400">
-                Click any day to open that date. Filter: {selectedMemberName}
+                Click any day to open that date. Profile filter: {selectedMemberName}
               </p>
             </div>
 
@@ -5188,7 +5170,7 @@ setIsCloudSyncing(true);
                             </select>
                           </FieldLabel>
 
-                          <FieldLabel label="Assigned member">
+                          <FieldLabel label="Assigned local profile">
                             <select
                               value={editOwnerId}
                               onChange={(event) =>
@@ -5327,8 +5309,7 @@ setIsCloudSyncing(true);
                             </div>
 
                             <p className="mt-2 text-sm leading-6 text-slate-400">
-                              Owner: {row.owner?.name ?? "Unknown"} - Role:{" "}
-                              {row.owner?.role ?? "Unknown"} - Target:{" "}
+                              Assigned to: {row.owner?.name ?? "Unknown"} - Target:{" "}
                               {formatQuantity(row.target.targetAmount, row.target.unit)} /{" "}
                               {row.target.frequency === "once" ? "one-time" : row.target.frequency}
                             </p>
@@ -5579,11 +5560,11 @@ setIsCloudSyncing(true);
                       {isEditingMember ? (
                         <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-4">
                           <h3 className="mb-4 text-lg font-bold text-cyan-200">
-                            Edit member
+                            Edit local profile
                           </h3>
 
                           <div className="space-y-3">
-                            <FieldLabel label="Member name">
+                            <FieldLabel label="Local profile name">
                               <input
                                 value={editMemberName}
                                 onChange={(event) =>
@@ -5593,21 +5574,6 @@ setIsCloudSyncing(true);
                               />
                             </FieldLabel>
 
-                            <FieldLabel label="Role">
-                              <select
-                                value={editMemberRole}
-                                onChange={(event) =>
-                                  setEditMemberRole(event.target.value)
-                                }
-                                className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
-                              >
-                                {roleOptions.map((role) => (
-                                  <option key={role} value={role}>
-                                    {role}
-                                  </option>
-                                ))}
-                              </select>
-                            </FieldLabel>
                           </div>
 
                           <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
@@ -5615,7 +5581,7 @@ setIsCloudSyncing(true);
                               onClick={saveEditedMember}
                               className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
                             >
-                              Save member
+                              Save profile
                             </button>
 
                             <button
@@ -5632,7 +5598,7 @@ setIsCloudSyncing(true);
                             <div>
                               <p className="font-semibold">{row.member.name}</p>
                               <p className="text-sm text-slate-400">
-                                {row.member.role} - {formatCount(row.targetCount, "target")}
+                                Local profile - {formatCount(row.targetCount, "target")}
                               </p>
                             </div>
 
@@ -5664,14 +5630,14 @@ setIsCloudSyncing(true);
                               onClick={() => startEditingMember(row.member)}
                               className="rounded-xl border border-cyan-400/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-400/10"
                             >
-                              Edit member
+                              Edit local profile
                             </button>
 
                             <button
                               onClick={() => deleteMember(row.member.id)}
                               className="rounded-xl border border-red-400/30 px-3 py-2 text-sm text-red-200 hover:bg-red-400/10"
                             >
-                              Delete member
+                              Delete local profile
                             </button>
                           </div>
                         </>
@@ -5690,7 +5656,7 @@ setIsCloudSyncing(true);
               <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-50">
                 <p className="font-semibold">Team invitations coming next</p>
                 <p className="mt-2 text-amber-100/90">
-                  For now, this creates a local teammate profile. Next, you will be able to invite people by email so registered users can join the workspace. Pending invites will count toward the {FREE_OWNED_TEAM_SEAT_LIMIT} free owned-team seats.
+                  For now, this creates a local assignment profile. Next, you will be able to invite people by email so registered users can join the workspace. Pending invites will count toward the {FREE_OWNED_TEAM_SEAT_LIMIT} free owned-team seats.
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
@@ -5712,18 +5678,6 @@ setIsCloudSyncing(true);
                   placeholder="Example: Ahmed or Sales Assistant"
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 />
-
-                <select
-                  value={newMemberRole}
-                  onChange={(event) => setNewMemberRole(event.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
-                >
-                  {roleOptions.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
 
                 <button
                   onClick={addMember}
