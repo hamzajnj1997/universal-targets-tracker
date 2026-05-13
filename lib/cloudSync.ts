@@ -53,6 +53,25 @@ type WorkspaceRow = {
   owner_id: string;
 };
 
+type WorkspaceMemberRow = {
+  id: string;
+  user_id: string | null;
+  display_name: string | null;
+  role: string | null;
+  app_role: string | null;
+};
+
+type PendingWorkspaceMemberInsert = {
+  originalId: string;
+  row: {
+    workspace_id: string;
+    user_id: string | null;
+    display_name: string;
+    role: string;
+    app_role: string;
+  };
+};
+
 function normalizePriority(value: unknown): CloudPriority {
   if (value === "low" || value === "medium" || value === "high" || value === "urgent") {
     return value;
@@ -169,35 +188,90 @@ export async function saveLocalDataToCloud(
       ? payload.members
       : [{ id: "me", name: user.email ?? "Me", role: "Owner" }];
 
+  const { data: existingMemberRows, error: existingMembersError } =
+    await supabase
+      .from("workspace_members")
+      .select("id,user_id,display_name,role,app_role")
+      .eq("workspace_id", workspace.id)
+      .order("created_at", { ascending: true });
+
+  if (existingMembersError) throw existingMembersError;
+
+  const existingMembers = (existingMemberRows ?? []) as WorkspaceMemberRow[];
+  const existingMemberById = new Map(
+    existingMembers.map((member) => [member.id, member])
+  );
+  const registeredMemberRows = existingMembers.filter((member) =>
+    Boolean(member.user_id)
+  );
+  const ownerMemberRow =
+    registeredMemberRows.find((member) => member.user_id === user.id) ?? null;
+
   await supabase.from("progress_logs").delete().eq("workspace_id", workspace.id);
   await supabase.from("targets").delete().eq("workspace_id", workspace.id);
-  await supabase.from("workspace_members").delete().eq("workspace_id", workspace.id);
 
-  const memberRows = safeMembers.map((member, index) => ({
-    workspace_id: workspace.id,
-    user_id: index === 0 ? user.id : null,
-    display_name: member.name || "Unnamed member",
-    role: member.role || (index === 0 ? "Owner" : "Member"),
-    app_role: inferAppRoleFromDisplayRole(member.role, index),
-  }));
-
-  const { data: insertedMembers, error: membersError } = await supabase
+  const { error: placeholderDeleteError } = await supabase
     .from("workspace_members")
-    .insert(memberRows)
-    .select("id,display_name,role");
+    .delete()
+    .eq("workspace_id", workspace.id)
+    .is("user_id", null);
 
-  if (membersError) throw membersError;
+  if (placeholderDeleteError) throw placeholderDeleteError;
 
   const memberIdMap = new Map<string, string>();
+  const pendingMemberRows: PendingWorkspaceMemberInsert[] = [];
 
   safeMembers.forEach((member, index) => {
-    const inserted = insertedMembers?.[index];
+    const existingMember = existingMemberById.get(member.id);
+
+    if (existingMember?.user_id) {
+      memberIdMap.set(member.id, existingMember.id);
+      return;
+    }
+
+    if (index === 0 && ownerMemberRow?.id) {
+      memberIdMap.set(member.id, ownerMemberRow.id);
+      return;
+    }
+
+    pendingMemberRows.push({
+      originalId: member.id,
+      row: {
+        workspace_id: workspace.id,
+        user_id: index === 0 && !ownerMemberRow ? user.id : null,
+        display_name: member.name || "Unnamed member",
+        role: member.role || (index === 0 ? "Owner" : "Member"),
+        app_role: inferAppRoleFromDisplayRole(member.role, index),
+      },
+    });
+  });
+
+  let insertedMembers: WorkspaceMemberRow[] = [];
+
+  if (pendingMemberRows.length > 0) {
+    const { data: insertedMemberRows, error: membersError } = await supabase
+      .from("workspace_members")
+      .insert(pendingMemberRows.map((member) => member.row))
+      .select("id,user_id,display_name,role,app_role");
+
+    if (membersError) throw membersError;
+
+    insertedMembers = (insertedMemberRows ?? []) as WorkspaceMemberRow[];
+  }
+
+  pendingMemberRows.forEach((pendingMember, index) => {
+    const inserted = insertedMembers[index];
+
     if (inserted?.id) {
-      memberIdMap.set(member.id, inserted.id);
+      memberIdMap.set(pendingMember.originalId, inserted.id);
     }
   });
 
-  const fallbackMemberId = insertedMembers?.[0]?.id ?? null;
+  const fallbackMemberId =
+    ownerMemberRow?.id ??
+    registeredMemberRows[0]?.id ??
+    insertedMembers[0]?.id ??
+    null;
 
   const targetRows = payload.targets.map((target) => ({
     workspace_id: workspace.id,
