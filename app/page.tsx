@@ -3429,7 +3429,7 @@ setIsCloudSyncing(true);
                       onClick={() => openAction("addMember")}
                       className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
                     >
-                      Add teammate
+                      Add teammate profile
                     </button>
                     <button
                       onClick={() => openAction("logProgress")}
@@ -5519,9 +5519,9 @@ setIsCloudSyncing(true);
               
 
               <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-50">
-                <p className="font-semibold">Invite model foundation</p>
+                <p className="font-semibold">Team invitations coming next</p>
                 <p className="mt-2 text-amber-100/90">
-                  This beta creates a local teammate profile only. The next backend step is email invitation, registered user acceptance, and workspace membership. Pending invites will count toward the {FREE_OWNED_TEAM_SEAT_LIMIT} free owned-team seats.
+                  For now, this creates a local teammate profile. Next, you will be able to invite people by email so registered users can join the workspace. Pending invites will count toward the {FREE_OWNED_TEAM_SEAT_LIMIT} free owned-team seats.
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
@@ -5560,7 +5560,7 @@ setIsCloudSyncing(true);
                   onClick={addMember}
                   className="w-full rounded-xl bg-white px-4 py-3 font-semibold text-slate-950 hover:bg-slate-200"
                 >
-                  Add teammate
+                  Add teammate profile
                 </button>
               </div>
             </section>
