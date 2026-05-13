@@ -425,7 +425,6 @@ const appViewOptions: {
 
 const initialMembers: Member[] = [
   { id: "me", name: "Me", role: "Owner" },
-  { id: "family", name: "Family Member", role: "Member" },
   { id: "team", name: "Team Member", role: "Member" },
   { id: "student", name: "Student", role: "Student" },
 ];
@@ -636,14 +635,25 @@ function periodsDue(target: Target, dateISO: string) {
   return monthsBetween(target.startDate, dateISO) + 1;
 }
 
-function getStatus(pending: number, progress: number, dateISO?: string) {
+function getDueStatusLabel(frequency?: Frequency) {
+  if (frequency === "weekly") return "Due This Week";
+  if (frequency === "monthly") return "Due This Month";
+  return "Due Today";
+}
+
+function getStatus(
+  pending: number,
+  progress: number,
+  dateISO?: string,
+  frequency?: Frequency
+) {
   if (pending === 0) return "Done";
 
   const today = todayISO();
 
   if (dateISO && dateISO > today) return "Upcoming";
   if (dateISO && dateISO === today) {
-    return progress >= 80 ? "Almost Done" : "Due Today";
+    return progress >= 80 ? "Almost Done" : getDueStatusLabel(frequency);
   }
 
   if (progress >= 80) return "Almost Done";
@@ -652,7 +662,13 @@ function getStatus(pending: number, progress: number, dateISO?: string) {
 
 function statusClass(status: string) {
   if (status === "Overdue") return "bg-red-500/20 text-red-300";
-  if (status === "Due Today") return "bg-orange-500/20 text-orange-300";
+  if (
+    status === "Due Today" ||
+    status === "Due This Week" ||
+    status === "Due This Month"
+  ) {
+    return "bg-orange-500/20 text-orange-300";
+  }
   if (status === "Upcoming") return "bg-blue-500/20 text-blue-300";
   if (status === "Almost Done") return "bg-yellow-500/20 text-yellow-300";
   return "bg-emerald-500/20 text-emerald-300";
@@ -694,6 +710,49 @@ function statusMatchesFilter(status: string, filter: StatusFilter) {
   if (filter === "close") return status === "Almost Done";
   if (filter === "onTrack") return status === "Done";
   return true;
+}
+
+function singularizeUnit(unit: string) {
+  const trimmed = unit.trim() || "unit";
+  const lower = trimmed.toLowerCase();
+
+  if (lower.endsWith("ies") && trimmed.length > 3) {
+    return trimmed.slice(0, -3) + "y";
+  }
+
+  if (lower.endsWith("s") && !lower.endsWith("ss") && trimmed.length > 1) {
+    return trimmed.slice(0, -1);
+  }
+
+  return trimmed;
+}
+
+function pluralizeUnit(unit: string) {
+  const singular = singularizeUnit(unit);
+  const lower = singular.toLowerCase();
+
+  if (lower.endsWith("y") && !/[aeiou]y$/i.test(lower)) {
+    return singular.slice(0, -1) + "ies";
+  }
+
+  if (
+    lower.endsWith("s") ||
+    lower.endsWith("x") ||
+    lower.endsWith("ch") ||
+    lower.endsWith("sh")
+  ) {
+    return singular + "es";
+  }
+
+  return singular + "s";
+}
+
+function formatQuantity(amount: number, unit: string) {
+  return amount + " " + (amount === 1 ? singularizeUnit(unit) : pluralizeUnit(unit));
+}
+
+function formatCount(count: number, singularLabel: string, pluralLabel?: string) {
+  return count + " " + (count === 1 ? singularLabel : pluralLabel ?? singularLabel + "s");
 }
 
 function archiveMatchesFilter(isArchived: boolean, filter: ArchiveFilter) {
@@ -1389,8 +1448,18 @@ export default function Home() {
       : []
     ).filter((log) => validTargetIds.has(log.targetId));
 
+    const usedMemberIds = new Set(safeTargets.map((target) => target.ownerId));
+    const demoVisibleMembers =
+      normalizeWorkspaceName(rawState.workspaceName) === DEMO_WORKSPACE_NAME
+        ? safeMembers.filter(
+            (member) => member.id !== "family" || usedMemberIds.has(member.id)
+          )
+        : safeMembers;
+    const finalMembers =
+      demoVisibleMembers.length > 0 ? demoVisibleMembers : safeMembers;
+
     return {
-      members: safeMembers,
+      members: finalMembers,
       targets: safeTargets,
       logs: safeLogs,
     };
@@ -1574,7 +1643,7 @@ export default function Home() {
       surplus,
       progress,
       recentLogs,
-      status: getStatus(pending, progress, dateISO),
+      status: getStatus(pending, progress, dateISO, target.frequency),
     };
   }
 
@@ -3704,7 +3773,7 @@ setIsCloudSyncing(true);
 
                     <div className="grid gap-2 sm:flex sm:items-center sm:justify-end">
                       <div className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-300">
-                        Need {row.pending} / {row.required} {row.target.unit}
+                        Need {formatQuantity(row.pending, row.target.unit)} / {formatQuantity(row.required, row.target.unit)}
                       </div>
 
                       <button
@@ -3799,7 +3868,7 @@ setIsCloudSyncing(true);
                     <p className="font-semibold">{target?.title ?? "Unknown task"}</p>
                     <p className="mt-1 text-sm text-slate-400">
                       Submitted by {submittedBy?.name ?? "Unknown"} - {log.date} -{" "}
-                      {log.achievedAmount} {target?.unit ?? "units"}
+                      {formatQuantity(log.achievedAmount, target?.unit ?? "unit")}
                     </p>
                   </div>
 
@@ -4477,7 +4546,7 @@ setIsCloudSyncing(true);
                   </p>
                   <p className="mt-1 text-sm text-slate-300">
                     {dashboardInsights.mostBehindCategory.pending} pending -{" "}
-                    {dashboardInsights.mostBehindCategory.targetCount} targets
+                    {formatCount(dashboardInsights.mostBehindCategory.targetCount, "target")}
                   </p>
                 </>
               ) : (
@@ -4497,7 +4566,7 @@ setIsCloudSyncing(true);
                   </p>
                   <p className="mt-1 text-sm text-slate-300">
                     {dashboardInsights.mostBehindMember.pending} pending -{" "}
-                    {dashboardInsights.mostBehindMember.targetCount} targets
+                    {formatCount(dashboardInsights.mostBehindMember.targetCount, "target")}
                   </p>
                 </>
               ) : (
@@ -4520,10 +4589,10 @@ setIsCloudSyncing(true);
                       dashboardInsights.highestPriorityOverdueTarget.target
                         .priority
                     )}{" "}
-                    - {dashboardInsights.highestPriorityOverdueTarget.pending}{" "}
-                    {
+                    - {formatQuantity(
+                      dashboardInsights.highestPriorityOverdueTarget.pending,
                       dashboardInsights.highestPriorityOverdueTarget.target.unit
-                    }{" "}
+                    )}{" "}
                     pending
                   </p>
                 </>
@@ -4548,7 +4617,7 @@ setIsCloudSyncing(true);
                         {index + 1}. {row.target.title}
                       </p>
                       <p className="text-xs text-slate-400">
-                        {row.pending} {row.target.unit} pending -{" "}
+                        {formatQuantity(row.pending, row.target.unit)} pending -{" "}
                         {priorityLabel(row.target.priority)}
                       </p>
                     </div>
@@ -4590,9 +4659,9 @@ setIsCloudSyncing(true);
             <StatusBox label="Workspace" value={normalizeWorkspaceName(workspaceName)} />
             <StatusBox
               label="Saved records"
-              value={`${members.length} profiles - ${targets.length} targets`}
+              value={`${formatCount(members.length, "profile")} - ${formatCount(targets.length, "target")}`}
             />
-            <StatusBox label="Progress logs" value={`${logs.length} logs`} />
+            <StatusBox label="Progress logs" value={formatCount(logs.length, "log")} />
           </div>
         </section>
 
@@ -5260,7 +5329,7 @@ setIsCloudSyncing(true);
                             <p className="mt-2 text-sm leading-6 text-slate-400">
                               Owner: {row.owner?.name ?? "Unknown"} - Role:{" "}
                               {row.owner?.role ?? "Unknown"} - Target:{" "}
-                              {row.target.targetAmount} {row.target.unit} /{" "}
+                              {formatQuantity(row.target.targetAmount, row.target.unit)} /{" "}
                               {row.target.frequency === "once" ? "one-time" : row.target.frequency}
                             </p>
 
@@ -5274,16 +5343,14 @@ setIsCloudSyncing(true);
                             )}
 
                             <p className="mt-2 text-sm leading-6 text-slate-300">
-                              Required by selected date: {row.required}{" "}
-                              {row.target.unit}. Achieved: {row.achieved}{" "}
-                              {row.target.unit}.
+                              Required by selected date: {formatQuantity(row.required, row.target.unit)}. Achieved: {formatQuantity(row.achieved, row.target.unit)}.
                             </p>
                           </div>
 
                           <div className="rounded-2xl bg-white/5 p-4 text-left md:min-w-40 md:text-right">
                             <p className="text-sm text-slate-400">Need now</p>
                             <p className="text-3xl font-bold">
-                              {row.pending} {row.target.unit}
+                              {formatQuantity(row.pending, row.target.unit)}
                             </p>
 
                             {row.surplus > 0 && (
@@ -5446,8 +5513,7 @@ setIsCloudSyncing(true);
                                             {log.date}
                                           </span>
                                           <span className="ml-3 font-semibold text-cyan-300">
-                                            +{log.achievedAmount}{" "}
-                                            {row.target.unit}
+                                            +{formatQuantity(log.achievedAmount, row.target.unit)}
                                           </span>
                                         </div>
 
@@ -5566,7 +5632,7 @@ setIsCloudSyncing(true);
                             <div>
                               <p className="font-semibold">{row.member.name}</p>
                               <p className="text-sm text-slate-400">
-                                {row.member.role} - {row.targetCount} targets
+                                {row.member.role} - {formatCount(row.targetCount, "target")}
                               </p>
                             </div>
 
@@ -5628,13 +5694,13 @@ setIsCloudSyncing(true);
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
-                    {workspaceInviteStatusLabels.pending}
+                    Current beta: local profile only
                   </span>
                   <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
-                    {workspaceMembershipStatusLabels.active}
+                    Future flow: {workspaceInviteStatusLabels.pending} to {workspaceMembershipStatusLabels.active}
                   </span>
                   <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
-                    Expires after {DEFAULT_INVITE_EXPIRY_DAYS} days
+                    Invite expiry: {DEFAULT_INVITE_EXPIRY_DAYS} days
                   </span>
                 </div>
               </div>
