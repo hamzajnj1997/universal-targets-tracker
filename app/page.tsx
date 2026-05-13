@@ -3224,7 +3224,7 @@ export default function Home() {
       workspaceNameBeforeEditRef.current = savedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
-        `Saved "${result.workspace.name}" to cloud: ${result.memberCount} members, ${result.targetCount} targets, ${result.logCount} logs.`
+        `Saved "${result.workspace.name}" to cloud: ${result.memberCount} members, ${result.targetCount} targets, ${result.logCount} logs, plus activity history.`
       );
 
       addActivityEvent(
@@ -3259,7 +3259,7 @@ export default function Home() {
         "Load cloud data into this device?",
         "",
         "This will replace this device's current local workspace with your cloud copy.",
-        "Local teammate profiles, targets, logs, claims, and screen settings on this device may change.",
+        "Local teammate profiles, targets, logs, claims, activity history, and screen settings on this device may change.",
         "Your cloud copy will NOT change from loading.",
         "",
         "Export a backup first if this device has data you may need.",
@@ -3296,7 +3296,7 @@ setIsCloudSyncing(true);
       workspaceNameBeforeEditRef.current = loadedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
-        `Loaded "${result.workspace.name}" from cloud: ${result.members.length} members, ${result.targets.length} targets, ${result.logs.length} logs.`
+        `Loaded "${result.workspace.name}" from cloud: ${result.members.length} members, ${result.targets.length} targets, ${result.logs.length} logs, plus activity history.`
       );
 
       addActivityEvent(
@@ -3896,7 +3896,7 @@ setIsCloudSyncing(true);
                 {currentUser ? "Manual cloud sync ready" : "Sign in to sync data"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                {"Save this device's teammate profiles, targets, logs, and screen preferences "}
+                {"Save this device's teammate profiles, targets, logs, activity history, and screen preferences "}
                 to Supabase, or load your cloud copy onto this device. This first
                 sync release is manual to prevent accidental overwrites.
               </p>

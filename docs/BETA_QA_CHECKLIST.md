@@ -1,4 +1,4 @@
-# Universal Targets Tracker — Beta QA Checklist
+# Universal Targets Tracker ï¿½ Beta QA Checklist
 
 Use this checklist before every production deployment.
 
@@ -26,7 +26,7 @@ Current beta priority:
 
 - [ ] Click Try demo workspace.
 - [ ] Confirm the warning explains local data will be replaced.
-- [ ] Confirm sample members appear.
+- [ ] Confirm sample teammate profiles appear.
 - [ ] Confirm sample targets appear.
 - [ ] Confirm dashboard totals update.
 - [ ] Confirm calendar still renders.
@@ -47,16 +47,17 @@ Current beta priority:
 
 ## 4. Backup/export/import flow
 
-- [ ] Add one member.
+- [ ] Add one teammate profile.
 - [ ] Add one target.
 - [ ] Log progress.
 - [ ] Export JSON backup.
 - [ ] Start empty workspace.
 - [ ] Import the JSON backup.
-- [ ] Confirm members restore.
+- [ ] Confirm teammate profiles restore.
 - [ ] Confirm targets restore.
 - [ ] Confirm progress logs restore.
 - [ ] Confirm selected date/calendar still work after import.
+- [ ] Confirm activity history restores after import.
 
 ---
 
@@ -76,17 +77,18 @@ Only test with non-critical data.
 - [ ] Click Load cloud data again.
 - [ ] Confirm load warning recommends backup first.
 - [ ] Confirm cloud data loads correctly.
+- [ ] Confirm activity history survives cloud save/load.
 
 ---
 
-## 6. Member management flow
+## 6. Teammate profile management flow
 
-- [ ] Add a member.
-- [ ] Edit the member name.
-- [ ] Edit the member role.
-- [ ] Delete the member.
+- [ ] Add a teammate profile.
+- [ ] Edit the teammate profile name.
+- [ ] Edit the teammate profile role.
+- [ ] Delete the teammate profile.
 - [ ] Confirm warning explains assigned targets/logs can be deleted.
-- [ ] Confirm at least one member must remain.
+- [ ] Confirm at least one teammate profile must remain.
 
 ---
 
@@ -128,7 +130,7 @@ Only test with non-critical data.
 ## 10. Filters/search flow
 
 - [ ] Search by target title.
-- [ ] Filter by member.
+- [ ] Filter by teammate profile.
 - [ ] Filter by category.
 - [ ] Filter by priority.
 - [ ] Filter by status.
@@ -170,7 +172,7 @@ A production deployment is allowed only if:
 Stable rollback tag:
 
 ```powershell
-git checkout v37-cloud-sync-stable
+git checkout v42b-cloud-activity-history
 ```
 
 Latest production commit should be checked with:
