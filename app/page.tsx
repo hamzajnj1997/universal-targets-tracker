@@ -113,9 +113,15 @@ type BackupFile = Partial<SavedAppState> & {
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
 const MAX_ACTIVITY_EVENTS = 100;
-const APP_BACKUP_VERSION = 39;
+const APP_BACKUP_VERSION = 41;
 const DEFAULT_WORKSPACE_NAME = "My Workspace";
 const DEMO_WORKSPACE_NAME = "Demo Workspace";
+
+const FREE_PLAN_NAME = "Free";
+const FREE_PERSONAL_WORKSPACE_LIMIT = 1;
+const FREE_TEAM_WORKSPACE_LIMIT = 3;
+const FREE_OWNED_TEAM_SEAT_LIMIT = 10;
+const FREE_PLAN_PENDING_INVITES_COUNT = true;
 
 const roleOptions = [
   "Owner",
@@ -174,12 +180,12 @@ const authorityRoleOptions: {
   {
     value: "owner",
     label: "Owner",
-    description: "Full authority over workspace, members, targets, approvals, and settings.",
+    description: "Full authority over workspace, teammate profiles, targets, approvals, and settings.",
   },
   {
     value: "admin",
     label: "Admin",
-    description: "Can manage members, assign work, and approve team activity.",
+    description: "Can manage teammate profiles, assign work, and approve team activity.",
   },
   {
     value: "leader",
@@ -189,7 +195,7 @@ const authorityRoleOptions: {
   {
     value: "parent",
     label: "Parent",
-    description: "Can manage family members, assign work, and approve completion.",
+    description: "Can manage family or team profiles, assign work, and approve completion.",
   },
   {
     value: "member",
@@ -220,8 +226,8 @@ const screenSectionOptions: {
   { key: "loggingSummary", label: "Logging date summary", description: "Selected date summary before logging progress.", group: "Core" },
   { key: "monthCalendar", label: "Month calendar", description: "Monthly forecast grid with day-level backlog.", group: "Planning" },
   { key: "selectedDayWork", label: "Selected day work", description: "Main target cards, progress logging, editing, and logs.", group: "Core" },
-  { key: "workspaceOverview", label: "Workspace overview", description: "Member performance summary and member editing.", group: "Management" },
-  { key: "addMember", label: "Add member", description: "Create new workspace members and roles.", group: "Management" },
+  { key: "workspaceOverview", label: "Workspace overview", description: "Teammate profile performance summary and editing.", group: "Management" },
+  { key: "addMember", label: "Add teammate profile", description: "Create local teammate profiles until email invites are added.", group: "Management" },
   { key: "addTarget", label: "Add target", description: "Create new targets, units, categories, owners, and frequency.", group: "Core" },
 ];
 
@@ -363,7 +369,7 @@ const appViewOptions: {
   {
     key: "workspace",
     label: "Workspace",
-    description: "Members, roles, and team setup.",
+    description: "Teammate profiles, roles, and team setup.",
   },
   {
     key: "reports",
@@ -2285,7 +2291,7 @@ export default function Home() {
       : members[0]?.id;
 
     if (!ownerId) {
-      window.alert("Add at least one member before creating a target.");
+      window.alert("Add at least one teammate profile before creating a target.");
       return;
     }
 
@@ -2318,7 +2324,7 @@ export default function Home() {
 
   function addMember() {
     if (!authorityCapabilities.canManageMembers) {
-      window.alert("Only workspace authority roles can add members.");
+      window.alert("Only workspace authority roles can add teammate profiles.");
       return;
     }
 
@@ -2374,7 +2380,7 @@ export default function Home() {
     if (!member) return;
 
     if (members.length <= 1) {
-      window.alert("You must keep at least one member.");
+      window.alert("You must keep at least one teammate profile.");
       return;
     }
 
@@ -2440,7 +2446,7 @@ export default function Home() {
       [
       "Clear all progress logs?",
       "",
-      "Targets and members will stay.",
+      "Targets and teammate profiles will stay.",
       "All achieved progress values will reset to zero.",
       "",
       "Export a backup first if this workspace matters.",
@@ -2590,7 +2596,7 @@ export default function Home() {
         !Array.isArray(parsed.logs)
       ) {
         window.alert(
-          "This backup is not valid. It must contain members, targets, and logs."
+          "This backup is not valid. It must contain teammate profiles, targets, and logs."
         );
         return;
       }
@@ -2599,7 +2605,7 @@ export default function Home() {
       const importedWorkspaceName = normalizeWorkspaceName(parsed.workspaceName);
 
       if (safeState.members.length === 0) {
-        window.alert("This backup has no valid members.");
+        window.alert("This backup has no valid teammate profiles.");
         return;
       }
 
@@ -2661,7 +2667,7 @@ export default function Home() {
       [
       "Load demo workspace?",
       "",
-      "This will replace the current local workspace on this device with sample members, targets, and starter progress.",
+      "This will replace the current local workspace on this device with sample teammate profiles, targets, and starter progress.",
       "",
       "Your cloud copy will NOT change unless you later click Save local data to cloud.",
       "",
@@ -2779,7 +2785,7 @@ export default function Home() {
       [
         "Start fresh on this device?",
         "",
-        "This will remove local members, targets, and logs from this browser.",
+        "This will remove local teammate profiles, targets, and logs from this browser.",
         "Your cloud copy will NOT change unless you later click Save local data to cloud.",
         "",
         "Export a backup first if this workspace matters.",
@@ -3213,7 +3219,7 @@ export default function Home() {
         "Load cloud data into this device?",
         "",
         "This will replace this device's current local workspace with your cloud copy.",
-        "Local members, targets, logs, claims, and screen settings on this device may change.",
+        "Local teammate profiles, targets, logs, claims, and screen settings on this device may change.",
         "Your cloud copy will NOT change from loading.",
         "",
         "Export a backup first if this device has data you may need.",
@@ -3384,7 +3390,7 @@ setIsCloudSyncing(true);
                       onClick={() => openAction("addMember")}
                       className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
                     >
-                      Add member
+                      Add teammate
                     </button>
                     <button
                       onClick={() => openAction("logProgress")}
@@ -3713,7 +3719,7 @@ setIsCloudSyncing(true);
                 Current role: {currentAuthorityLabel}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Roles control who can manage members, assign targets, approve work, submit progress, and edit settings.
+                Roles control who can manage teammate profiles, assign targets, approve work, submit progress, and edit settings.
               </p>
             </div>
 
@@ -3752,7 +3758,7 @@ setIsCloudSyncing(true);
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <AuthorityBadge label="Manage members" active={authorityCapabilities.canManageMembers} />
+            <AuthorityBadge label="Manage teammates" active={authorityCapabilities.canManageMembers} />
             <AuthorityBadge label="Assign targets" active={authorityCapabilities.canAssignTargets} />
             <AuthorityBadge label="Approve work" active={authorityCapabilities.canApproveWork} />
             <AuthorityBadge label="Submit work" active={authorityCapabilities.canSubmitWork} />
@@ -3760,8 +3766,7 @@ setIsCloudSyncing(true);
           </div>
 
           <p className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
-            Current rule: members can be added only by Owner, Admin, Team Leader,
-            or Parent roles. Viewer mode cannot add members.
+            Current beta rule: local teammate profiles can be added only by Owner, Admin, Team Leader, or Parent roles. Email invites and registered workspace membership come next.
           </p>
         </section>
 
@@ -3798,6 +3803,45 @@ setIsCloudSyncing(true);
           </div>
         </section>
 
+        <section className="mb-6 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" ? undefined : "none" }}>
+          <div className="mb-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300 sm:text-sm sm:tracking-[0.25em]">
+              Launch plan rules
+            </p>
+            <h2 className="mt-2 text-2xl font-bold">Free workspace limits</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Launch model: every user gets a personal workspace, can own up to
+              {FREE_TEAM_WORKSPACE_LIMIT} team workspaces, and can allocate
+              {FREE_OWNED_TEAM_SEAT_LIMIT} total teammate seats across owned
+              team workspaces. Workspaces someone is invited into do not count
+              against their owned-workspace quota.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <StatusBox
+              label="Plan"
+              value={FREE_PLAN_NAME}
+            />
+            <StatusBox
+              label="Personal workspace"
+              value={`${FREE_PERSONAL_WORKSPACE_LIMIT} included`}
+            />
+            <StatusBox
+              label="Owned team workspaces"
+              value={`${FREE_TEAM_WORKSPACE_LIMIT} free`}
+            />
+            <StatusBox
+              label="Owned teammate seats"
+              value={`${FREE_OWNED_TEAM_SEAT_LIMIT} total`}
+            />
+          </div>
+
+          <p className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm leading-6 text-slate-300">
+            Pending invites {FREE_PLAN_PENDING_INVITES_COUNT ? "count" : "do not count"} toward owned teammate seats. Current beta uses local teammate profiles. Real email invitations, accepted workspace membership, and quota enforcement are the next backend step.
+          </p>
+        </section>
+
         <section
           className="mb-6 rounded-3xl border border-blue-400/20 bg-blue-400/10 p-4 sm:mb-8 sm:p-5"
           style={{ display: activeAppView === "settings" ? undefined : "none" }}
@@ -3811,7 +3855,7 @@ setIsCloudSyncing(true);
                 {currentUser ? "Manual cloud sync ready" : "Sign in to sync data"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                {"Save this device's members, targets, logs, and screen preferences "}
+                {"Save this device's teammate profiles, targets, logs, and screen preferences "}
                 to Supabase, or load your cloud copy onto this device. This first
                 sync release is manual to prevent accidental overwrites.
               </p>
@@ -4040,7 +4084,7 @@ setIsCloudSyncing(true);
           <StatCard label="Pending" value={totalPending} />
           <StatCard label="Achieved" value={totalAchieved} />
           <StatCard label="Required" value={totalRequired} />
-          <StatCard label="Members" value={members.length} />
+          <StatCard label="People" value={members.length} />
           <StatCard label="Logs" value={totalLogs} />
           <StatCard label="Archived" value={archivedCount} />
         </section>
@@ -4174,7 +4218,7 @@ setIsCloudSyncing(true);
                 >
                   <span className="block text-sm font-semibold text-sky-100">Try demo workspace</span>
                   <span className="mt-1 block text-xs leading-5 text-sky-200/80">
-                    Load sample members and targets so you can explore the app quickly.
+                    Load sample teammate profiles and targets so you can explore the app quickly.
                   </span>
                 </button>
 
@@ -4202,7 +4246,7 @@ setIsCloudSyncing(true);
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
               <p>
-                {members.length} members - {activeTargetsCount} active targets -{" "}
+                {members.length} profiles - {activeTargetsCount} active targets -{" "}
                 {archivedCount} archived
               </p>
             </div>
@@ -4211,8 +4255,8 @@ setIsCloudSyncing(true);
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <OnboardingStep
               number="1"
-              title="Add members"
-              body="Create people, students, team members, family members, or roles in the workspace."
+              title="Add teammates"
+              body="Create local people, students, family, or team profiles. Registered email invites come next."
             />
             <OnboardingStep
               number="2"
@@ -4404,7 +4448,7 @@ setIsCloudSyncing(true);
             <StatusBox label="Workspace" value={normalizeWorkspaceName(workspaceName)} />
             <StatusBox
               label="Saved records"
-              value={`${members.length} members - ${targets.length} targets`}
+              value={`${members.length} profiles - ${targets.length} targets`}
             />
             <StatusBox label="Progress logs" value={`${logs.length} logs`} />
           </div>
@@ -4601,7 +4645,7 @@ setIsCloudSyncing(true);
           <div className="mb-4">
             <h2 className="text-2xl font-bold">Backup, export, and import</h2>
             <p className="mt-1 text-sm leading-6 text-slate-400">
-              Download your workspace data, including workspace name, members,
+              Download your workspace data, including workspace name, teammate profiles,
               targets, logs, screen settings, and selected calendar state. Restore
               only from JSON backups created by this app.
             </p>
@@ -5431,13 +5475,13 @@ setIsCloudSyncing(true);
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: activeAppView === "workspace" ? undefined : "none" }}>
-              <h2 className="mb-4 text-2xl font-bold">Add member</h2>
+              <h2 className="mb-4 text-2xl font-bold">Add teammate profile</h2>
 
               <div className="space-y-3">
                 <input
                   value={newMemberName}
                   onChange={(event) => setNewMemberName(event.target.value)}
-                  placeholder="Example: Ahmed"
+                  placeholder="Example: Ahmed or Sales Assistant"
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 />
 
@@ -5457,7 +5501,7 @@ setIsCloudSyncing(true);
                   onClick={addMember}
                   className="w-full rounded-xl bg-white px-4 py-3 font-semibold text-slate-950 hover:bg-slate-200"
                 >
-                  Add member
+                  Add teammate
                 </button>
               </div>
             </section>
