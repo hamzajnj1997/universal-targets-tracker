@@ -497,6 +497,13 @@ const initialTargets: Target[] = [
   },
 ];
 
+function createDemoTargetsForDate(startDate: string) {
+  return initialTargets.map((target) => ({
+    ...target,
+    startDate,
+  }));
+}
+
 function toDate(dateISO: string) {
   return new Date(`${dateISO}T00:00:00`);
 }
@@ -608,6 +615,10 @@ function isPriority(value: unknown): value is Priority {
 
 function periodsDue(target: Target, dateISO: string) {
   if (dateISO < target.startDate) return 0;
+
+  if (dateISO > todayISO()) {
+    return 1;
+  }
 
   if (target.frequency === "once") {
     return 1;
@@ -1320,7 +1331,7 @@ export default function Home() {
 
     const safeTargets = (Array.isArray(rawState.targets)
       ? normalizeTargets(rawState.targets)
-      : initialTargets
+      : createDemoTargetsForDate(todayISO())
     ).map((target) => ({
       ...target,
       ownerId: validMemberIds.has(target.ownerId)
@@ -1350,6 +1361,7 @@ export default function Home() {
   }
 
   useEffect(() => {
+    const clientToday = todayISO();
     const savedData = window.localStorage.getItem(STORAGE_KEY);
 
     if (savedData) {
@@ -1363,6 +1375,8 @@ export default function Home() {
         setActivityEvents(normalizeActivityEvents(parsedData.activityEvents));
         setWorkspaceName(normalizeWorkspaceName(parsedData.workspaceName));
         setNewOwnerId(safeState.members[0]?.id ?? "me");
+        setSelectedDate(clientToday);
+        setCalendarMonth(monthStartISO(clientToday));
 
         if (parsedData.screenSettings) {
           setScreenSettings(normalizeScreenSettings(parsedData.screenSettings));
@@ -1374,10 +1388,27 @@ export default function Home() {
 
         if (typeof parsedData.lastSavedAt === "string") {
           setLastSavedAt(parsedData.lastSavedAt);
+        } else {
+          setLastSavedAt(new Date().toISOString());
         }
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
+        setSelectedDate(clientToday);
+        setCalendarMonth(monthStartISO(clientToday));
+        setTargets(createDemoTargetsForDate(clientToday));
+        setNewStartDate(clientToday);
+        setEditStartDate(clientToday);
+        setEditLogDate(clientToday);
+        setLastSavedAt(new Date().toISOString());
       }
+    } else {
+      setSelectedDate(clientToday);
+      setCalendarMonth(monthStartISO(clientToday));
+      setTargets(createDemoTargetsForDate(clientToday));
+      setNewStartDate(clientToday);
+      setEditStartDate(clientToday);
+      setEditLogDate(clientToday);
+      setLastSavedAt(new Date().toISOString());
     }
 
     setHasLoadedSavedData(true);
@@ -1822,7 +1853,6 @@ export default function Home() {
   const selectedDaySummary = useMemo(() => {
     return calculateDaySnapshot(selectedDate);
   }, [
-    selectedDate,
     selectedMemberId,
     searchQuery,
     priorityFilter,
@@ -1835,8 +1865,9 @@ export default function Home() {
   ]);
 
   const completionHistory = useMemo(() => {
+    const historyEndDate = todayISO();
     const lastThirtyDays = Array.from({ length: 30 }, (_, index) => {
-      const date = addDays(selectedDate, index - 29);
+      const date = addDays(historyEndDate, index - 29);
       const snapshot = calculateDaySnapshot(date);
       const active = snapshot.required > 0;
       const complete = active && snapshot.pending === 0;
@@ -2718,9 +2749,11 @@ export default function Home() {
 
     if (!shouldReset) return;
 
+    const demoDate = todayISO();
+
     window.localStorage.removeItem(STORAGE_KEY);
     setMembers(initialMembers);
-    setTargets(initialTargets);
+    setTargets(createDemoTargetsForDate(demoDate));
     setLogs([]);
     setActivityEvents([
       {
@@ -2739,8 +2772,8 @@ export default function Home() {
     setWorkspaceName(DEMO_WORKSPACE_NAME);
     workspaceNameBeforeEditRef.current = DEMO_WORKSPACE_NAME;
     setSelectedMemberId("all");
-    setSelectedDate(todayISO());
-    setCalendarMonth(monthStartISO(todayISO()));
+    setSelectedDate(demoDate);
+    setCalendarMonth(monthStartISO(demoDate));
     setSearchQuery("");
     setPriorityFilter("all");
     setStatusFilter("all");
@@ -4485,7 +4518,16 @@ setIsCloudSyncing(true);
               </p>
             </div>
 
-            <StatusBox label="Last saved" value={formatSavedTime(lastSavedAt)} />
+            <StatusBox
+              label="Last saved"
+              value={
+                lastSavedAt
+                  ? formatSavedTime(lastSavedAt)
+                  : hasLoadedSavedData
+                  ? "Saved locally this session"
+                  : "Loading local data..."
+              }
+            />
             <StatusBox label="Workspace" value={normalizeWorkspaceName(workspaceName)} />
             <StatusBox
               label="Saved records"
