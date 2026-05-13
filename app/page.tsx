@@ -3212,6 +3212,7 @@ export default function Home() {
         members,
         targets,
         logs,
+        activityEvents,
         workspaceName: normalizeWorkspaceName(workspaceName),
         screenSettings,
       });
@@ -3280,6 +3281,7 @@ setIsCloudSyncing(true);
       setMembers(result.members.length > 0 ? result.members : members);
       setTargets(result.targets);
       setLogs(result.logs);
+      setActivityEvents(normalizeActivityEvents(result.activityEvents));
 
       if (result.screenSettings) {
         setScreenSettings(normalizeScreenSettings(result.screenSettings));

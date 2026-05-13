@@ -39,11 +39,21 @@ export type CloudProgressLog = {
   rejectionReason?: string;
 };
 
+export type CloudActivityEvent = {
+  id: string;
+  action: string;
+  message: string;
+  createdAt: string;
+  workspaceName: string;
+  metadata?: Record<string, string | number | boolean | null>;
+};
+
 export type CloudSyncPayload = {
   workspaceName?: string;
   members: CloudMember[];
   targets: CloudTarget[];
   logs: CloudProgressLog[];
+  activityEvents?: CloudActivityEvent[];
   screenSettings: Record<string, boolean>;
 };
 
@@ -96,6 +106,77 @@ function normalizeWorkspaceName(value: unknown, fallback = "My Workspace") {
   if (!trimmed) return fallback;
 
   return trimmed.slice(0, 80);
+}
+
+function normalizeCloudActivityMetadata(
+  value: unknown
+): CloudActivityEvent["metadata"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized: Record<string, string | number | boolean | null> = {};
+
+  for (const [key, rawValue] of Object.entries(value)) {
+    const safeKey = key.slice(0, 60);
+
+    if (typeof rawValue === "string") {
+      normalized[safeKey] = rawValue.slice(0, 160);
+    } else if (
+      typeof rawValue === "number" ||
+      typeof rawValue === "boolean" ||
+      rawValue === null
+    ) {
+      normalized[safeKey] = rawValue;
+    }
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizeCloudActivityEvents(value: unknown): CloudActivityEvent[] {
+  if (!Array.isArray(value)) return [];
+
+  const events: CloudActivityEvent[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+
+    const rawEvent = item as Partial<CloudActivityEvent>;
+    const createdAt = new Date(String(rawEvent.createdAt));
+
+    if (
+      typeof rawEvent.id !== "string" ||
+      typeof rawEvent.action !== "string" ||
+      typeof rawEvent.message !== "string" ||
+      Number.isNaN(createdAt.getTime())
+    ) {
+      continue;
+    }
+
+    const event: CloudActivityEvent = {
+      id: rawEvent.id,
+      action: rawEvent.action.slice(0, 80),
+      message: rawEvent.message.slice(0, 240),
+      createdAt: createdAt.toISOString(),
+      workspaceName: normalizeWorkspaceName(rawEvent.workspaceName),
+    };
+
+    const metadata = normalizeCloudActivityMetadata(rawEvent.metadata);
+
+    if (metadata) {
+      event.metadata = metadata;
+    }
+
+    events.push(event);
+  }
+
+  return events
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, 100);
 }
 
 function inferAppRoleFromDisplayRole(role: string, index: number) {
@@ -321,13 +402,18 @@ export async function saveLocalDataToCloud(
     if (logsError) throw logsError;
   }
 
+  const cloudSettings = {
+    ...payload.screenSettings,
+    activityEvents: normalizeCloudActivityEvents(payload.activityEvents),
+  };
+
   const { error: preferencesError } = await supabase
     .from("screen_preferences")
     .upsert(
       {
         user_id: user.id,
         workspace_id: workspace.id,
-        settings: payload.screenSettings,
+        settings: cloudSettings,
       },
       { onConflict: "user_id,workspace_id" }
     );
@@ -422,5 +508,10 @@ export async function loadCloudDataFromCloud(
     targets,
     logs,
     screenSettings: preferences?.settings ?? null,
+    activityEvents: normalizeCloudActivityEvents(
+      preferences?.settings && typeof preferences.settings === "object"
+        ? (preferences.settings as Record<string, unknown>).activityEvents
+        : undefined
+    ),
   };
 }
