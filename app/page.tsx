@@ -30,7 +30,7 @@ type ScreenSectionKey =
   | "addTarget";
 type ScreenSettings = Record<ScreenSectionKey, boolean>;
 type ScreenPresetKey = "simple" | "manager" | "calendar" | "admin" | "full";
-type SupabaseConnectionStatus = "checking" | "connected" | "missing" | "error";
+type SupabaseConnectionStatus = "checking" | "connected" | "missing" | "unreachable" | "error";
 type AuthMode = "login" | "signup";
 type AppView = "dashboard" | "targets" | "calendar" | "workspace" | "reports" | "settings";
 type WorkspaceAuthorityRole = "owner" | "admin" | "leader" | "parent" | "member" | "viewer";
@@ -146,6 +146,7 @@ const FREE_TEAM_WORKSPACE_LIMIT = 3;
 const FREE_OWNED_TEAM_SEAT_LIMIT = 10;
 const FREE_PLAN_PENDING_INVITES_COUNT = true;
 const DEFAULT_INVITE_EXPIRY_DAYS = 7;
+const SUPABASE_CONNECTION_TIMEOUT_MS = 6000;
 
 const roleOptions = [
   "Owner",
@@ -741,6 +742,29 @@ function formatSavedTime(value: string | null) {
   });
 }
 
+function withTimeout<T>(
+  promise: PromiseLike<T>,
+  timeoutMs: number,
+  timeoutMessage: string
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        globalThis.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        globalThis.clearTimeout(timeoutId);
+        reject(error);
+      }
+    );
+  });
+}
+
 function getTargetEmptyState({
   hasTargets,
   activeTargetsCount,
@@ -1081,15 +1105,20 @@ export default function Home() {
     if (!supabase) {
       setSupabaseConnectionStatus("missing");
       setSupabaseConnectionMessage(
-        "Supabase client could not be created. Check environment variables."
+        "Supabase client could not be created. Local app mode is active."
       );
       return;
     }
 
     let isMounted = true;
+    const timeoutMessage =
+      "Supabase backend is unreachable. Local app mode is active; export JSON backups before changing devices.";
 
-    supabase.auth
-      .getSession()
+    withTimeout(
+      supabase.auth.getSession(),
+      SUPABASE_CONNECTION_TIMEOUT_MS,
+      timeoutMessage
+    )
       .then(({ error }) => {
         if (!isMounted) return;
 
@@ -1101,18 +1130,25 @@ export default function Home() {
 
         setSupabaseConnectionStatus("connected");
         setSupabaseConnectionMessage(
-          "Cloud backend is connected. Login and sync can now be added."
+          "Cloud backend is connected. Sign in to use manual cloud sync."
         );
       })
       .catch((error: unknown) => {
         if (!isMounted) return;
 
-        setSupabaseConnectionStatus("error");
-        setSupabaseConnectionMessage(
+        const message =
           error instanceof Error
             ? error.message
-            : "Could not reach Supabase backend."
-        );
+            : "Could not reach Supabase backend.";
+
+        if (message === timeoutMessage) {
+          setSupabaseConnectionStatus("unreachable");
+          setSupabaseConnectionMessage(timeoutMessage);
+          return;
+        }
+
+        setSupabaseConnectionStatus("error");
+        setSupabaseConnectionMessage(message);
       });
 
     return () => {
@@ -3101,6 +3137,13 @@ export default function Home() {
       return;
     }
 
+    if (supabaseConnectionStatus !== "connected") {
+      setAuthMessage(
+        "Cloud backend is not reachable. Continue in local mode and export JSON backups until backend access is restored."
+      );
+      return;
+    }
+
     const email = authEmail.trim().toLowerCase();
     const password = authPassword.trim();
     const displayName = authDisplayName.trim();
@@ -3223,6 +3266,13 @@ export default function Home() {
       return;
     }
 
+    if (supabaseConnectionStatus !== "connected") {
+      setCloudSyncMessage(
+        "Cloud backend is not reachable. Keep working locally and export a JSON backup."
+      );
+      return;
+    }
+
     const shouldSave = window.confirm(
       [
       "Save local data to cloud?",
@@ -3284,6 +3334,13 @@ export default function Home() {
 
     if (!currentUser || !supabase) {
       setCloudSyncMessage("Sign in before loading cloud data.");
+      return;
+    }
+
+    if (supabaseConnectionStatus !== "connected") {
+      setCloudSyncMessage(
+        "Cloud backend is not reachable. Keep working locally and export a JSON backup."
+      );
       return;
     }
 
@@ -3980,7 +4037,8 @@ setIsCloudSyncing(true);
                   ? "Supabase connected"
                   : supabaseConnectionStatus === "checking"
                   ? "Checking backend"
-                  : supabaseConnectionStatus === "missing"
+                  : supabaseConnectionStatus === "missing" ||
+                    supabaseConnectionStatus === "unreachable"
                   ? "Local mode active"
                   : "Backend connection issue"}
               </h2>
@@ -3995,7 +4053,8 @@ setIsCloudSyncing(true);
                   ? "rounded-full bg-emerald-500/20 px-3 py-1 text-sm font-semibold text-emerald-300"
                   : supabaseConnectionStatus === "checking"
                   ? "rounded-full bg-cyan-500/20 px-3 py-1 text-sm font-semibold text-cyan-300"
-                  : supabaseConnectionStatus === "missing"
+                  : supabaseConnectionStatus === "missing" ||
+                    supabaseConnectionStatus === "unreachable"
                   ? "rounded-full bg-yellow-500/20 px-3 py-1 text-sm font-semibold text-yellow-300"
                   : "rounded-full bg-red-500/20 px-3 py-1 text-sm font-semibold text-red-300"
               }
