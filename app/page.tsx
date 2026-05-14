@@ -1127,6 +1127,7 @@ export default function Home() {
   );
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -1212,7 +1213,10 @@ export default function Home() {
   useEffect(() => {
     const supabase = getSupabaseClient();
 
-    if (!supabase) return;
+    if (!supabase) {
+      setHasCheckedAuth(true);
+      return;
+    }
 
     let isMounted = true;
 
@@ -1225,12 +1229,14 @@ export default function Home() {
       }
 
       setCurrentUser(data.session?.user ?? null);
+      setHasCheckedAuth(true);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setCurrentUser(session?.user ?? null);
+      setHasCheckedAuth(true);
     });
 
     return () => {
@@ -3613,7 +3619,7 @@ setIsCloudSyncing(true);
   function goToPreviousWalkthroughStep() {
     setWalkthroughStepIndex((currentIndex) => Math.max(currentIndex - 1, 0));
   }
-  if (!hasLoadedSavedData) {
+  if (!hasLoadedSavedData || !hasCheckedAuth) {
     return (
       <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
         <div className="mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center">
@@ -3627,6 +3633,134 @@ setIsCloudSyncing(true);
             <p className="mt-3 text-sm leading-6 text-slate-300">
               Preparing the correct local date, workspace data, and browser
               storage before showing targets.
+            </p>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
+        <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-400 sm:text-sm sm:tracking-[0.3em]">
+              Universal Targets Tracker
+            </p>
+            <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-5xl">
+              Sign in before tracking work
+            </h1>
+            <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-base">
+              Production workspaces require an account. This keeps targets,
+              progress logs, members, invites, and future autosave tied to the
+              correct user and workspace.
+            </p>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <StatusBox label="Required" value="Account first" />
+              <StatusBox label="Data model" value="Workspace scoped" />
+              <StatusBox label="Next step" value="Workspace switcher" />
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-50">
+              <p className="font-semibold">Production rule</p>
+              <p className="mt-2 text-amber-100/90">
+                Anonymous local tracking is disabled. Sign in or create an
+                account before creating real targets or progress logs.
+              </p>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-6 shadow-2xl shadow-black/20 sm:p-8">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">
+                  Cloud account
+                </p>
+                <h2 className="mt-2 text-2xl font-bold">
+                  {authMode === "signup" ? "Create account" : "Sign in"}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-emerald-50/80">
+                  Use your account to load the correct workspace. Multi-workspace
+                  switching and autosave are the next production steps.
+                </p>
+              </div>
+
+              <div className="flex rounded-xl border border-white/10 bg-slate-950/50 p-1">
+                <button
+                  onClick={() => setAuthMode("login")}
+                  className={
+                    authMode === "login"
+                      ? "rounded-lg bg-emerald-400 px-3 py-2 text-sm font-semibold text-slate-950"
+                      : "rounded-lg px-3 py-2 text-sm font-semibold text-emerald-100 hover:bg-white/10"
+                  }
+                >
+                  Sign in
+                </button>
+                <button
+                  onClick={() => setAuthMode("signup")}
+                  className={
+                    authMode === "signup"
+                      ? "rounded-lg bg-emerald-400 px-3 py-2 text-sm font-semibold text-slate-950"
+                      : "rounded-lg px-3 py-2 text-sm font-semibold text-emerald-100 hover:bg-white/10"
+                  }
+                >
+                  Create account
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              {authMode === "signup" && (
+                <input
+                  value={authDisplayName}
+                  onChange={(event) => setAuthDisplayName(event.target.value)}
+                  placeholder="Display name"
+                  autoComplete="name"
+                  className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+                />
+              )}
+
+              <input
+                type="email"
+                value={authEmail}
+                onChange={(event) => setAuthEmail(event.target.value)}
+                placeholder="Email address"
+                autoComplete="email"
+                className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+              />
+
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(event) => setAuthPassword(event.target.value)}
+                placeholder="Password - minimum 6 characters"
+                autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+              />
+
+              <button
+                onClick={authMode === "signup" ? handleSignup : handleLogin}
+                disabled={isAuthSubmitting || supabaseConnectionStatus !== "connected"}
+                className="rounded-xl bg-emerald-400 px-4 py-3 font-semibold text-slate-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isAuthSubmitting
+                  ? "Working..."
+                  : authMode === "signup"
+                  ? "Create account"
+                  : "Sign in"}
+              </button>
+            </div>
+
+            {authMessage && (
+              <p className="mt-4 rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm leading-6 text-emerald-50">
+                {authMessage}
+              </p>
+            )}
+
+            <p className="mt-4 text-xs leading-5 text-emerald-100/70">
+              Current backend status: {supabaseConnectionMessage}
             </p>
           </section>
         </div>
