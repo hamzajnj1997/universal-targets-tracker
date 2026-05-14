@@ -135,6 +135,12 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
+const ACTIVE_CLOUD_TEAM_STORAGE_KEY =
+  "universal-targets-tracker-active-cloud-team-id";
+
+function getActiveCloudTeamStorageKey(userId: string) {
+  return `${ACTIVE_CLOUD_TEAM_STORAGE_KEY}:${userId}`;
+}
 const MAX_ACTIVITY_EVENTS = 100;
 const APP_BACKUP_VERSION = 41;
 const DEFAULT_WORKSPACE_NAME = "My Team";
@@ -1569,23 +1575,49 @@ export default function Home() {
 
     if (!supabase) return;
 
+    const activeSupabase = supabase;
+    const activeUser = currentUser;
+    const storageKey = getActiveCloudTeamStorageKey(activeUser.id);
+    const savedActiveTeamId = window.localStorage.getItem(storageKey) ?? "";
+
     let isCancelled = false;
 
-    setIsTeamAutoLoading(true);
-    setCloudSyncMessage("Loading your saved team data...");
+    async function loadSavedTeam() {
+      setIsTeamAutoLoading(true);
+      setCloudSyncMessage("Loading your saved team data...");
 
-    loadCloudDataFromCloud(supabase, currentUser)
-      .then((result) => {
+      try {
+        async function loadPreferredTeam() {
+          try {
+            return await loadCloudDataFromCloud(activeSupabase, activeUser, {
+              workspaceId: savedActiveTeamId || undefined,
+            });
+          } catch (error) {
+            const shouldFallback =
+              savedActiveTeamId &&
+              error instanceof Error &&
+              error.message.includes("Selected workspace was not found");
+
+            if (!shouldFallback) throw error;
+
+            window.localStorage.removeItem(storageKey);
+            return loadCloudDataFromCloud(activeSupabase, activeUser);
+          }
+        }
+
+        const result = await loadPreferredTeam();
+
         if (isCancelled) return;
 
         const loadedMembers =
           result.members.length > 0 ? result.members : initialMembers;
         const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
+        const loadedActivityEvents = normalizeActivityEvents(result.activityEvents);
 
         setMembers(loadedMembers);
         setTargets(result.targets);
         setLogs(result.logs);
-        setActivityEvents(normalizeActivityEvents(result.activityEvents));
+        setActivityEvents(loadedActivityEvents);
 
         if (result.screenSettings) {
           setScreenSettings(normalizeScreenSettings(result.screenSettings));
@@ -1594,6 +1626,7 @@ export default function Home() {
         setWorkspaceName(loadedWorkspaceName);
         setCloudWorkspaceName(result.workspace.name);
         setActiveCloudWorkspaceId(result.workspace.id);
+        window.localStorage.setItem(storageKey, result.workspace.id);
         workspaceNameBeforeEditRef.current = loadedWorkspaceName;
 
         setSelectedMemberId("all");
@@ -1603,8 +1636,7 @@ export default function Home() {
         setCloudSyncMessage(
           `Loaded "${result.workspace.name}" automatically: ${loadedMembers.length} local profiles, ${result.targets.length} targets, and ${result.logs.length} progress logs.`
         );
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         if (isCancelled) return;
 
         setCloudSyncMessage(
@@ -1612,13 +1644,15 @@ export default function Home() {
             ? `Could not automatically load team data: ${error.message}`
             : "Could not automatically load team data."
         );
-      })
-      .finally(() => {
+      } finally {
         if (isCancelled) return;
 
-        setAutoLoadedCloudUserId(currentUser.id);
+        setAutoLoadedCloudUserId(activeUser.id);
         setIsTeamAutoLoading(false);
-      });
+      }
+    }
+
+    void loadSavedTeam();
 
     return () => {
       isCancelled = true;
@@ -3531,6 +3565,10 @@ export default function Home() {
       setWorkspaceName(savedWorkspaceName);
       setCloudWorkspaceName(result.workspace.name);
       setActiveCloudWorkspaceId(result.workspace.id);
+      window.localStorage.setItem(
+        getActiveCloudTeamStorageKey(currentUser.id),
+        result.workspace.id
+      );
       workspaceNameBeforeEditRef.current = savedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
@@ -3617,6 +3655,10 @@ setIsCloudSyncing(true);
       setWorkspaceName(loadedWorkspaceName);
       setCloudWorkspaceName(result.workspace.name);
       setActiveCloudWorkspaceId(result.workspace.id);
+      window.localStorage.setItem(
+        getActiveCloudTeamStorageKey(currentUser.id),
+        result.workspace.id
+      );
       workspaceNameBeforeEditRef.current = loadedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
