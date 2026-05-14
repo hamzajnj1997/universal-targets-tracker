@@ -1117,6 +1117,8 @@ export default function Home() {
     useState<WorkspaceAuthorityRole>("owner");
   const [activeAppView, setActiveAppView] = useState<AppView>("dashboard");
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [isWalkthroughOpen, setIsWalkthroughOpen] = useState(false);
+  const [walkthroughStepIndex, setWalkthroughStepIndex] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
   const [supabaseConnectionStatus, setSupabaseConnectionStatus] =
     useState<SupabaseConnectionStatus>("checking");
@@ -3531,6 +3533,86 @@ setIsCloudSyncing(true);
     authorityRoleOptions.find((role) => role.value === currentAuthorityRole)
       ?.label ?? "Full access";
 
+  const walkthroughSteps: {
+    title: string;
+    body: string;
+    actionLabel: string;
+    view: AppView;
+  }[] = [
+    {
+      title: "1. Choose your starting point",
+      body: "Use the demo workspace if you are new. Start empty only when you already know your real targets. Import backup only when restoring JSON exported from this app.",
+      actionLabel: "Open Dashboard",
+      view: "dashboard",
+    },
+    {
+      title: "2. Add local profiles",
+      body: "Local profiles are assignment placeholders in this beta. They are not real invited users yet. Real email invites come later.",
+      actionLabel: "Open Workspace",
+      view: "workspace",
+    },
+    {
+      title: "3. Create targets",
+      body: "Targets define what work should be done, how often, how much, and which local profile is assigned.",
+      actionLabel: "Open Targets",
+      view: "targets",
+    },
+    {
+      title: "4. Log progress",
+      body: "Pick the correct date first. Then use Tick done, +1, +3, or a custom amount. Progress logs drive totals, reports, and calendar status.",
+      actionLabel: "Open Targets",
+      view: "targets",
+    },
+    {
+      title: "5. Use calendar and backlog",
+      body: "The calendar shows what belongs to each date. Missed past work can carry into today; future days should show forecasted work, not infinite debt.",
+      actionLabel: "Open Calendar",
+      view: "calendar",
+    },
+    {
+      title: "6. Export backups",
+      body: "CSV exports are for reports. JSON backup is for restoring your workspace. Export JSON before clearing browser data, changing devices, or testing cloud sync.",
+      actionLabel: "Open Reports",
+      view: "reports",
+    },
+    {
+      title: "7. Optional cloud sync",
+      body: "Sign in only for manual cloud save/load. Save can overwrite the cloud copy. Load can replace this browser workspace.",
+      actionLabel: "Open Settings",
+      view: "settings",
+    },
+  ];
+
+  const currentWalkthroughStep =
+    walkthroughSteps[walkthroughStepIndex] ?? walkthroughSteps[0];
+
+  function openWalkthrough() {
+    setWalkthroughStepIndex(0);
+    setIsWalkthroughOpen(true);
+  }
+
+  function closeWalkthrough() {
+    setIsWalkthroughOpen(false);
+  }
+
+  function goToWalkthroughDestination() {
+    openAppView(currentWalkthroughStep.view);
+  }
+
+  function goToNextWalkthroughStep() {
+    if (walkthroughStepIndex >= walkthroughSteps.length - 1) {
+      closeWalkthrough();
+      return;
+    }
+
+    setWalkthroughStepIndex((currentIndex) =>
+      Math.min(currentIndex + 1, walkthroughSteps.length - 1)
+    );
+  }
+
+  function goToPreviousWalkthroughStep() {
+    setWalkthroughStepIndex((currentIndex) => Math.max(currentIndex - 1, 0));
+  }
   if (!hasLoadedSavedData) {
     return (
       <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
@@ -3560,6 +3642,66 @@ setIsCloudSyncing(true);
             <option key={category} value={category} />
           ))}
         </datalist>
+
+        {isWalkthroughOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 px-4 py-6 backdrop-blur-sm">
+            <section className="w-full max-w-2xl rounded-3xl border border-cyan-400/30 bg-slate-950 p-5 shadow-2xl shadow-black/40 sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
+                    Guided walkthrough
+                  </p>
+                  <h2 className="mt-3 text-2xl font-bold">
+                    {currentWalkthroughStep.title}
+                  </h2>
+                </div>
+
+                <button
+                  onClick={closeWalkthrough}
+                  className="rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/10"
+                >
+                  Close
+                </button>
+              </div>
+
+              <p className="mt-4 text-sm leading-6 text-slate-300">
+                {currentWalkthroughStep.body}
+              </p>
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  onClick={goToWalkthroughDestination}
+                  className="rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 hover:bg-cyan-300"
+                >
+                  {currentWalkthroughStep.actionLabel}
+                </button>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={goToPreviousWalkthroughStep}
+                    disabled={walkthroughStepIndex === 0}
+                    className="rounded-xl border border-white/10 px-4 py-3 font-semibold text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Back
+                  </button>
+
+                  <button
+                    onClick={goToNextWalkthroughStep}
+                    className="rounded-xl border border-cyan-400/40 px-4 py-3 font-semibold text-cyan-100 hover:bg-cyan-400/10"
+                  >
+                    {walkthroughStepIndex >= walkthroughSteps.length - 1 ?
+                      "Finish" :
+                      "Next"}
+                  </button>
+                </div>
+              </div>
+
+              <p className="mt-4 text-xs text-slate-500">
+                Step {walkthroughStepIndex + 1} of {walkthroughSteps.length}
+              </p>
+            </section>
+          </div>
+        )}
 
         <header className="mb-6 flex flex-col gap-4 xl:mb-8 xl:flex-row xl:items-center xl:justify-between">
           <div>
@@ -4494,6 +4636,19 @@ setIsCloudSyncing(true);
                 with backups. Current beta uses local profiles first. Real
                 email invites and automatic sync are not live yet.
               </p>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={openWalkthrough}
+                  className="rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 hover:bg-cyan-300"
+                >
+                  Start walkthrough
+                </button>
+
+                <p className="text-sm leading-6 text-cyan-100/80">
+                  Opens a popup tutorial with next/back steps and screen shortcuts.
+                </p>
+              </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <button
