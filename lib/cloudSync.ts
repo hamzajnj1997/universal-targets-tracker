@@ -63,6 +63,12 @@ type WorkspaceRow = {
   owner_id: string;
 };
 
+export type CloudWorkspaceSummary = {
+  id: string;
+  name: string;
+  ownerId: string;
+};
+
 type WorkspaceMemberRow = {
   id: string;
   user_id: string | null;
@@ -106,6 +112,21 @@ function normalizeWorkspaceName(value: unknown, fallback = "My Workspace") {
   if (!trimmed) return fallback;
 
   return trimmed.slice(0, 80);
+}
+
+function getUserDisplayName(user: User) {
+  return typeof user.user_metadata?.display_name === "string" &&
+    user.user_metadata.display_name.trim()
+    ? user.user_metadata.display_name.trim()
+    : user.email ?? "Me";
+}
+
+function toCloudWorkspaceSummary(workspace: WorkspaceRow): CloudWorkspaceSummary {
+  return {
+    id: workspace.id,
+    name: workspace.name,
+    ownerId: workspace.owner_id,
+  };
 }
 
 function normalizeCloudActivityMetadata(
@@ -193,34 +214,34 @@ function inferAppRoleFromDisplayRole(role: string, index: number) {
   return "member";
 }
 
-export async function ensureUserWorkspace(
+export async function listOwnedCloudWorkspaces(
   supabase: SupabaseClient,
   user: User
-): Promise<WorkspaceRow> {
-  const { data: existingWorkspace, error: fetchError } = await supabase
+): Promise<CloudWorkspaceSummary[]> {
+  const { data, error } = await supabase
     .from("workspaces")
     .select("id,name,owner_id")
     .eq("owner_id", user.id)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
-  if (fetchError) throw fetchError;
+  if (error) throw error;
 
-  if (existingWorkspace) {
-    return existingWorkspace as WorkspaceRow;
-  }
+  return ((data ?? []) as WorkspaceRow[]).map(toCloudWorkspaceSummary);
+}
 
-  const displayName =
-    typeof user.user_metadata?.display_name === "string" && user.user_metadata.display_name
-      ? user.user_metadata.display_name
-      : user.email ?? "Me";
+export async function createCloudWorkspace(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceName = "My Workspace"
+): Promise<CloudWorkspaceSummary> {
+  const safeWorkspaceName = normalizeWorkspaceName(workspaceName);
+  const displayName = getUserDisplayName(user);
 
   const { data: createdWorkspace, error: createError } = await supabase
     .from("workspaces")
     .insert({
       owner_id: user.id,
-      name: "My Workspace",
+      name: safeWorkspaceName,
     })
     .select("id,name,owner_id")
     .single();
@@ -239,15 +260,63 @@ export async function ensureUserWorkspace(
 
   if (memberError) throw memberError;
 
-  return workspace;
+  return toCloudWorkspaceSummary(workspace);
+}
+
+export async function ensureUserWorkspace(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId?: string | null
+): Promise<WorkspaceRow> {
+  const safeWorkspaceId = typeof workspaceId === "string" ? workspaceId.trim() : "";
+
+  if (safeWorkspaceId) {
+    const { data: selectedWorkspace, error: selectedError } = await supabase
+      .from("workspaces")
+      .select("id,name,owner_id")
+      .eq("id", safeWorkspaceId)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+    if (selectedError) throw selectedError;
+
+    if (!selectedWorkspace) {
+      throw new Error("Selected workspace was not found for this account.");
+    }
+
+    return selectedWorkspace as WorkspaceRow;
+  }
+
+  const { data: existingWorkspace, error: fetchError } = await supabase
+    .from("workspaces")
+    .select("id,name,owner_id")
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+
+  if (existingWorkspace) {
+    return existingWorkspace as WorkspaceRow;
+  }
+
+  const createdWorkspace = await createCloudWorkspace(supabase, user, "My Workspace");
+
+  return {
+    id: createdWorkspace.id,
+    name: createdWorkspace.name,
+    owner_id: createdWorkspace.ownerId,
+  };
 }
 
 export async function saveLocalDataToCloud(
   supabase: SupabaseClient,
   user: User,
-  payload: CloudSyncPayload
+  payload: CloudSyncPayload,
+  options: { workspaceId?: string | null } = {}
 ) {
-  let workspace = await ensureUserWorkspace(supabase, user);
+  let workspace = await ensureUserWorkspace(supabase, user, options.workspaceId);
 
   const requestedWorkspaceName = normalizeWorkspaceName(payload.workspaceName, workspace.name);
 
@@ -430,9 +499,10 @@ export async function saveLocalDataToCloud(
 
 export async function loadCloudDataFromCloud(
   supabase: SupabaseClient,
-  user: User
+  user: User,
+  options: { workspaceId?: string | null } = {}
 ) {
-  const workspace = await ensureUserWorkspace(supabase, user);
+  const workspace = await ensureUserWorkspace(supabase, user, options.workspaceId);
 
   const { data: memberRows, error: membersError } = await supabase
     .from("workspace_members")
