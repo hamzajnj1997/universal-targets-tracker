@@ -7,7 +7,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
-import { loadCloudDataFromCloud, saveLocalDataToCloud } from "../lib/cloudSync";
+import {
+  createCloudWorkspace,
+  listOwnedCloudWorkspaces,
+  loadCloudDataFromCloud,
+  saveLocalDataToCloud,
+} from "../lib/cloudSync";
+import type { CloudWorkspaceSummary } from "../lib/cloudSync";
 
 type Frequency = "once" | "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -135,6 +141,8 @@ type BackupFile = Partial<SavedAppState> & {
 };
 
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
+const ACTIVE_WORKSPACE_STORAGE_KEY =
+  "universal-targets-tracker-active-cloud-workspace-id";
 const MAX_ACTIVITY_EVENTS = 100;
 const APP_BACKUP_VERSION = 41;
 const DEFAULT_WORKSPACE_NAME = "My Workspace";
@@ -1149,6 +1157,13 @@ export default function Home() {
   );
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudWorkspaceName, setCloudWorkspaceName] = useState("");
+  const [ownedCloudWorkspaces, setOwnedCloudWorkspaces] = useState<
+    CloudWorkspaceSummary[]
+  >([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState("");
+  const [newCloudWorkspaceName, setNewCloudWorkspaceName] =
+    useState(DEFAULT_WORKSPACE_NAME);
+  const [isWorkspaceListLoading, setIsWorkspaceListLoading] = useState(false);
   const [lastCloudSyncAt, setLastCloudSyncAt] = useState<string | null>(null);
   const [, setHasDismissedSampleBanner] = useState(false);
 
@@ -2893,6 +2908,14 @@ export default function Home() {
     cancelEditingProgressLog();
   }
 
+  const activeCloudWorkspace = ownedCloudWorkspaces.find(
+    (workspace) => workspace.id === activeWorkspaceId
+  );
+  const activeCloudWorkspaceLabel =
+    activeCloudWorkspace?.name ||
+    cloudWorkspaceName ||
+    "No active cloud workspace";
+
   const totalPending = visibleDashboard.reduce((sum, row) => sum + row.pending, 0);
   const totalAchieved = visibleDashboard.reduce((sum, row) => sum + row.achieved, 0);
   const totalRequired = visibleDashboard.reduce((sum, row) => sum + row.required, 0);
@@ -3391,6 +3414,167 @@ export default function Home() {
     }
   }
 
+  function rememberActiveCloudWorkspace(workspace: CloudWorkspaceSummary) {
+    setActiveWorkspaceId(workspace.id);
+    setCloudWorkspaceName(workspace.name);
+
+    window.localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, workspace.id);
+
+    setOwnedCloudWorkspaces((currentWorkspaces) => {
+      const withoutCurrent = currentWorkspaces.filter(
+        (item) => item.id !== workspace.id
+      );
+
+      return [...withoutCurrent, workspace].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+    });
+  }
+
+  async function refreshOwnedCloudWorkspaces(preferredWorkspaceId?: string | null) {
+    const supabase = getSupabaseClient();
+
+    if (!currentUser || !supabase) {
+      setOwnedCloudWorkspaces([]);
+      setActiveWorkspaceId("");
+      setCloudWorkspaceName("");
+      return;
+    }
+
+    setIsWorkspaceListLoading(true);
+
+    try {
+      const workspaceList = await listOwnedCloudWorkspaces(supabase, currentUser);
+      setOwnedCloudWorkspaces(workspaceList);
+
+      const storedWorkspaceId =
+        window.localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY) ?? "";
+
+      const nextWorkspaceId =
+        [preferredWorkspaceId, activeWorkspaceId, storedWorkspaceId].find(
+          (workspaceId) =>
+            typeof workspaceId === "string" &&
+            workspaceList.some((workspace) => workspace.id === workspaceId)
+        ) ??
+        workspaceList[0]?.id ??
+        "";
+
+      setActiveWorkspaceId(nextWorkspaceId);
+
+      if (nextWorkspaceId) {
+        window.localStorage.setItem(
+          ACTIVE_WORKSPACE_STORAGE_KEY,
+          nextWorkspaceId
+        );
+
+        const selectedWorkspace = workspaceList.find(
+          (workspace) => workspace.id === nextWorkspaceId
+        );
+
+        setCloudWorkspaceName(selectedWorkspace?.name ?? "");
+        setCloudSyncMessage(
+          selectedWorkspace
+            ? `Active cloud workspace selected: "${selectedWorkspace.name}". Save/load will use this workspace.`
+            : "Choose a cloud workspace before saving or loading."
+        );
+      } else {
+        window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+        setCloudWorkspaceName("");
+        setCloudSyncMessage(
+          "No cloud workspaces found. Create a cloud workspace before saving or loading."
+        );
+      }
+    } catch (error) {
+      setCloudSyncMessage(
+        error instanceof Error
+          ? `Could not load cloud workspaces: ${error.message}`
+          : "Could not load cloud workspaces."
+      );
+    } finally {
+      setIsWorkspaceListLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!hasCheckedAuth) return;
+
+    if (!currentUser) {
+      setOwnedCloudWorkspaces([]);
+      setActiveWorkspaceId("");
+      setCloudWorkspaceName("");
+      window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+      return;
+    }
+
+    if (supabaseConnectionStatus !== "connected") return;
+
+    void refreshOwnedCloudWorkspaces();
+  }, [currentUser, hasCheckedAuth, supabaseConnectionStatus]);
+
+  function handleActiveWorkspaceSelection(workspaceId: string) {
+    setActiveWorkspaceId(workspaceId);
+
+    if (!workspaceId) {
+      window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+      setCloudWorkspaceName("");
+      setCloudSyncMessage("Choose a cloud workspace before saving or loading.");
+      return;
+    }
+
+    window.localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, workspaceId);
+
+    const selectedWorkspace = ownedCloudWorkspaces.find(
+      (workspace) => workspace.id === workspaceId
+    );
+
+    setCloudWorkspaceName(selectedWorkspace?.name ?? "");
+    setCloudSyncMessage(
+      selectedWorkspace
+        ? `Active cloud workspace selected: "${selectedWorkspace.name}". Save/load will use this workspace. Switching does not automatically load data yet.`
+        : "Active cloud workspace selected. Save/load will use this workspace."
+    );
+  }
+
+  async function handleCreateCloudWorkspace() {
+    const supabase = getSupabaseClient();
+
+    if (!currentUser || !supabase) {
+      setCloudSyncMessage("Sign in before creating a cloud workspace.");
+      return;
+    }
+
+    if (supabaseConnectionStatus !== "connected") {
+      setCloudSyncMessage("Cloud backend is not reachable.");
+      return;
+    }
+
+    const workspaceNameToCreate = normalizeWorkspaceName(newCloudWorkspaceName);
+
+    setIsWorkspaceListLoading(true);
+
+    try {
+      const createdWorkspace = await createCloudWorkspace(
+        supabase,
+        currentUser,
+        workspaceNameToCreate
+      );
+
+      rememberActiveCloudWorkspace(createdWorkspace);
+      setNewCloudWorkspaceName(DEFAULT_WORKSPACE_NAME);
+      setCloudSyncMessage(
+        `Created cloud workspace "${createdWorkspace.name}". Save/load will now use this workspace.`
+      );
+    } catch (error) {
+      setCloudSyncMessage(
+        error instanceof Error
+          ? `Could not create cloud workspace: ${error.message}`
+          : "Could not create cloud workspace."
+      );
+    } finally {
+      setIsWorkspaceListLoading(false);
+    }
+  }
+
   async function handleSaveLocalDataToCloud() {
     const supabase = getSupabaseClient();
 
@@ -3406,11 +3590,20 @@ export default function Home() {
       return;
     }
 
+    if (!activeWorkspaceId) {
+      setCloudSyncMessage("Choose or create an active cloud workspace before saving.");
+      return;
+    }
+
+    const selectedCloudWorkspace = ownedCloudWorkspaces.find(
+      (workspace) => workspace.id === activeWorkspaceId
+    );
+
     const shouldSave = window.confirm(
       [
       "Save local data to cloud?",
       "",
-      "This will overwrite the current cloud copy with the data on this device.",
+      `This will overwrite the selected cloud workspace: "${selectedCloudWorkspace?.name ?? "Selected workspace"}".`,
       "",
       "Use this only when this device has the version you want to keep.",
       "",
@@ -3433,12 +3626,16 @@ export default function Home() {
         activityEvents,
         workspaceName: normalizeWorkspaceName(workspaceName),
         screenSettings,
-      });
+      }, { workspaceId: activeWorkspaceId });
 
       const savedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
 
       setWorkspaceName(savedWorkspaceName);
-      setCloudWorkspaceName(result.workspace.name);
+      rememberActiveCloudWorkspace({
+        id: result.workspace.id,
+        name: result.workspace.name,
+        ownerId: result.workspace.owner_id,
+      });
       workspaceNameBeforeEditRef.current = savedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
@@ -3479,11 +3676,20 @@ export default function Home() {
       return;
     }
 
+    if (!activeWorkspaceId) {
+      setCloudSyncMessage("Choose or create an active cloud workspace before loading.");
+      return;
+    }
+
+    const selectedCloudWorkspace = ownedCloudWorkspaces.find(
+      (workspace) => workspace.id === activeWorkspaceId
+    );
+
     const shouldLoad = window.confirm(
       [
         "Load cloud data into this device?",
         "",
-        "This will replace this device's current local workspace with your cloud copy.",
+        `This will replace this device's current local workspace with selected cloud workspace: "${selectedCloudWorkspace?.name ?? "Selected workspace"}".`,
         "Local profiles, targets, logs, claims, activity history, and screen settings on this device may change.",
         "Your cloud copy will NOT change from loading.",
         "",
@@ -3501,7 +3707,9 @@ setIsCloudSyncing(true);
     setCloudSyncMessage("Loading cloud data...");
 
     try {
-      const result = await loadCloudDataFromCloud(supabase, currentUser);
+      const result = await loadCloudDataFromCloud(supabase, currentUser, {
+        workspaceId: activeWorkspaceId,
+      });
 
       setMembers(result.members.length > 0 ? result.members : members);
       setTargets(result.targets);
@@ -3517,7 +3725,11 @@ setIsCloudSyncing(true);
       const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
 
       setWorkspaceName(loadedWorkspaceName);
-      setCloudWorkspaceName(result.workspace.name);
+      rememberActiveCloudWorkspace({
+        id: result.workspace.id,
+        name: result.workspace.name,
+        ownerId: result.workspace.owner_id,
+      });
       workspaceNameBeforeEditRef.current = loadedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
@@ -4425,32 +4637,93 @@ setIsCloudSyncing(true);
             </span>
           </div>
 
+          <div className="mb-4 rounded-2xl border border-blue-400/20 bg-slate-950/50 p-4">
+            <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h3 className="text-lg font-bold">Active cloud workspace</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-300">
+                  Manual save/load now points to the selected cloud workspace.
+                  Switching does not automatically load data yet.
+                </p>
+              </div>
+
+              <span className="rounded-full bg-blue-500/20 px-3 py-1 text-sm font-semibold text-blue-200">
+                {activeCloudWorkspaceLabel}
+              </span>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+              <select
+                value={activeWorkspaceId}
+                onChange={(event) =>
+                  handleActiveWorkspaceSelection(event.target.value)
+                }
+                disabled={!currentUser || isWorkspaceListLoading}
+                className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">Choose cloud workspace</option>
+                {ownedCloudWorkspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.name}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={() => refreshOwnedCloudWorkspaces(activeWorkspaceId)}
+                disabled={!currentUser || isWorkspaceListLoading}
+                className="rounded-xl border border-blue-400/40 px-4 py-3 font-semibold text-blue-100 hover:bg-blue-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isWorkspaceListLoading ? "Loading..." : "Refresh workspaces"}
+              </button>
+            </div>
+
+            <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto]">
+              <input
+                value={newCloudWorkspaceName}
+                onChange={(event) =>
+                  setNewCloudWorkspaceName(event.target.value.slice(0, 80))
+                }
+                placeholder="New cloud workspace name"
+                className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+              />
+
+              <button
+                onClick={handleCreateCloudWorkspace}
+                disabled={!currentUser || isWorkspaceListLoading}
+                className="rounded-xl bg-blue-400 px-4 py-3 font-semibold text-slate-950 hover:bg-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Create workspace
+              </button>
+            </div>
+          </div>
+
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSaveLocalDataToCloud}
-                disabled={!currentUser || isCloudSyncing}
+                disabled={!currentUser || isCloudSyncing || !activeWorkspaceId}
                 className="rounded-xl bg-blue-400 px-4 py-3 font-semibold text-slate-950 hover:bg-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCloudSyncing ? "Working..." : "Save local data to cloud"}
               </button>
               <InfoTip
                 label="Save local data to cloud"
-                body="Uploads this browser workspace to cloud and can overwrite the existing cloud copy. Export a JSON backup first if this data matters."
+                body="Uploads this browser workspace to the active cloud workspace and can overwrite that selected cloud copy. Export a JSON backup first if this data matters."
               />
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 onClick={handleLoadCloudDataFromCloud}
-                disabled={!currentUser || isCloudSyncing}
+                disabled={!currentUser || isCloudSyncing || !activeWorkspaceId}
                 className="rounded-xl border border-blue-400/40 px-4 py-3 font-semibold text-blue-100 hover:bg-blue-400/10 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCloudSyncing ? "Working..." : "Load cloud data"}
               </button>
               <InfoTip
                 label="Load cloud data"
-                body="Downloads the cloud copy into this browser and can replace local profiles, targets, logs, activity history, and screen settings."
+                body="Downloads the active cloud workspace into this browser and can replace local profiles, targets, logs, activity history, and screen settings."
               />
             </div>
           </div>
