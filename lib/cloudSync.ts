@@ -104,7 +104,7 @@ function normalizeFrequency(value: unknown): CloudFrequency {
   return "daily";
 }
 
-function normalizeWorkspaceName(value: unknown, fallback = "My Workspace") {
+function normalizeWorkspaceName(value: unknown, fallback = "My Team") {
   if (typeof value !== "string") return fallback;
 
   const trimmed = value.trim();
@@ -232,7 +232,7 @@ export async function listOwnedCloudWorkspaces(
 export async function createCloudWorkspace(
   supabase: SupabaseClient,
   user: User,
-  workspaceName = "My Workspace"
+  workspaceName = "My Team"
 ): Promise<CloudWorkspaceSummary> {
   const safeWorkspaceName = normalizeWorkspaceName(workspaceName);
   const displayName = getUserDisplayName(user);
@@ -301,7 +301,7 @@ export async function ensureUserWorkspace(
     return existingWorkspace as WorkspaceRow;
   }
 
-  const createdWorkspace = await createCloudWorkspace(supabase, user, "My Workspace");
+  const createdWorkspace = await createCloudWorkspace(supabase, user, "My Team");
 
   return {
     id: createdWorkspace.id,

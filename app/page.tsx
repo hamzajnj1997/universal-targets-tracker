@@ -1145,10 +1145,13 @@ export default function Home() {
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
 
   const [cloudSyncMessage, setCloudSyncMessage] = useState(
-    "Advanced recovery is available after sign in. Autosave is the next production step; use manual save or restore only when needed."
+    "Team data loads automatically after sign in. Advanced recovery is available only when needed."
   );
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudWorkspaceName, setCloudWorkspaceName] = useState("");
+  const [activeCloudWorkspaceId, setActiveCloudWorkspaceId] = useState("");
+  const [autoLoadedCloudUserId, setAutoLoadedCloudUserId] = useState("");
+  const [isTeamAutoLoading, setIsTeamAutoLoading] = useState(false);
   const [lastCloudSyncAt, setLastCloudSyncAt] = useState<string | null>(null);
   const [, setHasDismissedSampleBanner] = useState(false);
 
@@ -1158,7 +1161,7 @@ export default function Home() {
     if (!config.isConfigured) {
       setSupabaseConnectionStatus("missing");
       setSupabaseConnectionMessage(
-        "Cloud account settings are missing. Local-only mode is active; export JSON backups before changing devices."
+        "Account settings are missing. Local-only mode is active; export JSON backups before changing devices."
       );
       return;
     }
@@ -1168,7 +1171,7 @@ export default function Home() {
     if (!supabase) {
       setSupabaseConnectionStatus("missing");
       setSupabaseConnectionMessage(
-        "Cloud account connection could not be created. Local-only mode is active; export JSON backups before changing devices."
+        "Account connection could not be created. Local-only mode is active; export JSON backups before changing devices."
       );
       return;
     }
@@ -1547,6 +1550,89 @@ export default function Home() {
 
 
   
+
+  useEffect(() => {
+    if (!hasCheckedAuth || !hasLoadedSavedData) return;
+
+    if (!currentUser) {
+      setActiveCloudWorkspaceId("");
+      setAutoLoadedCloudUserId("");
+      setCloudWorkspaceName("");
+      setIsTeamAutoLoading(false);
+      return;
+    }
+
+    if (supabaseConnectionStatus !== "connected") return;
+    if (autoLoadedCloudUserId === currentUser.id) return;
+
+    const supabase = getSupabaseClient();
+
+    if (!supabase) return;
+
+    let isCancelled = false;
+
+    setIsTeamAutoLoading(true);
+    setCloudSyncMessage("Loading your saved team data...");
+
+    loadCloudDataFromCloud(supabase, currentUser)
+      .then((result) => {
+        if (isCancelled) return;
+
+        const loadedMembers =
+          result.members.length > 0 ? result.members : initialMembers;
+        const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
+
+        setMembers(loadedMembers);
+        setTargets(result.targets);
+        setLogs(result.logs);
+        setActivityEvents(normalizeActivityEvents(result.activityEvents));
+
+        if (result.screenSettings) {
+          setScreenSettings(normalizeScreenSettings(result.screenSettings));
+        }
+
+        setWorkspaceName(loadedWorkspaceName);
+        setCloudWorkspaceName(result.workspace.name);
+        setActiveCloudWorkspaceId(result.workspace.id);
+        workspaceNameBeforeEditRef.current = loadedWorkspaceName;
+
+        setSelectedMemberId("all");
+        setActiveWorkerId(loadedMembers[0]?.id ?? "me");
+        setNewOwnerId(loadedMembers[0]?.id ?? "me");
+        setLastCloudSyncAt(new Date().toISOString());
+        setCloudSyncMessage(
+          `Loaded "${result.workspace.name}" automatically: ${loadedMembers.length} local profiles, ${result.targets.length} targets, and ${result.logs.length} progress logs.`
+        );
+      })
+      .catch((error: unknown) => {
+        if (isCancelled) return;
+
+        setCloudSyncMessage(
+          error instanceof Error
+            ? `Could not automatically load team data: ${error.message}`
+            : "Could not automatically load team data."
+        );
+      })
+      .finally(() => {
+        if (isCancelled) return;
+
+        setAutoLoadedCloudUserId(currentUser.id);
+        setIsTeamAutoLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    autoLoadedCloudUserId,
+    currentUser,
+    hasCheckedAuth,
+    hasLoadedSavedData,
+    supabaseConnectionStatus,
+  ]);
+
+
+
 
   function addActivityEvent(
     action: ActivityEventAction,
@@ -3224,7 +3310,7 @@ export default function Home() {
 
     if (!supabase) {
       setAuthMessage(
-        "Cloud accounts are not configured yet. You can keep using local mode and export JSON backups."
+        "Accounts are not configured yet. You can keep using local mode and export JSON backups."
       );
       return;
     }
@@ -3299,7 +3385,7 @@ export default function Home() {
 
     if (!supabase) {
       setAuthMessage(
-        "Cloud accounts are not configured yet. You can keep using local mode and export JSON backups."
+        "Accounts are not configured yet. You can keep using local mode and export JSON backups."
       );
       return;
     }
@@ -3395,13 +3481,13 @@ export default function Home() {
     const supabase = getSupabaseClient();
 
     if (!currentUser || !supabase) {
-      setCloudSyncMessage("Sign in before saving data to cloud.");
+      setCloudSyncMessage("Sign in before saving team data.");
       return;
     }
 
     if (supabaseConnectionStatus !== "connected") {
       setCloudSyncMessage(
-        "Cloud backend is not reachable. Keep working locally and export a JSON backup."
+        "Save backend is not reachable. Keep working locally and export a JSON backup."
       );
       return;
     }
@@ -3423,22 +3509,28 @@ export default function Home() {
     if (!shouldSave) return;
 
     setIsCloudSyncing(true);
-    setCloudSyncMessage("Saving local data to cloud...");
+    setCloudSyncMessage("Saving team data...");
 
     try {
-      const result = await saveLocalDataToCloud(supabase, currentUser, {
-        members,
-        targets,
-        logs,
-        activityEvents,
-        workspaceName: normalizeWorkspaceName(workspaceName),
-        screenSettings,
-      });
+      const result = await saveLocalDataToCloud(
+        supabase,
+        currentUser,
+        {
+          members,
+          targets,
+          logs,
+          activityEvents,
+          workspaceName: normalizeWorkspaceName(workspaceName),
+          screenSettings,
+        },
+        { workspaceId: activeCloudWorkspaceId || undefined }
+      );
 
       const savedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
 
       setWorkspaceName(savedWorkspaceName);
       setCloudWorkspaceName(result.workspace.name);
+      setActiveCloudWorkspaceId(result.workspace.id);
       workspaceNameBeforeEditRef.current = savedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
@@ -3468,13 +3560,13 @@ export default function Home() {
     const supabase = getSupabaseClient();
 
     if (!currentUser || !supabase) {
-      setCloudSyncMessage("Sign in before loading cloud data.");
+      setCloudSyncMessage("Sign in before restoring team data.");
       return;
     }
 
     if (supabaseConnectionStatus !== "connected") {
       setCloudSyncMessage(
-        "Cloud backend is not reachable. Keep working locally and export a JSON backup."
+        "Save backend is not reachable. Keep working locally and export a JSON backup."
       );
       return;
     }
@@ -3494,16 +3586,21 @@ export default function Home() {
     );
 
     if (!shouldLoad) {
-      setCloudSyncMessage("Cloud load cancelled. This device was not changed.");
+      setCloudSyncMessage("Restore cancelled. This device was not changed.");
       return;
     }
 setIsCloudSyncing(true);
-    setCloudSyncMessage("Loading cloud data...");
+    setCloudSyncMessage("Loading saved team data...");
 
     try {
-      const result = await loadCloudDataFromCloud(supabase, currentUser);
+      const result = await loadCloudDataFromCloud(supabase, currentUser, {
+        workspaceId: activeCloudWorkspaceId || undefined,
+      });
 
-      setMembers(result.members.length > 0 ? result.members : members);
+      const loadedCloudMembers =
+        result.members.length > 0 ? result.members : initialMembers;
+
+      setMembers(loadedCloudMembers);
       setTargets(result.targets);
       setLogs(result.logs);
       setActivityEvents(normalizeActivityEvents(result.activityEvents));
@@ -3513,22 +3610,24 @@ setIsCloudSyncing(true);
       }
 
       setSelectedMemberId("all");
-      setNewOwnerId(result.members[0]?.id ?? "me");
+      setActiveWorkerId(loadedCloudMembers[0]?.id ?? "me");
+      setNewOwnerId(loadedCloudMembers[0]?.id ?? "me");
       const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
 
       setWorkspaceName(loadedWorkspaceName);
       setCloudWorkspaceName(result.workspace.name);
+      setActiveCloudWorkspaceId(result.workspace.id);
       workspaceNameBeforeEditRef.current = loadedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
-        `Loaded "${result.workspace.name}" from saved team data: ${result.members.length} local profiles, ${result.targets.length} targets, ${result.logs.length} logs, plus activity history.`
+        `Loaded "${result.workspace.name}" from saved team data: ${loadedCloudMembers.length} local profiles, ${result.targets.length} targets, ${result.logs.length} logs, plus activity history.`
       );
 
       addActivityEvent(
         "cloud_loaded",
-        `Team data restored: "${result.workspace.name}" with ${result.members.length} local profiles, ${result.targets.length} targets, and ${result.logs.length} progress logs.`,
+        `Team data restored: "${result.workspace.name}" with ${loadedCloudMembers.length} local profiles, ${result.targets.length} targets, and ${result.logs.length} progress logs.`,
         {
-          memberCount: result.members.length,
+          memberCount: loadedCloudMembers.length,
           targetCount: result.targets.length,
           logCount: result.logs.length,
         },
@@ -3628,7 +3727,7 @@ setIsCloudSyncing(true);
   function goToPreviousWalkthroughStep() {
     setWalkthroughStepIndex((currentIndex) => Math.max(currentIndex - 1, 0));
   }
-  if (!hasLoadedSavedData || !hasCheckedAuth) {
+  if (!hasLoadedSavedData || !hasCheckedAuth || isTeamAutoLoading) {
     return (
       <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
         <div className="mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center">
@@ -3637,11 +3736,11 @@ setIsCloudSyncing(true);
               Universal Targets Tracker
             </p>
             <h1 className="mt-4 text-2xl font-bold sm:text-3xl">
-              Loading your team
+              {isTeamAutoLoading ? "Loading your saved team" : "Loading your team"}
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-300">
-              Preparing the correct local date, workspace data, and browser
-              storage before showing targets.
+              Preparing the correct date, team data, and browser storage
+              before showing targets.
             </p>
           </section>
         </div>
@@ -3685,7 +3784,7 @@ setIsCloudSyncing(true);
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">
-                  Cloud account
+                  Account
                 </p>
                 <h2 className="mt-2 text-2xl font-bold">
                   {authMode === "signup" ? "Create account" : "Sign in"}
@@ -4460,7 +4559,7 @@ setIsCloudSyncing(true);
 
           {lastCloudSyncAt && (
             <p className="mt-3 text-xs text-slate-500">
-              Last cloud action: {formatSavedTime(lastCloudSyncAt)}
+              Last recovery action: {formatSavedTime(lastCloudSyncAt)}
             </p>
           )}
         </section>
@@ -4469,11 +4568,11 @@ setIsCloudSyncing(true);
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
-                Cloud backend status
+                Save system status
               </p>
               <h2 className="mt-2 text-2xl font-bold">
                 {supabaseConnectionStatus === "connected"
-                  ? "Cloud backend connected"
+                  ? "Save system connected"
                   : supabaseConnectionStatus === "checking"
                   ? "Checking backend"
                   : supabaseConnectionStatus === "missing" ||
@@ -4507,7 +4606,7 @@ setIsCloudSyncing(true);
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300 sm:text-sm sm:tracking-[0.25em]">
-                Cloud account
+                Account
               </p>
               <h2 className="mt-2 text-2xl font-bold">
                 {currentUser ? "Signed in" : "Sign in or create account"}
@@ -4537,7 +4636,7 @@ setIsCloudSyncing(true);
                     {currentUser.email}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Account is active. Manual cloud sync is available below.
+                    Account is active. Saved team loading is enabled.
                   </p>
                 </div>
 
