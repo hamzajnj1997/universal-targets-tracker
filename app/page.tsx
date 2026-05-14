@@ -4127,8 +4127,12 @@ setIsCloudSyncing(true);
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-300 sm:text-sm sm:tracking-[0.25em]">
                 Workspace permissions
               </p>
-              <h2 className="mt-2 text-2xl font-bold">
-                Current permission preset: {currentAuthorityLabel}
+              <h2 className="mt-2 flex flex-wrap items-center gap-2 text-2xl font-bold">
+                <span>Current permission preset: {currentAuthorityLabel}</span>
+                <InfoTip
+                  label="Permission preset"
+                  body="Permission presets describe what a future workspace member can do. Local profiles are assignment placeholders in this beta, not accepted invited users."
+                />
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
                 Permission presets control who can manage local profiles, assign targets, approve work, submit progress, and edit settings.
@@ -4279,21 +4283,33 @@ setIsCloudSyncing(true);
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2">
-            <button
-              onClick={handleSaveLocalDataToCloud}
-              disabled={!currentUser || isCloudSyncing}
-              className="rounded-xl bg-blue-400 px-4 py-3 font-semibold text-slate-950 hover:bg-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isCloudSyncing ? "Working..." : "Save local data to cloud"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveLocalDataToCloud}
+                disabled={!currentUser || isCloudSyncing}
+                className="rounded-xl bg-blue-400 px-4 py-3 font-semibold text-slate-950 hover:bg-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isCloudSyncing ? "Working..." : "Save local data to cloud"}
+              </button>
+              <InfoTip
+                label="Save local data to cloud"
+                body="Uploads this browser workspace to cloud and can overwrite the existing cloud copy. Export a JSON backup first if this data matters."
+              />
+            </div>
 
-            <button
-              onClick={handleLoadCloudDataFromCloud}
-              disabled={!currentUser || isCloudSyncing}
-              className="rounded-xl border border-blue-400/40 px-4 py-3 font-semibold text-blue-100 hover:bg-blue-400/10 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isCloudSyncing ? "Working..." : "Load cloud data"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleLoadCloudDataFromCloud}
+                disabled={!currentUser || isCloudSyncing}
+                className="rounded-xl border border-blue-400/40 px-4 py-3 font-semibold text-blue-100 hover:bg-blue-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isCloudSyncing ? "Working..." : "Load cloud data"}
+              </button>
+              <InfoTip
+                label="Load cloud data"
+                body="Downloads the cloud copy into this browser and can replace local profiles, targets, logs, activity history, and screen settings."
+              />
+            </div>
           </div>
 
           <p className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
@@ -4655,8 +4671,12 @@ setIsCloudSyncing(true);
                   onClick={resetDemoData}
                   className="rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-left hover:bg-sky-400/15"
                 >
-                  <span className="block text-sm font-semibold text-sky-100">
-                    Try demo workspace
+                  <span className="flex items-center gap-2 text-sm font-semibold text-sky-100">
+                    <span>Try demo workspace</span>
+                    <InfoTip
+                      label="Try demo workspace"
+                      body="Loads sample local profiles and targets. It replaces the current local workspace in this browser, but does not change your cloud copy unless you later save to cloud."
+                    />
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-sky-200/80">
                     Best for first-time users. Loads sample profiles and targets.
@@ -4667,8 +4687,12 @@ setIsCloudSyncing(true);
                   onClick={startFreshWorkspace}
                   className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-left hover:bg-amber-400/15"
                 >
-                  <span className="block text-sm font-semibold text-amber-100">
-                    Start empty workspace
+                  <span className="flex items-center gap-2 text-sm font-semibold text-amber-100">
+                    <span>Start empty workspace</span>
+                    <InfoTip
+                      label="Start empty workspace"
+                      body="Clears local profiles, targets, and logs from this browser and starts with one local profile. Export a JSON backup first if the current data matters."
+                    />
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-amber-200/80">
                     Best when you already know what you want to track.
@@ -4679,8 +4703,12 @@ setIsCloudSyncing(true);
                   onClick={triggerImportBackup}
                   className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-left hover:bg-emerald-400/15"
                 >
-                  <span className="block text-sm font-semibold text-emerald-100">
-                    Import backup
+                  <span className="flex items-center gap-2 text-sm font-semibold text-emerald-100">
+                    <span>Import backup</span>
+                    <InfoTip
+                      label="Import backup"
+                      body="Restores a JSON backup created by this app. Import can replace local workspace data, so export a backup first if you may need the current browser data."
+                    />
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-emerald-200/80">
                     Restore a JSON backup exported from this app.
@@ -5149,12 +5177,18 @@ setIsCloudSyncing(true);
               Export full backup JSON
             </button>
 
-            <button
-              onClick={triggerImportBackup}
-              className="rounded-xl border border-emerald-400/30 px-4 py-3 font-semibold text-emerald-200 hover:bg-emerald-400/10"
-            >
-              Import backup JSON
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={triggerImportBackup}
+                className="rounded-xl border border-emerald-400/30 px-4 py-3 font-semibold text-emerald-200 hover:bg-emerald-400/10"
+              >
+                Import backup JSON
+              </button>
+              <InfoTip
+                label="Import backup JSON"
+                body="Restores app data from a JSON backup. This can replace the current local workspace in this browser."
+              />
+            </div>
 
             <input
               ref={importFileInputRef}
@@ -6174,6 +6208,28 @@ function OnboardingStep({
       <h3 className="font-bold">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
     </div>
+  );
+}
+
+function InfoTip({ label, body }: { label: string; body: string }) {
+  return (
+    <span
+      className="group relative inline-flex align-middle"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label={"Info: " + label}
+        title={body}
+        className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-cyan-300/60 bg-cyan-300/10 text-[11px] font-bold text-cyan-100"
+      >
+        i
+      </span>
+      <span className="pointer-events-none absolute left-1/2 top-7 z-50 w-72 -translate-x-1/2 rounded-xl border border-white/10 bg-slate-950 p-3 text-left text-xs leading-5 text-slate-200 opacity-0 shadow-2xl shadow-black/40 transition group-hover:opacity-100 group-focus-within:opacity-100">
+        {body}
+      </span>
+    </span>
   );
 }
 
