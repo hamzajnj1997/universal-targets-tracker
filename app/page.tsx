@@ -3463,6 +3463,27 @@ setIsCloudSyncing(true);
     authorityRoleOptions.find((role) => role.value === currentAuthorityRole)
       ?.label ?? "Full access";
 
+  if (!hasLoadedSavedData) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
+        <div className="mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center">
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center shadow-2xl shadow-black/20 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-400 sm:text-sm sm:tracking-[0.3em]">
+              Universal Targets Tracker
+            </p>
+            <h1 className="mt-4 text-2xl font-bold sm:text-3xl">
+              Loading your workspace
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Preparing the correct local date, workspace data, and browser
+              storage before showing targets.
+            </p>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
       <div className="mx-auto max-w-7xl">
