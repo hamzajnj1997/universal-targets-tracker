@@ -1133,7 +1133,7 @@ export default function Home() {
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
 
   const [cloudSyncMessage, setCloudSyncMessage] = useState(
-    "Manual cloud sync is ready. Save this device to cloud or load your latest cloud copy. Sync is not automatic yet."
+    "Manual cloud sync is available after sign in. Choose Save local data to cloud or Load cloud data deliberately. Sync is not automatic yet."
   );
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudWorkspaceName, setCloudWorkspaceName] = useState("");
@@ -1146,7 +1146,7 @@ export default function Home() {
     if (!config.isConfigured) {
       setSupabaseConnectionStatus("missing");
       setSupabaseConnectionMessage(
-        "Supabase environment variables are missing. Local app mode is active."
+        "Cloud account settings are missing. Local-only mode is active; export JSON backups before changing devices."
       );
       return;
     }
@@ -1156,14 +1156,14 @@ export default function Home() {
     if (!supabase) {
       setSupabaseConnectionStatus("missing");
       setSupabaseConnectionMessage(
-        "Supabase client could not be created. Local app mode is active."
+        "Cloud account connection could not be created. Local-only mode is active; export JSON backups before changing devices."
       );
       return;
     }
 
     let isMounted = true;
     const timeoutMessage =
-      "Supabase backend is unreachable. Local app mode is active; export JSON backups before changing devices.";
+      "Cloud backend is unreachable. Local-only mode is active; export JSON backups before changing devices.";
 
     withTimeout(
       supabase.auth.getSession(),
@@ -1181,7 +1181,7 @@ export default function Home() {
 
         setSupabaseConnectionStatus("connected");
         setSupabaseConnectionMessage(
-          "Cloud backend is connected. Sign in to use manual cloud sync."
+          "Cloud backend is connected. Sign in to manually save or load a cloud copy."
         );
       })
       .catch((error: unknown) => {
@@ -1190,7 +1190,7 @@ export default function Home() {
         const message =
           error instanceof Error
             ? error.message
-            : "Could not reach Supabase backend.";
+            : "Could not reach the cloud backend.";
 
         if (message === timeoutMessage) {
           setSupabaseConnectionStatus("unreachable");
@@ -3179,17 +3179,42 @@ export default function Home() {
     setScreenSettings(getAppViewSettings("settings"));
   }
 
+  function formatAuthErrorMessage(message: string) {
+    const normalized = message.trim();
+    const lower = normalized.toLowerCase();
+
+    if (lower.includes("invalid login credentials")) {
+      return "Email or password is incorrect. Check your details or create an account first.";
+    }
+
+    if (lower.includes("email not confirmed")) {
+      return "Check your email and confirm the account before signing in.";
+    }
+
+    if (lower.includes("user already registered") || lower.includes("already registered")) {
+      return "An account already exists for this email. Switch to Sign in.";
+    }
+
+    if (lower.includes("rate limit")) {
+      return "Too many attempts. Wait a few minutes, then try again.";
+    }
+
+    return normalized || "Account action failed. Keep working locally and export a JSON backup.";
+  }
+
   async function handleSignup() {
     const supabase = getSupabaseClient();
 
     if (!supabase) {
-      setAuthMessage("Supabase is not configured yet.");
+      setAuthMessage(
+        "Cloud accounts are not configured yet. You can keep using local mode and export JSON backups."
+      );
       return;
     }
 
     if (supabaseConnectionStatus !== "connected") {
       setAuthMessage(
-        "Cloud backend is not reachable. Continue in local mode and export JSON backups until backend access is restored."
+        "Cloud backend is not reachable. Continue in local-only mode and export JSON backups until backend access is restored."
       );
       return;
     }
@@ -3198,8 +3223,8 @@ export default function Home() {
     const password = authPassword.trim();
     const displayName = authDisplayName.trim();
 
-    if (!email) {
-      setAuthMessage("Enter your email address.");
+    if (!email || !email.includes("@")) {
+      setAuthMessage("Enter a valid email address.");
       return;
     }
 
@@ -3209,52 +3234,71 @@ export default function Home() {
     }
 
     setIsAuthSubmitting(true);
-    setAuthMessage("Creating your account...");
+    setAuthMessage("Creating account...");
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          display_name: displayName || email,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            display_name: displayName || email,
+          },
         },
-      },
-    });
+      });
 
-    setIsAuthSubmitting(false);
+      if (error) {
+        setAuthMessage(formatAuthErrorMessage(error.message));
+        return;
+      }
 
-    if (error) {
-      setAuthMessage(error.message);
-      return;
-    }
+      if (data.session?.user) {
+        setCurrentUser(data.session.user);
+        setAuthMessage(
+          "Account created and signed in. Export a backup, then save local data to cloud only if this device has the version you want to keep."
+        );
+        setAuthPassword("");
+        return;
+      }
 
-    if (data.session?.user) {
-      setCurrentUser(data.session.user);
-      setAuthMessage("Account created. You are signed in.");
+      setAuthMessage(
+        "Account created. Check your email to confirm it, then return here and sign in. Your current workspace remains local on this device."
+      );
       setAuthPassword("");
-      return;
+      setAuthMode("login");
+    } catch (error) {
+      setAuthMessage(
+        error instanceof Error
+          ? formatAuthErrorMessage(error.message)
+          : "Account creation failed. Keep working locally and export a JSON backup."
+      );
+    } finally {
+      setIsAuthSubmitting(false);
     }
-
-    setAuthMessage(
-      "Account created. Check your email to confirm your account, then log in."
-    );
-    setAuthPassword("");
-    setAuthMode("login");
   }
 
   async function handleLogin() {
     const supabase = getSupabaseClient();
 
     if (!supabase) {
-      setAuthMessage("Supabase is not configured yet.");
+      setAuthMessage(
+        "Cloud accounts are not configured yet. You can keep using local mode and export JSON backups."
+      );
+      return;
+    }
+
+    if (supabaseConnectionStatus !== "connected") {
+      setAuthMessage(
+        "Cloud backend is not reachable. Continue in local-only mode and export JSON backups until backend access is restored."
+      );
       return;
     }
 
     const email = authEmail.trim().toLowerCase();
     const password = authPassword.trim();
 
-    if (!email) {
-      setAuthMessage("Enter your email address.");
+    if (!email || !email.includes("@")) {
+      setAuthMessage("Enter a valid email address.");
       return;
     }
 
@@ -3266,46 +3310,68 @@ export default function Home() {
     setIsAuthSubmitting(true);
     setAuthMessage("Signing in...");
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    setIsAuthSubmitting(false);
+      if (error) {
+        setAuthMessage(formatAuthErrorMessage(error.message));
+        return;
+      }
 
-    if (error) {
-      setAuthMessage(error.message);
-      return;
+      setCurrentUser(data.user);
+      setAuthMessage(
+        "Signed in. Local data is still on this device until you manually save it to cloud or load a cloud copy."
+      );
+      setAuthPassword("");
+    } catch (error) {
+      setAuthMessage(
+        error instanceof Error
+          ? formatAuthErrorMessage(error.message)
+          : "Sign in failed. Keep working locally and export a JSON backup."
+      );
+    } finally {
+      setIsAuthSubmitting(false);
     }
-
-    setCurrentUser(data.user);
-    setAuthMessage("Signed in successfully. Cloud data sync comes next.");
-    setAuthPassword("");
   }
 
   async function handleLogout() {
     const supabase = getSupabaseClient();
 
     if (!supabase) {
-      setAuthMessage("Supabase is not configured yet.");
+      setAuthMessage(
+        "Cloud accounts are not configured yet. Local workspace data is still available on this device."
+      );
       return;
     }
 
     setIsAuthSubmitting(true);
     setAuthMessage("Signing out...");
 
-    const { error } = await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
 
-    setIsAuthSubmitting(false);
+      if (error) {
+        setAuthMessage(formatAuthErrorMessage(error.message));
+        return;
+      }
 
-    if (error) {
-      setAuthMessage(error.message);
-      return;
+      setCurrentUser(null);
+      setAuthPassword("");
+      setAuthMessage(
+        "Signed out. Local workspace data is still available on this device. Export a backup before clearing browser data."
+      );
+    } catch (error) {
+      setAuthMessage(
+        error instanceof Error
+          ? formatAuthErrorMessage(error.message)
+          : "Sign out failed. Local workspace data is still available on this device."
+      );
+    } finally {
+      setIsAuthSubmitting(false);
     }
-
-    setCurrentUser(null);
-    setAuthPassword("");
-    setAuthMessage("Signed out. Local workspace data is still available on this device.");
   }
 
   async function handleSaveLocalDataToCloud() {
@@ -3330,6 +3396,8 @@ export default function Home() {
       "This will overwrite the current cloud copy with the data on this device.",
       "",
       "Use this only when this device has the version you want to keep.",
+      "",
+      "Export a JSON backup first if this workspace matters.",
       "",
       "Continue?"
     ].join("\n")
@@ -4105,7 +4173,7 @@ setIsCloudSyncing(true);
               </p>
               <h2 className="mt-2 text-2xl font-bold">
                 {supabaseConnectionStatus === "connected"
-                  ? "Supabase connected"
+                  ? "Cloud backend connected"
                   : supabaseConnectionStatus === "checking"
                   ? "Checking backend"
                   : supabaseConnectionStatus === "missing" ||
@@ -4145,7 +4213,7 @@ setIsCloudSyncing(true);
                 {currentUser ? "Signed in" : "Sign in or create account"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Accounts use Supabase Auth. Manual cloud sync is available after login. Automatic real-time sync is not enabled yet.
+                Create an account to manually save this browser workspace to cloud or load a cloud copy. Local data stays on this device until you choose a cloud action.
               </p>
             </div>
 
@@ -4156,7 +4224,7 @@ setIsCloudSyncing(true);
                   : "rounded-full bg-slate-500/20 px-3 py-1 text-sm font-semibold text-slate-300"
               }
             >
-              {currentUser ? "account active" : "local mode"}
+              {currentUser ? "signed in" : "local-only mode"}
             </span>
           </div>
 
@@ -4169,7 +4237,7 @@ setIsCloudSyncing(true);
                     {currentUser.email}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-400">
-                    User ID: {currentUser.id}
+                    Account is active. Manual cloud sync is available below.
                   </p>
                 </div>
 
@@ -4196,7 +4264,7 @@ setIsCloudSyncing(true);
                       : "rounded-xl border border-white/10 px-4 py-2 font-semibold hover:bg-white/10"
                   }
                 >
-                  Login
+                  Sign in
                 </button>
 
                 <button
@@ -4214,12 +4282,19 @@ setIsCloudSyncing(true);
                 </button>
               </div>
 
+              <p className="mb-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
+                {authMode === "signup"
+                  ? "Create an account for manual cloud backup. This does not automatically upload local data."
+                  : "Sign in to manually save this device to cloud or load your cloud copy."}
+              </p>
+
               <div className="grid gap-3 lg:grid-cols-3">
                 {authMode === "signup" && (
                   <input
                     value={authDisplayName}
                     onChange={(event) => setAuthDisplayName(event.target.value)}
                     placeholder="Display name"
+                    autoComplete="name"
                     className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                   />
                 )}
@@ -4229,6 +4304,7 @@ setIsCloudSyncing(true);
                   value={authEmail}
                   onChange={(event) => setAuthEmail(event.target.value)}
                   placeholder="Email address"
+                  autoComplete="email"
                   className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 />
 
@@ -4236,7 +4312,8 @@ setIsCloudSyncing(true);
                   type="password"
                   value={authPassword}
                   onChange={(event) => setAuthPassword(event.target.value)}
-                  placeholder="Password"
+                  placeholder="Password - minimum 6 characters"
+                  autoComplete={authMode === "signup" ? "new-password" : "current-password"}
                   className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 />
 
@@ -4249,7 +4326,7 @@ setIsCloudSyncing(true);
                     ? "Working..."
                     : authMode === "signup"
                     ? "Create account"
-                    : "Login"}
+                    : "Sign in"}
                 </button>
               </div>
 
@@ -4260,7 +4337,7 @@ setIsCloudSyncing(true);
               )}
 
               <p className="mt-4 text-xs leading-5 text-slate-500">
-                Early beta: export a backup before relying on cloud sync for important workspace data.
+                Early beta: cloud sync is manual. Export a JSON backup before saving to cloud, loading from cloud, clearing browser data, or changing devices.
               </p>
             </div>
           )}
@@ -4272,8 +4349,8 @@ setIsCloudSyncing(true);
               <div>
                 <p className="text-sm font-bold">Offline mode</p>
                 <p className="mt-1 text-sm leading-6 text-yellow-100/80">
-                  You are offline. Changes stay on this device. Cloud sync will
-                  be added after login/database integration.
+                  You are offline. Changes stay on this device. Reconnect before
+                  saving to cloud or loading a cloud copy.
                 </p>
               </div>
 
