@@ -137,8 +137,8 @@ type BackupFile = Partial<SavedAppState> & {
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
 const MAX_ACTIVITY_EVENTS = 100;
 const APP_BACKUP_VERSION = 41;
-const DEFAULT_WORKSPACE_NAME = "My Workspace";
-const DEMO_WORKSPACE_NAME = "Demo Workspace";
+const DEFAULT_WORKSPACE_NAME = "My Team";
+const DEMO_WORKSPACE_NAME = "Sample Team";
 
 const FREE_PLAN_NAME = "Free";
 const FREE_PERSONAL_WORKSPACE_LIMIT = 1;
@@ -194,13 +194,13 @@ const authorityRoleOptions: {
     value: "owner",
     label: "Full access",
     description:
-      "Can manage workspace settings, local profiles, targets, approvals, backups, and cloud sync.",
+      "Can manage team settings, local profiles, targets, approvals, backups, and recovery tools.",
   },
   {
     value: "admin",
-    label: "Workspace manager",
+    label: "Team manager",
     description:
-      "Can manage local profiles, assign work, approve progress, and operate most workspace tools.",
+      "Can manage local profiles, assign work, approve progress, and operate most team tools.",
   },
   {
     value: "leader",
@@ -224,7 +224,7 @@ const authorityRoleOptions: {
     value: "viewer",
     label: "View only",
     description:
-      "Can view progress but cannot change workspace data.",
+      "Can view progress but cannot change team data.",
   },
 ];
 
@@ -232,8 +232,8 @@ const workspaceMembershipStatusLabels: Record<
   WorkspaceMembership["status"],
   string
 > = {
-  active: "Active workspace member",
-  removed: "Removed workspace member",
+  active: "Active team member",
+  removed: "Removed team member",
 };
 
 const workspaceInviteStatusLabels: Record<WorkspaceInvite["status"], string> = {
@@ -249,7 +249,7 @@ const screenSectionOptions: {
   description: string;
   group: "Core" | "Planning" | "Management" | "Admin";
 }[] = [
-  { key: "quickStart", label: "Beginner guide", description: "Plain-English tutorial for first-time users and fresh workspaces.", group: "Core" },
+  { key: "quickStart", label: "Beginner guide", description: "Plain-English tutorial for first-time users and fresh teams.", group: "Core" },
   { key: "dashboardInsights", label: "Dashboard insights", description: "Warnings, behind categories, and recommended focus.", group: "Core" },
   { key: "localDataStatus", label: "Local data status", description: "Browser save status and record counts.", group: "Admin" },
   { key: "completionHistory", label: "Completion history", description: "Streaks, recent completion rate, and day-by-day history.", group: "Planning" },
@@ -260,7 +260,7 @@ const screenSectionOptions: {
   { key: "loggingSummary", label: "Logging date summary", description: "Selected date summary before logging progress.", group: "Core" },
   { key: "monthCalendar", label: "Month calendar", description: "Monthly forecast grid with day-level backlog.", group: "Planning" },
   { key: "selectedDayWork", label: "Selected day work", description: "Main target cards, progress logging, editing, and logs.", group: "Core" },
-  { key: "workspaceOverview", label: "Workspace overview", description: "Local profile performance summary and editing.", group: "Management" },
+  { key: "workspaceOverview", label: "Team overview", description: "Team profile performance summary and editing.", group: "Management" },
   { key: "addMember", label: "Add local profile", description: "Create local assignment profiles until email invites are added.", group: "Management" },
   { key: "addTarget", label: "Add target", description: "Create new targets, units, categories, assigned profiles, and frequency.", group: "Core" },
 ];
@@ -297,7 +297,7 @@ const screenPresetOptions: {
   {
     key: "manager",
     label: "Manager View",
-    description: "Insights, categories, workspace performance, and work cards.",
+    description: "Insights, categories, team performance, and work cards.",
     settings: {
       quickStart: false,
       dashboardInsights: true,
@@ -339,7 +339,7 @@ const screenPresetOptions: {
   {
     key: "admin",
     label: "Admin View",
-    description: "Setup, backup, workspace, and maintenance controls.",
+    description: "Setup, backup, team, and maintenance controls.",
     settings: {
       quickStart: true,
       dashboardInsights: false,
@@ -402,8 +402,8 @@ const appViewOptions: {
   },
   {
     key: "workspace",
-    label: "Workspace",
-    description: "Local assignment profiles, invites, and workspace setup.",
+    label: "Team",
+    description: "Team profiles, invites, permissions, and setup.",
   },
   {
     key: "reports",
@@ -1025,14 +1025,14 @@ function normalizeActivityEvents(value: unknown): ActivityEvent[] {
 
 function formatActivityAction(action: ActivityEventAction) {
   const labels: Record<ActivityEventAction, string> = {
-    workspace_renamed: "Workspace renamed",
+    workspace_renamed: "Team renamed",
     progress_log_deleted: "Progress log deleted",
     target_deleted: "Target deleted",
     member_deleted: "Local profile deleted",
     progress_cleared: "Progress cleared",
     backup_imported: "Backup imported",
-    demo_workspace_loaded: "Demo workspace loaded",
-    fresh_workspace_started: "Fresh workspace started",
+    demo_workspace_loaded: "Sample team loaded",
+    fresh_workspace_started: "Fresh team started",
     cloud_saved: "Cloud saved",
     cloud_loaded: "Cloud loaded",
   };
@@ -1145,7 +1145,7 @@ export default function Home() {
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
 
   const [cloudSyncMessage, setCloudSyncMessage] = useState(
-    "Manual cloud sync is available after sign in. Choose Save local data to cloud or Load cloud data deliberately. Sync is not automatic yet."
+    "Advanced recovery is available after sign in. Autosave is the next production step; use manual save or restore only when needed."
   );
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudWorkspaceName, setCloudWorkspaceName] = useState("");
@@ -1193,7 +1193,7 @@ export default function Home() {
 
         setSupabaseConnectionStatus("connected");
         setSupabaseConnectionMessage(
-          "Cloud backend is connected. Sign in to manually save or load a cloud copy."
+          "Save backend is connected. Sign in to protect team data."
         );
       })
       .catch((error: unknown) => {
@@ -1585,7 +1585,7 @@ export default function Home() {
     if (previousName !== nextName) {
       addActivityEvent(
         "workspace_renamed",
-        `Workspace renamed from "${previousName}" to "${nextName}".`,
+        `Team renamed from "${previousName}" to "${nextName}".`,
         { from: previousName, to: nextName },
         nextName
       );
@@ -2626,7 +2626,7 @@ export default function Home() {
       "Targets and local profiles will stay.",
       "All achieved progress values will reset to zero.",
       "",
-      "Export a backup first if this workspace matters.",
+      "Export a backup first if this team data matters.",
       "",
       "Continue?"
     ].join("\n")
@@ -2783,7 +2783,7 @@ export default function Home() {
       }
 
       const shouldImport = window.confirm(
-        `Import this backup?\n\nThis will replace the current local workspace on this device with:\n\nWorkspace: ${importedWorkspaceName}\n${safeState.members.length} local profiles\n${safeState.targets.length} targets\n${safeState.logs.length} progress logs\n\nExport a backup first if you may need the current workspace.\n\nContinue?`
+        `Import this backup?\n\nThis will replace the current team data on this device with:\n\nTeam: ${importedWorkspaceName}\n${safeState.members.length} local profiles\n${safeState.targets.length} targets\n${safeState.logs.length} progress logs\n\nExport a backup first if you may need the current team data.\n\nContinue?`
       );
 
       if (!shouldImport) return;
@@ -2838,13 +2838,13 @@ export default function Home() {
   function resetDemoData() {
     const shouldReset = window.confirm(
       [
-      "Load demo workspace?",
+      "Load sample team?",
       "",
-      "This will replace the current local workspace on this device with sample local profiles, targets, and starter progress.",
+      "This will replace the current team data on this device with sample local profiles, targets, and starter progress.",
       "",
-      "Your cloud copy will NOT change unless you later click Save local data to cloud.",
+      "Your saved team copy will NOT change unless you use advanced manual save.",
       "",
-      "Export a backup first if this workspace matters.",
+      "Export a backup first if this team data matters.",
       "",
       "Continue?"
     ].join("\n")
@@ -2862,7 +2862,7 @@ export default function Home() {
       {
         id: createId("activity"),
         action: "demo_workspace_loaded",
-        message: `Demo workspace loaded: "${DEMO_WORKSPACE_NAME}".`,
+        message: `Sample team loaded: "${DEMO_WORKSPACE_NAME}".`,
         createdAt: new Date().toISOString(),
         workspaceName: DEMO_WORKSPACE_NAME,
         metadata: {
@@ -2961,9 +2961,9 @@ export default function Home() {
         "Start fresh on this device?",
         "",
         "This will remove local profiles, targets, and logs from this browser.",
-        "Your cloud copy will NOT change unless you later click Save local data to cloud.",
+        "Your saved team copy will NOT change unless you use advanced manual save.",
         "",
-        "Export a backup first if this workspace matters.",
+        "Export a backup first if this team data matters.",
         "",
         "Continue?"
       ].join("\n")
@@ -2986,7 +2986,7 @@ export default function Home() {
       {
         id: createId("activity"),
         action: "fresh_workspace_started",
-        message: `Fresh workspace started: "${DEFAULT_WORKSPACE_NAME}".`,
+        message: `Fresh team started: "${DEFAULT_WORKSPACE_NAME}".`,
         createdAt: new Date().toISOString(),
         workspaceName: DEFAULT_WORKSPACE_NAME,
         metadata: {
@@ -3007,7 +3007,7 @@ export default function Home() {
     setActiveAppView("dashboard");
     setScreenSettings(getAppViewSettings("dashboard"));
     setCloudSyncMessage(
-      "Started fresh locally. Save to cloud only if you want to replace your cloud copy."
+      "Started fresh locally. Use advanced manual save only if you want to replace saved team data."
     );
   }
 
@@ -3272,14 +3272,14 @@ export default function Home() {
       if (data.session?.user) {
         setCurrentUser(data.session.user);
         setAuthMessage(
-          "Account created and signed in. Export a backup, then save local data to cloud only if this device has the version you want to keep."
+          "Account created and signed in. Autosave is being prepared; export a backup if this device has important team data."
         );
         setAuthPassword("");
         return;
       }
 
       setAuthMessage(
-        "Account created. Check your email to confirm it, then return here and sign in. Your current workspace remains local on this device."
+        "Account created. Check your email to confirm it, then return here and sign in. Your current team data remains on this device."
       );
       setAuthPassword("");
       setAuthMode("login");
@@ -3340,7 +3340,7 @@ export default function Home() {
 
       setCurrentUser(data.user);
       setAuthMessage(
-        "Signed in. Local data is still on this device until you manually save it to cloud or load a cloud copy."
+        "Signed in. Team data is still on this device until autosave is enabled or you use advanced recovery."
       );
       setAuthPassword("");
     } catch (error) {
@@ -3359,7 +3359,7 @@ export default function Home() {
 
     if (!supabase) {
       setAuthMessage(
-        "Cloud accounts are not configured yet. Local workspace data is still available on this device."
+        "Accounts are not configured yet. Team data is still available on this device."
       );
       return;
     }
@@ -3378,13 +3378,13 @@ export default function Home() {
       setCurrentUser(null);
       setAuthPassword("");
       setAuthMessage(
-        "Signed out. Local workspace data is still available on this device. Export a backup before clearing browser data."
+        "Signed out. Team data is still available on this device. Export a backup before clearing browser data."
       );
     } catch (error) {
       setAuthMessage(
         error instanceof Error
           ? formatAuthErrorMessage(error.message)
-          : "Sign out failed. Local workspace data is still available on this device."
+          : "Sign out failed. Team data is still available on this device."
       );
     } finally {
       setIsAuthSubmitting(false);
@@ -3408,13 +3408,13 @@ export default function Home() {
 
     const shouldSave = window.confirm(
       [
-      "Save local data to cloud?",
+      "Advanced manual save?",
       "",
-      "This will overwrite the current cloud copy with the data on this device.",
+      "This can overwrite the saved team copy with the data on this device.",
       "",
       "Use this only when this device has the version you want to keep.",
       "",
-      "Export a JSON backup first if this workspace matters.",
+      "Export a JSON backup first if this team data matters.",
       "",
       "Continue?"
     ].join("\n")
@@ -3442,12 +3442,12 @@ export default function Home() {
       workspaceNameBeforeEditRef.current = savedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
-        `Saved "${result.workspace.name}" to cloud: ${result.memberCount} local profiles, ${result.targetCount} targets, ${result.logCount} logs, plus activity history.`
+        `Saved "${result.workspace.name}" to saved team data: ${result.memberCount} local profiles, ${result.targetCount} targets, ${result.logCount} logs, plus activity history.`
       );
 
       addActivityEvent(
         "cloud_saved",
-        `Cloud saved: "${result.workspace.name}" with ${result.memberCount} local profiles, ${result.targetCount} targets, and ${result.logCount} progress logs.`,
+        `Team data saved: "${result.workspace.name}" with ${result.memberCount} local profiles, ${result.targetCount} targets, and ${result.logCount} progress logs.`,
         {
           memberCount: result.memberCount,
           targetCount: result.targetCount,
@@ -3457,7 +3457,7 @@ export default function Home() {
       );
     } catch (error) {
       setCloudSyncMessage(
-        error instanceof Error ? error.message : "Cloud save failed."
+        error instanceof Error ? error.message : "Team save failed."
       );
     } finally {
       setIsCloudSyncing(false);
@@ -3481,11 +3481,11 @@ export default function Home() {
 
     const shouldLoad = window.confirm(
       [
-        "Load cloud data into this device?",
+        "Advanced manual restore?",
         "",
-        "This will replace this device's current local workspace with your cloud copy.",
+        "This will replace this device's current team data with the saved team copy.",
         "Local profiles, targets, logs, claims, activity history, and screen settings on this device may change.",
-        "Your cloud copy will NOT change from loading.",
+        "Saved team data will NOT change from restoring.",
         "",
         "Export a backup first if this device has data you may need.",
         "",
@@ -3521,12 +3521,12 @@ setIsCloudSyncing(true);
       workspaceNameBeforeEditRef.current = loadedWorkspaceName;
       setLastCloudSyncAt(new Date().toISOString());
       setCloudSyncMessage(
-        `Loaded "${result.workspace.name}" from cloud: ${result.members.length} local profiles, ${result.targets.length} targets, ${result.logs.length} logs, plus activity history.`
+        `Loaded "${result.workspace.name}" from saved team data: ${result.members.length} local profiles, ${result.targets.length} targets, ${result.logs.length} logs, plus activity history.`
       );
 
       addActivityEvent(
         "cloud_loaded",
-        `Cloud loaded: "${result.workspace.name}" with ${result.members.length} local profiles, ${result.targets.length} targets, and ${result.logs.length} progress logs.`,
+        `Team data restored: "${result.workspace.name}" with ${result.members.length} local profiles, ${result.targets.length} targets, and ${result.logs.length} progress logs.`,
         {
           memberCount: result.members.length,
           targetCount: result.targets.length,
@@ -3536,7 +3536,7 @@ setIsCloudSyncing(true);
       );
     } catch (error) {
       setCloudSyncMessage(
-        error instanceof Error ? error.message : "Cloud load failed."
+        error instanceof Error ? error.message : "Team restore failed."
       );
     } finally {
       setIsCloudSyncing(false);
@@ -3556,14 +3556,14 @@ setIsCloudSyncing(true);
   }[] = [
     {
       title: "1. Choose your starting point",
-      body: "Use the demo workspace if you are new. Start empty only when you already know your real targets. Import backup only when restoring JSON exported from this app.",
+      body: "Use the sample team if you are new. Start empty only when you already know your real targets. Import backup only when restoring JSON exported from this app.",
       actionLabel: "Open Dashboard",
       view: "dashboard",
     },
     {
       title: "2. Add local profiles",
       body: "Local profiles are assignment placeholders in this beta. They are not real invited users yet. Real email invites come later.",
-      actionLabel: "Open Workspace",
+      actionLabel: "Open Team",
       view: "workspace",
     },
     {
@@ -3586,13 +3586,13 @@ setIsCloudSyncing(true);
     },
     {
       title: "6. Export backups",
-      body: "CSV exports are for reports. JSON backup is for restoring your workspace. Export JSON before clearing browser data, changing devices, or testing cloud sync.",
+      body: "CSV exports are for reports. JSON backup is for restoring team data. Export JSON before clearing browser data, changing devices, or testing recovery tools.",
       actionLabel: "Open Reports",
       view: "reports",
     },
     {
-      title: "7. Optional cloud sync",
-      body: "Sign in only for manual cloud save/load. Save can overwrite the cloud copy. Load can replace this browser workspace.",
+      title: "7. Advanced recovery",
+      body: "Sign in to protect team data. Manual recovery tools can overwrite or restore saved data, so use them carefully.",
       actionLabel: "Open Settings",
       view: "settings",
     },
@@ -3637,7 +3637,7 @@ setIsCloudSyncing(true);
               Universal Targets Tracker
             </p>
             <h1 className="mt-4 text-2xl font-bold sm:text-3xl">
-              Loading your workspace
+              Loading your team
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-300">
               Preparing the correct local date, workspace data, and browser
@@ -3661,15 +3661,15 @@ setIsCloudSyncing(true);
               Sign in before tracking work
             </h1>
             <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-base">
-              Production workspaces require an account. This keeps targets,
+              Production teams require an account. This keeps targets,
               progress logs, members, invites, and future autosave tied to the
               correct user and workspace.
             </p>
 
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <StatusBox label="Required" value="Account first" />
-              <StatusBox label="Data model" value="Workspace scoped" />
-              <StatusBox label="Next step" value="Workspace switcher" />
+              <StatusBox label="Data model" value="Team scoped" />
+              <StatusBox label="Next step" value="Team autosave" />
             </div>
 
             <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-50">
@@ -3853,11 +3853,11 @@ setIsCloudSyncing(true);
             </p>
 
             <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
-              Workspace targets, backlog, and progress
+              Team targets, backlog, and progress
             </h1>
 
             <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
-              <span className="text-slate-400">Workspace:</span>
+              <span className="text-slate-400">Team:</span>
               <span className="truncate font-semibold text-white">{workspaceName || DEFAULT_WORKSPACE_NAME}</span>
             </div>
 
@@ -4268,13 +4268,13 @@ setIsCloudSyncing(true);
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-fuchsia-300 sm:text-sm sm:tracking-[0.25em]">
-                Workspace permissions
+                Team permissions
               </p>
               <h2 className="mt-2 flex flex-wrap items-center gap-2 text-2xl font-bold">
                 <span>Current permission preset: {currentAuthorityLabel}</span>
                 <InfoTip
                   label="Permission preset"
-                  body="Permission presets describe what a future workspace member can do. Local profiles are assignment placeholders in this beta, not accepted invited users."
+                  body="Permission presets describe what a future team member can do. Local profiles are assignment placeholders in this beta, not accepted invited users."
                 />
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
@@ -4325,18 +4325,18 @@ setIsCloudSyncing(true);
           </div>
 
           <p className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
-            Current beta rule: local assignment profiles can be created by permission presets with profile-management access. Email invites, accepted workspace membership, and per-member permissions come next.
+            Current beta rule: local assignment profiles can be created by permission presets with profile-management access. Email invites, accepted team membership, and per-member permissions come next.
           </p>
         </section>
 
         <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" ? undefined : "none" }}>
           <div className="mb-4">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-300 sm:text-sm sm:tracking-[0.25em]">
-              Workspace identity
+              Team identity
             </p>
-            <h2 className="mt-2 text-2xl font-bold">Name this workspace</h2>
+            <h2 className="mt-2 text-2xl font-bold">Name this team</h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              This name appears in the header, backups, and manual cloud sync so you know which workspace you are saving or restoring.
+              This name appears in the header, backups, and team records.
             </p>
           </div>
 
@@ -4367,13 +4367,13 @@ setIsCloudSyncing(true);
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300 sm:text-sm sm:tracking-[0.25em]">
               Launch plan rules
             </p>
-            <h2 className="mt-2 text-2xl font-bold">Free workspace limits</h2>
+            <h2 className="mt-2 text-2xl font-bold">Free team limits</h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">
               Launch model: every user gets a personal workspace, can own up to
-              {FREE_TEAM_WORKSPACE_LIMIT} team workspaces, and can allocate
+              {FREE_TEAM_WORKSPACE_LIMIT} teams, and can allocate
               {FREE_OWNED_TEAM_SEAT_LIMIT} total teammate seats across owned
-              team workspaces. Workspaces someone is invited into do not count
-              against their owned-workspace quota.
+              teams. Teams someone is invited into do not count
+              against their owned-team quota.
             </p>
           </div>
 
@@ -4383,11 +4383,11 @@ setIsCloudSyncing(true);
               value={FREE_PLAN_NAME}
             />
             <StatusBox
-              label="Personal workspace"
+              label="Personal team"
               value={`${FREE_PERSONAL_WORKSPACE_LIMIT} included`}
             />
             <StatusBox
-              label="Owned team workspaces"
+              label="Owned teams"
               value={`${FREE_TEAM_WORKSPACE_LIMIT} free`}
             />
             <StatusBox
@@ -4397,7 +4397,7 @@ setIsCloudSyncing(true);
           </div>
 
           <p className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm leading-6 text-slate-300">
-            Pending invites {FREE_PLAN_PENDING_INVITES_COUNT ? "count" : "do not count"} toward owned seats. Current beta uses local assignment profiles. Real email invitations, accepted workspace membership, per-member permissions, and quota enforcement are the next backend step.
+            Pending invites {FREE_PLAN_PENDING_INVITES_COUNT ? "count" : "do not count"} toward owned seats. Current beta uses local assignment profiles. Real email invitations, accepted team membership, per-member permissions, and quota enforcement are the next backend step.
           </p>
         </section>
 
@@ -4408,20 +4408,19 @@ setIsCloudSyncing(true);
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-300 sm:text-sm sm:tracking-[0.25em]">
-                Cloud data sync
+                Advanced data recovery
               </p>
               <h2 className="mt-2 text-2xl font-bold">
-                {currentUser ? "Manual cloud sync ready" : "Sign in to sync data"}
+                {currentUser ? "Advanced recovery available" : "Sign in to protect data"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                {"Save this device's local profiles, targets, logs, activity history, and screen preferences "}
-                to Supabase, or load your cloud copy onto this device. This first
-                sync release is manual to prevent accidental overwrites.
+                {"Temporary recovery tools for exporting, restoring, or manually replacing saved team data. "}
+                Normal users should not need these once autosave is enabled.
               </p>
             </div>
 
             <span className="rounded-full bg-blue-500/20 px-3 py-1 text-sm font-semibold text-blue-300">
-              {cloudWorkspaceName || "Cloud workspace not loaded yet"}
+              {cloudWorkspaceName || "No saved team loaded yet"}
             </span>
           </div>
 
@@ -4432,11 +4431,11 @@ setIsCloudSyncing(true);
                 disabled={!currentUser || isCloudSyncing}
                 className="rounded-xl bg-blue-400 px-4 py-3 font-semibold text-slate-950 hover:bg-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isCloudSyncing ? "Working..." : "Save local data to cloud"}
+                {isCloudSyncing ? "Working..." : "Advanced manual save"}
               </button>
               <InfoTip
-                label="Save local data to cloud"
-                body="Uploads this browser workspace to cloud and can overwrite the existing cloud copy. Export a JSON backup first if this data matters."
+                label="Advanced manual save"
+                body="Uploads this browser team data and can overwrite the saved team copy. Export a JSON backup first if this data matters."
               />
             </div>
 
@@ -4446,11 +4445,11 @@ setIsCloudSyncing(true);
                 disabled={!currentUser || isCloudSyncing}
                 className="rounded-xl border border-blue-400/40 px-4 py-3 font-semibold text-blue-100 hover:bg-blue-400/10 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isCloudSyncing ? "Working..." : "Load cloud data"}
+                {isCloudSyncing ? "Working..." : "Advanced manual restore"}
               </button>
               <InfoTip
-                label="Load cloud data"
-                body="Downloads the cloud copy into this browser and can replace local profiles, targets, logs, activity history, and screen settings."
+                label="Advanced manual restore"
+                body="Restores saved team data into this browser and can replace local profiles, targets, logs, activity history, and screen settings."
               />
             </div>
           </div>
@@ -4514,7 +4513,7 @@ setIsCloudSyncing(true);
                 {currentUser ? "Signed in" : "Sign in or create account"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Create an account to manually save this browser workspace to cloud or load a cloud copy. Local data stays on this device until you choose a cloud action.
+                Create an account to protect team data. Autosave is the next production step; advanced recovery tools are temporary.
               </p>
             </div>
 
@@ -4585,8 +4584,8 @@ setIsCloudSyncing(true);
 
               <p className="mb-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
                 {authMode === "signup"
-                  ? "Create an account for manual cloud backup. This does not automatically upload local data."
-                  : "Sign in to manually save this device to cloud or load your cloud copy."}
+                  ? "Create an account to protect team data. Autosave is being prepared."
+                  : "Sign in to access protected team saving and recovery."}
               </p>
 
               <div className="grid gap-3 lg:grid-cols-3">
@@ -4651,7 +4650,7 @@ setIsCloudSyncing(true);
                 <p className="text-sm font-bold">Offline mode</p>
                 <p className="mt-1 text-sm leading-6 text-yellow-100/80">
                   You are offline. Changes stay on this device. Reconnect before
-                  saving to cloud or loading a cloud copy.
+                  saving or restoring team data.
                 </p>
               </div>
 
@@ -4815,10 +4814,10 @@ setIsCloudSyncing(true);
                   className="rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-left hover:bg-sky-400/15"
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold text-sky-100">
-                    <span>Try demo workspace</span>
+                    <span>Try sample team</span>
                     <InfoTip
-                      label="Try demo workspace"
-                      body="Loads sample local profiles and targets. It replaces the current local workspace in this browser, but does not change your cloud copy unless you later save to cloud."
+                      label="Try sample team"
+                      body="Loads sample local profiles and targets. It replaces the current team data in this browser, but does not change saved team data unless you use advanced manual save."
                     />
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-sky-200/80">
@@ -4831,9 +4830,9 @@ setIsCloudSyncing(true);
                   className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-left hover:bg-amber-400/15"
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold text-amber-100">
-                    <span>Start empty workspace</span>
+                    <span>Start empty team</span>
                     <InfoTip
-                      label="Start empty workspace"
+                      label="Start empty team"
                       body="Clears local profiles, targets, and logs from this browser and starts with one local profile. Export a JSON backup first if the current data matters."
                     />
                   </span>
@@ -4850,7 +4849,7 @@ setIsCloudSyncing(true);
                     <span>Import backup</span>
                     <InfoTip
                       label="Import backup"
-                      body="Restores a JSON backup created by this app. Import can replace local workspace data, so export a backup first if you may need the current browser data."
+                      body="Restores a JSON backup created by this app. Import can replace team data, so export a backup first if you may need the current browser data."
                     />
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-emerald-200/80">
@@ -4904,11 +4903,11 @@ setIsCloudSyncing(true);
             <OnboardingStep
               number="7"
               title="Back up data"
-              body="Export a full JSON backup often. CSV exports are for reports; JSON backup is for restoring the workspace."
+              body="Export a full JSON backup often. CSV exports are for reports; JSON backup is for restoring team data."
             />
             <OnboardingStep
               number="8"
-              title="Optional cloud sync"
+              title="Advanced recovery"
               body="Sign in only for manual cloud save/load. It is not automatic sync, and cloud actions can overwrite data."
             />
           </div>
@@ -4949,7 +4948,7 @@ setIsCloudSyncing(true);
                   </p>
 
                   <p className="mt-2 text-xs text-slate-500">
-                    Workspace: {event.workspaceName}
+                    Team: {event.workspaceName}
                   </p>
                 </div>
               ))}
@@ -5078,7 +5077,7 @@ setIsCloudSyncing(true);
                 Saved in this browser
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Your workspace data is stored locally in this browser. Export a JSON backup before clearing browser data, changing devices, or testing cloud sync.
+                Your team data is stored in this browser for now. Autosave is the next production step; export JSON before clearing browser data or changing devices.
               </p>
             </div>
 
@@ -5092,7 +5091,7 @@ setIsCloudSyncing(true);
                   : "Loading local data..."
               }
             />
-            <StatusBox label="Workspace" value={normalizeWorkspaceName(workspaceName)} />
+            <StatusBox label="Team" value={normalizeWorkspaceName(workspaceName)} />
             <StatusBox
               label="Saved records"
               value={`${formatCount(members.length, "profile")} - ${formatCount(targets.length, "target")}`}
@@ -5279,7 +5278,7 @@ setIsCloudSyncing(true);
             onClick={resetDemoData}
             className="rounded-xl border border-red-400/30 px-4 py-2 text-sm text-red-200 hover:bg-red-400/10"
           >
-            Reload demo workspace
+            Reload sample team
           </button>
 
           <p className="flex items-center text-sm leading-6 text-slate-400">
@@ -5292,7 +5291,7 @@ setIsCloudSyncing(true);
           <div className="mb-4">
             <h2 className="text-2xl font-bold">Backup, export, and import</h2>
             <p className="mt-1 text-sm leading-6 text-slate-400">
-              Download your workspace data, including workspace name, local profiles,
+              Download your team data, including team name, local profiles,
               targets, logs, screen settings, and selected calendar state. Restore
               only from JSON backups created by this app.
             </p>
@@ -5329,7 +5328,7 @@ setIsCloudSyncing(true);
               </button>
               <InfoTip
                 label="Import backup JSON"
-                body="Restores app data from a JSON backup. This can replace the current local workspace in this browser."
+                body="Restores app data from a JSON backup. This can replace the current team data in this browser."
               />
             </div>
 
@@ -6006,7 +6005,7 @@ setIsCloudSyncing(true);
 
           <aside className="space-y-6">
             <section className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5" style={{ display: activeAppView === "workspace" ? undefined : "none" }}>
-              <h2 className="mb-4 text-2xl font-bold">Workspace overview</h2>
+              <h2 className="mb-4 text-2xl font-bold">Team overview</h2>
 
               <div className="space-y-3">
                 {memberOverview.map((row) => {
@@ -6116,7 +6115,7 @@ setIsCloudSyncing(true);
               <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-50">
                 <p className="font-semibold">Team invitations coming next</p>
                 <p className="mt-2 text-amber-100/90">
-                  For now, this creates a local assignment profile. Next, you will be able to invite people by email so registered users can join the workspace. Pending invites will count toward the {FREE_OWNED_TEAM_SEAT_LIMIT} free owned-team seats.
+                  For now, this creates a local assignment profile. Next, you will be able to invite people by email so registered users can join the team. Pending invites will count toward the {FREE_OWNED_TEAM_SEAT_LIMIT} free owned-team seats.
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">
                   <span className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2">
