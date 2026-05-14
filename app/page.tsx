@@ -249,7 +249,7 @@ const screenSectionOptions: {
   description: string;
   group: "Core" | "Planning" | "Management" | "Admin";
 }[] = [
-  { key: "quickStart", label: "Quick start", description: "Setup checklist for new users and fresh workspaces.", group: "Core" },
+  { key: "quickStart", label: "Beginner guide", description: "Plain-English tutorial for first-time users and fresh workspaces.", group: "Core" },
   { key: "dashboardInsights", label: "Dashboard insights", description: "Warnings, behind categories, and recommended focus.", group: "Core" },
   { key: "localDataStatus", label: "Local data status", description: "Browser save status and record counts.", group: "Admin" },
   { key: "completionHistory", label: "Completion history", description: "Streaks, recent completion rate, and day-by-day history.", group: "Planning" },
@@ -266,7 +266,7 @@ const screenSectionOptions: {
 ];
 
 const defaultScreenSettings: ScreenSettings = {
-  quickStart: false,
+  quickStart: true,
   dashboardInsights: true,
   localDataStatus: false,
   completionHistory: false,
@@ -2998,7 +2998,7 @@ export default function Home() {
     if (view === "dashboard") {
       return {
         ...defaultScreenSettings,
-        quickStart: false,
+        quickStart: true,
         dashboardInsights: true,
         localDataStatus: false,
         completionHistory: false,
@@ -4479,27 +4479,32 @@ setIsCloudSyncing(true);
           )}
         </section>
 
-        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" && screenSettings.quickStart ? undefined : "none" }}>
-          <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.quickStart && (activeAppView === "dashboard" || activeAppView === "settings") ? undefined : "none" }}>
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
-                Quick start
+                Beginner guide
               </p>
               <h2 className="mt-2 text-2xl font-bold">
-                Finish setup and start tracking
+                Start tracking in under 2 minutes
               </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Choose how you want to begin: explore the demo workspace, start with an empty workspace, or restore a backup.
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
+                Universal Targets Tracker helps you set recurring work targets,
+                see what is due, catch up on missed work, and protect your data
+                with backups. Current beta uses local profiles first. Real
+                email invites and automatic sync are not live yet.
               </p>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <button
                   onClick={resetDemoData}
                   className="rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-left hover:bg-sky-400/15"
                 >
-                  <span className="block text-sm font-semibold text-sky-100">Try demo workspace</span>
+                  <span className="block text-sm font-semibold text-sky-100">
+                    Try demo workspace
+                  </span>
                   <span className="mt-1 block text-xs leading-5 text-sky-200/80">
-                    Load sample local profiles and targets so you can explore the app quickly.
+                    Best for first-time users. Loads sample profiles and targets.
                   </span>
                 </button>
 
@@ -4507,9 +4512,11 @@ setIsCloudSyncing(true);
                   onClick={startFreshWorkspace}
                   className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-left hover:bg-amber-400/15"
                 >
-                  <span className="block text-sm font-semibold text-amber-100">Start empty workspace</span>
+                  <span className="block text-sm font-semibold text-amber-100">
+                    Start empty workspace
+                  </span>
                   <span className="mt-1 block text-xs leading-5 text-amber-200/80">
-                    Clear local sample data and begin with one local profile.
+                    Best when you already know what you want to track.
                   </span>
                 </button>
 
@@ -4517,18 +4524,22 @@ setIsCloudSyncing(true);
                   onClick={triggerImportBackup}
                   className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-left hover:bg-emerald-400/15"
                 >
-                  <span className="block text-sm font-semibold text-emerald-100">Import backup</span>
+                  <span className="block text-sm font-semibold text-emerald-100">
+                    Import backup
+                  </span>
                   <span className="mt-1 block text-xs leading-5 text-emerald-200/80">
-                    Restore workspace data from a JSON backup exported by this app.
+                    Restore a JSON backup exported from this app.
                   </span>
                 </button>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
-              <p>
-                {members.length} profiles - {activeTargetsCount} active targets -{" "}
-                {archivedCount} archived
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm leading-6 text-slate-300 lg:max-w-sm">
+              <p className="font-semibold text-white">Beta safety rule</p>
+              <p className="mt-2">
+                Browser data can be lost. Export a JSON backup before clearing
+                browser data, changing devices, saving to cloud, or loading from
+                cloud.
               </p>
             </div>
           </div>
@@ -4536,23 +4547,43 @@ setIsCloudSyncing(true);
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <OnboardingStep
               number="1"
-              title="Add local profiles"
-              body="Create local assignment profiles. Registered users join later through email invites."
+              title="Choose your start"
+              body="Use the demo to learn quickly, start empty for real work, or import a backup if you already have one."
             />
             <OnboardingStep
               number="2"
-              title="Create targets"
-              body="Add daily, weekly, or monthly targets with a category, assigned profile, priority, and unit."
+              title="Add local profiles"
+              body="Local profiles are beta assignment placeholders. They are not real invited users yet."
             />
             <OnboardingStep
               number="3"
-              title="Log progress"
-              body="Pick the correct date, then use Tick done, +1, +3, or a custom amount."
+              title="Create targets"
+              body="Add daily, weekly, monthly, or one-time targets with category, priority, unit, and assigned profile."
             />
             <OnboardingStep
               number="4"
+              title="Log progress"
+              body="Pick the correct date, then use Tick done, +1, +3, or a custom amount. Logs update totals immediately."
+            />
+            <OnboardingStep
+              number="5"
+              title="Read backlog"
+              body="Missed past work carries into today. Future days should show forecasted work, not infinite compounded debt."
+            />
+            <OnboardingStep
+              number="6"
+              title="Use calendar"
+              body="Open Calendar to select any date, review the monthly grid, and see what work belongs to that day."
+            />
+            <OnboardingStep
+              number="7"
               title="Back up data"
-              body="Export a full JSON backup before clearing browser data or changing devices."
+              body="Export a full JSON backup often. CSV exports are for reports; JSON backup is for restoring the workspace."
+            />
+            <OnboardingStep
+              number="8"
+              title="Optional cloud sync"
+              body="Sign in only for manual cloud save/load. It is not automatic sync, and cloud actions can overwrite data."
             />
           </div>
         </section>
