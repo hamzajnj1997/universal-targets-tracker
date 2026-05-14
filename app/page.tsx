@@ -31,6 +31,7 @@ type ScreenSectionKey =
 type ScreenSettings = Record<ScreenSectionKey, boolean>;
 type ScreenPresetKey = "simple" | "manager" | "calendar" | "admin" | "full";
 type SupabaseConnectionStatus = "checking" | "connected" | "missing" | "unreachable" | "error";
+type TeamAutosaveStatus = "idle" | "waiting" | "saving" | "saved" | "error";
 type AuthMode = "login" | "signup";
 type AppView = "dashboard" | "targets" | "calendar" | "workspace" | "reports" | "settings";
 type WorkspaceAuthorityRole = "owner" | "admin" | "leader" | "parent" | "member" | "viewer";
@@ -872,6 +873,48 @@ function getTargetEmptyState({
   };
 }
 
+function getTeamAutosaveStatusLabel(status: TeamAutosaveStatus) {
+  if (status === "waiting") return "Saving soon";
+  if (status === "saving") return "Saving...";
+  if (status === "saved") return "Saved";
+  if (status === "error") return "Save failed";
+  return "Waiting for sign in";
+}
+
+function getTeamAutosaveStatusClass(status: TeamAutosaveStatus) {
+  if (status === "saving" || status === "waiting") {
+    return "rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100";
+  }
+
+  if (status === "saved") {
+    return "rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100";
+  }
+
+  if (status === "error") {
+    return "rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-semibold text-red-100";
+  }
+
+  return "rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200";
+}
+
+function buildTeamAutosaveSignature(payload: {
+  workspaceName: string;
+  members: Member[];
+  targets: Target[];
+  logs: ProgressLog[];
+  activityEvents: ActivityEvent[];
+  screenSettings: ScreenSettings;
+}) {
+  return JSON.stringify({
+    workspaceName: normalizeWorkspaceName(payload.workspaceName),
+    members: payload.members,
+    targets: payload.targets,
+    logs: payload.logs,
+    activityEvents: payload.activityEvents,
+    screenSettings: payload.screenSettings,
+  });
+}
+
 function normalizeScreenSettings(value: unknown): ScreenSettings {
   const normalized = { ...defaultScreenSettings };
 
@@ -1061,6 +1104,7 @@ function getAuthorityCapabilities(role: WorkspaceAuthorityRole) {
 export default function Home() {
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
   const workspaceNameBeforeEditRef = useRef(DEMO_WORKSPACE_NAME);
+  const lastTeamAutosaveSignatureRef = useRef("");
 
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [calendarMonth, setCalendarMonth] = useState(monthStartISO(todayISO()));
@@ -1152,6 +1196,8 @@ export default function Home() {
   const [activeCloudWorkspaceId, setActiveCloudWorkspaceId] = useState("");
   const [autoLoadedCloudUserId, setAutoLoadedCloudUserId] = useState("");
   const [isTeamAutoLoading, setIsTeamAutoLoading] = useState(false);
+  const [teamAutosaveStatus, setTeamAutosaveStatus] =
+    useState<TeamAutosaveStatus>("idle");
   const [lastCloudSyncAt, setLastCloudSyncAt] = useState<string | null>(null);
   const [, setHasDismissedSampleBanner] = useState(false);
 
@@ -1558,6 +1604,8 @@ export default function Home() {
       setActiveCloudWorkspaceId("");
       setAutoLoadedCloudUserId("");
       setCloudWorkspaceName("");
+      setTeamAutosaveStatus("idle");
+      lastTeamAutosaveSignatureRef.current = "";
       setIsTeamAutoLoading(false);
       return;
     }
@@ -1599,7 +1647,19 @@ export default function Home() {
         setSelectedMemberId("all");
         setActiveWorkerId(loadedMembers[0]?.id ?? "me");
         setNewOwnerId(loadedMembers[0]?.id ?? "me");
+        lastTeamAutosaveSignatureRef.current = buildTeamAutosaveSignature({
+          workspaceName: loadedWorkspaceName,
+          members: loadedMembers,
+          targets: result.targets,
+          logs: result.logs,
+          activityEvents: normalizeActivityEvents(result.activityEvents),
+          screenSettings: result.screenSettings
+            ? normalizeScreenSettings(result.screenSettings)
+            : screenSettings,
+        });
+
         setLastCloudSyncAt(new Date().toISOString());
+        setTeamAutosaveStatus("saved");
         setCloudSyncMessage(
           `Loaded "${result.workspace.name}" automatically: ${loadedMembers.length} local profiles, ${result.targets.length} targets, and ${result.logs.length} progress logs.`
         );
@@ -1629,6 +1689,95 @@ export default function Home() {
     hasCheckedAuth,
     hasLoadedSavedData,
     supabaseConnectionStatus,
+  ]);
+
+
+
+
+  useEffect(() => {
+    if (!hasLoadedSavedData || !hasCheckedAuth) return;
+    if (!currentUser) return;
+    if (supabaseConnectionStatus !== "connected") return;
+    if (isTeamAutoLoading || isCloudSyncing) return;
+    if (autoLoadedCloudUserId !== currentUser.id) return;
+    if (!activeCloudWorkspaceId) return;
+
+    const supabase = getSupabaseClient();
+
+    if (!supabase) return;
+
+    const nextSignature = buildTeamAutosaveSignature({
+      workspaceName,
+      members,
+      targets,
+      logs,
+      activityEvents,
+      screenSettings,
+    });
+
+    if (lastTeamAutosaveSignatureRef.current === nextSignature) return;
+
+    setTeamAutosaveStatus("waiting");
+
+    const saveTimer = window.setTimeout(() => {
+      setTeamAutosaveStatus("saving");
+
+      saveLocalDataToCloud(
+        supabase,
+        currentUser,
+        {
+          members,
+          targets,
+          logs,
+          activityEvents,
+          workspaceName: normalizeWorkspaceName(workspaceName),
+          screenSettings,
+        },
+        { workspaceId: activeCloudWorkspaceId }
+      )
+        .then((result) => {
+          const savedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
+          const savedAt = new Date().toISOString();
+
+          lastTeamAutosaveSignatureRef.current = nextSignature;
+          setWorkspaceName(savedWorkspaceName);
+          setCloudWorkspaceName(result.workspace.name);
+          setActiveCloudWorkspaceId(result.workspace.id);
+          workspaceNameBeforeEditRef.current = savedWorkspaceName;
+          setLastCloudSyncAt(savedAt);
+          setTeamAutosaveStatus("saved");
+          setCloudSyncMessage(
+            `Saved automatically: ${result.memberCount} local profiles, ${result.targetCount} targets, and ${result.logCount} logs.`
+          );
+        })
+        .catch((error: unknown) => {
+          setTeamAutosaveStatus("error");
+          setCloudSyncMessage(
+            error instanceof Error
+              ? `Autosave failed: ${error.message}`
+              : "Autosave failed. Export a JSON backup before changing devices."
+          );
+        });
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(saveTimer);
+    };
+  }, [
+    activeCloudWorkspaceId,
+    activityEvents,
+    autoLoadedCloudUserId,
+    currentUser,
+    hasCheckedAuth,
+    hasLoadedSavedData,
+    isCloudSyncing,
+    isTeamAutoLoading,
+    logs,
+    members,
+    screenSettings,
+    supabaseConnectionStatus,
+    targets,
+    workspaceName,
   ]);
 
 
@@ -3358,7 +3507,7 @@ export default function Home() {
       if (data.session?.user) {
         setCurrentUser(data.session.user);
         setAuthMessage(
-          "Account created and signed in. Autosave is being prepared; export a backup if this device has important team data."
+          "Account created and signed in. Loading your saved team and autosave status now."
         );
         setAuthPassword("");
         return;
@@ -3426,7 +3575,7 @@ export default function Home() {
 
       setCurrentUser(data.user);
       setAuthMessage(
-        "Signed in. Team data is still on this device until autosave is enabled or you use advanced recovery."
+        "Signed in. Loading your saved team and autosave status now."
       );
       setAuthPassword("");
     } catch (error) {
@@ -3532,7 +3681,17 @@ export default function Home() {
       setCloudWorkspaceName(result.workspace.name);
       setActiveCloudWorkspaceId(result.workspace.id);
       workspaceNameBeforeEditRef.current = savedWorkspaceName;
+      lastTeamAutosaveSignatureRef.current = buildTeamAutosaveSignature({
+        workspaceName: savedWorkspaceName,
+        members,
+        targets,
+        logs,
+        activityEvents,
+        screenSettings,
+      });
+
       setLastCloudSyncAt(new Date().toISOString());
+      setTeamAutosaveStatus("saved");
       setCloudSyncMessage(
         `Saved "${result.workspace.name}" to saved team data: ${result.memberCount} local profiles, ${result.targetCount} targets, ${result.logCount} logs, plus activity history.`
       );
@@ -3618,7 +3777,19 @@ setIsCloudSyncing(true);
       setCloudWorkspaceName(result.workspace.name);
       setActiveCloudWorkspaceId(result.workspace.id);
       workspaceNameBeforeEditRef.current = loadedWorkspaceName;
+      lastTeamAutosaveSignatureRef.current = buildTeamAutosaveSignature({
+        workspaceName: loadedWorkspaceName,
+        members: loadedCloudMembers,
+        targets: result.targets,
+        logs: result.logs,
+        activityEvents: normalizeActivityEvents(result.activityEvents),
+        screenSettings: result.screenSettings
+          ? normalizeScreenSettings(result.screenSettings)
+          : screenSettings,
+      });
+
       setLastCloudSyncAt(new Date().toISOString());
+      setTeamAutosaveStatus("saved");
       setCloudSyncMessage(
         `Loaded "${result.workspace.name}" from saved team data: ${loadedCloudMembers.length} local profiles, ${result.targets.length} targets, ${result.logs.length} logs, plus activity history.`
       );
@@ -3646,6 +3817,9 @@ setIsCloudSyncing(true);
   const currentAuthorityLabel =
     authorityRoleOptions.find((role) => role.value === currentAuthorityRole)
       ?.label ?? "Full access";
+
+  const teamAutosaveLabel = getTeamAutosaveStatusLabel(teamAutosaveStatus);
+  const teamAutosaveClassName = getTeamAutosaveStatusClass(teamAutosaveStatus);
 
   const walkthroughSteps: {
     title: string;
@@ -3955,9 +4129,17 @@ setIsCloudSyncing(true);
               Team targets, backlog, and progress
             </h1>
 
-            <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
-              <span className="text-slate-400">Team:</span>
-              <span className="truncate font-semibold text-white">{workspaceName || DEFAULT_WORKSPACE_NAME}</span>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+                <span className="text-slate-400">Team:</span>
+                <span className="truncate font-semibold text-white">{workspaceName || DEFAULT_WORKSPACE_NAME}</span>
+              </div>
+
+              {currentUser && (
+                <div className={teamAutosaveClassName}>
+                  Autosave: {teamAutosaveLabel}
+                </div>
+              )}
             </div>
 
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
@@ -4514,7 +4696,7 @@ setIsCloudSyncing(true);
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
                 {"Temporary recovery tools for exporting, restoring, or manually replacing saved team data. "}
-                Normal users should not need these once autosave is enabled.
+                Autosave runs in the background. Use these recovery tools only when needed.
               </p>
             </div>
 
@@ -4527,7 +4709,7 @@ setIsCloudSyncing(true);
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSaveLocalDataToCloud}
-                disabled={!currentUser || isCloudSyncing}
+                disabled={!currentUser || isCloudSyncing || teamAutosaveStatus === "saving"}
                 className="rounded-xl bg-blue-400 px-4 py-3 font-semibold text-slate-950 hover:bg-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCloudSyncing ? "Working..." : "Advanced manual save"}
@@ -4541,7 +4723,7 @@ setIsCloudSyncing(true);
             <div className="flex items-center gap-2">
               <button
                 onClick={handleLoadCloudDataFromCloud}
-                disabled={!currentUser || isCloudSyncing}
+                disabled={!currentUser || isCloudSyncing || teamAutosaveStatus === "saving"}
                 className="rounded-xl border border-blue-400/40 px-4 py-3 font-semibold text-blue-100 hover:bg-blue-400/10 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCloudSyncing ? "Working..." : "Advanced manual restore"}
@@ -4612,7 +4794,7 @@ setIsCloudSyncing(true);
                 {currentUser ? "Signed in" : "Sign in or create account"}
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Create an account to protect team data. Autosave is the next production step; advanced recovery tools are temporary.
+                Create an account to protect team data. Autosave runs after your saved team loads.
               </p>
             </div>
 
@@ -4891,7 +5073,7 @@ setIsCloudSyncing(true);
                 Universal Targets Tracker helps you set recurring work targets,
                 see what is due, catch up on missed work, and protect your data
                 with backups. Current beta uses local profiles first. Real
-                email invites and automatic sync are not live yet.
+                email invites are not live yet.
               </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -5176,7 +5358,7 @@ setIsCloudSyncing(true);
                 Saved in this browser
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Your team data is stored in this browser for now. Autosave is the next production step; export JSON before clearing browser data or changing devices.
+                Your team data is saved in this browser and autosaved to your account after your saved team loads. Export JSON before clearing browser data or changing devices.
               </p>
             </div>
 
