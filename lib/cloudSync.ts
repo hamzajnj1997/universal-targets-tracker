@@ -585,3 +585,394 @@ export async function loadCloudDataFromCloud(
     ),
   };
 }
+
+
+type DirectCloudTargetRow = {
+  id: string;
+  owner_member_id: string | null;
+  title: string | null;
+  description: string | null;
+  category: string | null;
+  priority: string | null;
+  frequency: string | null;
+  target_amount: number | null;
+  unit: string | null;
+  start_date: string | null;
+  is_archived: boolean | null;
+  claimed_by_member_id: string | null;
+  claimed_at: string | null;
+};
+
+type DirectCloudProgressLogRow = {
+  id: string;
+  target_id: string;
+  progress_date: string;
+  achieved_amount: number | null;
+  created_at: string;
+};
+
+type DirectCloudMemberRow = {
+  id: string;
+  display_name: string | null;
+  role: string | null;
+  app_role: string | null;
+};
+
+function normalizeDirectAppRole(role: string | null | undefined) {
+  const normalizedRole = String(role ?? "").trim().toLowerCase();
+
+  if (normalizedRole.includes("owner")) return "owner";
+  if (normalizedRole.includes("admin")) return "admin";
+  if (normalizedRole.includes("leader")) return "leader";
+  if (normalizedRole.includes("parent")) return "parent";
+  if (normalizedRole.includes("viewer")) return "viewer";
+
+  return "member";
+}
+
+function toDirectCloudTarget(row: DirectCloudTargetRow, fallbackOwnerId = "me"): CloudTarget {
+  return {
+    id: row.id,
+    title: row.title || "Untitled target",
+    description: row.description || "",
+    category: row.category || "General",
+    priority: normalizePriority(row.priority),
+    ownerId: row.owner_member_id ?? fallbackOwnerId,
+    frequency: normalizeFrequency(row.frequency),
+    targetAmount: Number(row.target_amount) || 1,
+    unit: row.unit || "tasks",
+    startDate: row.start_date || new Date().toISOString().slice(0, 10),
+    isArchived: Boolean(row.is_archived),
+    claimedByMemberId: row.claimed_by_member_id ?? undefined,
+    claimedAt: row.claimed_at ?? undefined,
+  };
+}
+
+function toDirectCloudProgressLog(row: DirectCloudProgressLogRow): CloudProgressLog {
+  return {
+    id: row.id,
+    targetId: row.target_id,
+    date: row.progress_date,
+    achievedAmount: Number(row.achieved_amount) || 1,
+    createdAt: row.created_at,
+  };
+}
+
+function toDirectCloudMember(row: DirectCloudMemberRow): CloudMember {
+  return {
+    id: row.id,
+    name: row.display_name || "Unnamed member",
+    role: row.role || "Member",
+  };
+}
+
+const DIRECT_TARGET_SELECT =
+  "id,owner_member_id,title,description,category,priority,frequency,target_amount,unit,start_date,is_archived,claimed_by_member_id,claimed_at";
+
+const DIRECT_PROGRESS_LOG_SELECT =
+  "id,target_id,progress_date,achieved_amount,created_at";
+
+const DIRECT_MEMBER_SELECT = "id,display_name,role,app_role";
+
+export async function createCloudTarget(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  target: Omit<CloudTarget, "id">
+): Promise<CloudTarget> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { data, error } = await supabase
+    .from("targets")
+    .insert({
+      workspace_id: workspace.id,
+      owner_member_id: target.ownerId || null,
+      title: target.title || "Untitled target",
+      description: target.description || "",
+      category: target.category || "General",
+      priority: normalizePriority(target.priority),
+      frequency: normalizeFrequency(target.frequency),
+      target_amount: target.targetAmount || 1,
+      unit: target.unit || "tasks",
+      start_date: target.startDate,
+      is_archived: Boolean(target.isArchived),
+      claimed_by_member_id: target.claimedByMemberId ?? null,
+      claimed_at: target.claimedAt ?? null,
+    })
+    .select(DIRECT_TARGET_SELECT)
+    .single();
+
+  if (error) throw error;
+
+  return toDirectCloudTarget(data as DirectCloudTargetRow, target.ownerId);
+}
+
+export async function updateCloudTarget(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  target: CloudTarget
+): Promise<CloudTarget> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { data, error } = await supabase
+    .from("targets")
+    .update({
+      owner_member_id: target.ownerId || null,
+      title: target.title || "Untitled target",
+      description: target.description || "",
+      category: target.category || "General",
+      priority: normalizePriority(target.priority),
+      frequency: normalizeFrequency(target.frequency),
+      target_amount: target.targetAmount || 1,
+      unit: target.unit || "tasks",
+      start_date: target.startDate,
+      is_archived: Boolean(target.isArchived),
+      claimed_by_member_id: target.claimedByMemberId ?? null,
+      claimed_at: target.claimedAt ?? null,
+    })
+    .eq("id", target.id)
+    .eq("workspace_id", workspace.id)
+    .select(DIRECT_TARGET_SELECT)
+    .single();
+
+  if (error) throw error;
+
+  return toDirectCloudTarget(data as DirectCloudTargetRow, target.ownerId);
+}
+
+export async function archiveCloudTarget(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  targetId: string,
+  isArchived: boolean
+): Promise<CloudTarget> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { data, error } = await supabase
+    .from("targets")
+    .update({ is_archived: isArchived })
+    .eq("id", targetId)
+    .eq("workspace_id", workspace.id)
+    .select(DIRECT_TARGET_SELECT)
+    .single();
+
+  if (error) throw error;
+
+  return toDirectCloudTarget(data as DirectCloudTargetRow);
+}
+
+export async function updateCloudTargetClaim(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  targetId: string,
+  claimedByMemberId?: string
+): Promise<CloudTarget> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { data, error } = await supabase
+    .from("targets")
+    .update({
+      claimed_by_member_id: claimedByMemberId ?? null,
+      claimed_at: claimedByMemberId ? new Date().toISOString() : null,
+    })
+    .eq("id", targetId)
+    .eq("workspace_id", workspace.id)
+    .select(DIRECT_TARGET_SELECT)
+    .single();
+
+  if (error) throw error;
+
+  return toDirectCloudTarget(data as DirectCloudTargetRow);
+}
+
+export async function deleteCloudTarget(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  targetId: string
+): Promise<void> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { error: logsError } = await supabase
+    .from("progress_logs")
+    .delete()
+    .eq("workspace_id", workspace.id)
+    .eq("target_id", targetId);
+
+  if (logsError) throw logsError;
+
+  const { error: targetError } = await supabase
+    .from("targets")
+    .delete()
+    .eq("id", targetId)
+    .eq("workspace_id", workspace.id);
+
+  if (targetError) throw targetError;
+}
+
+export async function createCloudProgressLog(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  log: Omit<CloudProgressLog, "id">
+): Promise<CloudProgressLog> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { data, error } = await supabase
+    .from("progress_logs")
+    .insert({
+      workspace_id: workspace.id,
+      target_id: log.targetId,
+      progress_date: log.date,
+      achieved_amount: log.achievedAmount || 1,
+      created_at: log.createdAt || new Date().toISOString(),
+    })
+    .select(DIRECT_PROGRESS_LOG_SELECT)
+    .single();
+
+  if (error) throw error;
+
+  return toDirectCloudProgressLog(data as DirectCloudProgressLogRow);
+}
+
+export async function updateCloudProgressLog(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  log: Pick<CloudProgressLog, "id" | "date" | "achievedAmount">
+): Promise<CloudProgressLog> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { data, error } = await supabase
+    .from("progress_logs")
+    .update({
+      progress_date: log.date,
+      achieved_amount: log.achievedAmount || 1,
+    })
+    .eq("id", log.id)
+    .eq("workspace_id", workspace.id)
+    .select(DIRECT_PROGRESS_LOG_SELECT)
+    .single();
+
+  if (error) throw error;
+
+  return toDirectCloudProgressLog(data as DirectCloudProgressLogRow);
+}
+
+export async function deleteCloudProgressLog(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  logId: string
+): Promise<void> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { error } = await supabase
+    .from("progress_logs")
+    .delete()
+    .eq("id", logId)
+    .eq("workspace_id", workspace.id);
+
+  if (error) throw error;
+}
+
+export async function createCloudMember(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  member: Omit<CloudMember, "id">
+): Promise<CloudMember> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { data, error } = await supabase
+    .from("workspace_members")
+    .insert({
+      workspace_id: workspace.id,
+      user_id: null,
+      display_name: member.name || "Unnamed member",
+      role: member.role || "Member",
+      app_role: normalizeDirectAppRole(member.role),
+    })
+    .select(DIRECT_MEMBER_SELECT)
+    .single();
+
+  if (error) throw error;
+
+  return toDirectCloudMember(data as DirectCloudMemberRow);
+}
+
+export async function updateCloudMember(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  member: CloudMember
+): Promise<CloudMember> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { data, error } = await supabase
+    .from("workspace_members")
+    .update({
+      display_name: member.name || "Unnamed member",
+      role: member.role || "Member",
+      app_role: normalizeDirectAppRole(member.role),
+    })
+    .eq("id", member.id)
+    .eq("workspace_id", workspace.id)
+    .select(DIRECT_MEMBER_SELECT)
+    .single();
+
+  if (error) throw error;
+
+  return toDirectCloudMember(data as DirectCloudMemberRow);
+}
+
+export async function deleteCloudMember(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  memberId: string
+): Promise<void> {
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { data: targetRows, error: targetFetchError } = await supabase
+    .from("targets")
+    .select("id")
+    .eq("workspace_id", workspace.id)
+    .eq("owner_member_id", memberId);
+
+  if (targetFetchError) throw targetFetchError;
+
+  const targetIds = ((targetRows ?? []) as { id: string }[]).map(
+    (target) => target.id
+  );
+
+  if (targetIds.length > 0) {
+    const { error: logsError } = await supabase
+      .from("progress_logs")
+      .delete()
+      .eq("workspace_id", workspace.id)
+      .in("target_id", targetIds);
+
+    if (logsError) throw logsError;
+  }
+
+  const { error: targetsError } = await supabase
+    .from("targets")
+    .delete()
+    .eq("workspace_id", workspace.id)
+    .eq("owner_member_id", memberId);
+
+  if (targetsError) throw targetsError;
+
+  const { error: memberError } = await supabase
+    .from("workspace_members")
+    .delete()
+    .eq("id", memberId)
+    .eq("workspace_id", workspace.id)
+    .is("user_id", null);
+
+  if (memberError) throw memberError;
+}
