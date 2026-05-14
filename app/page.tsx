@@ -6221,7 +6221,6 @@ function InfoTip({ label, body }: { label: string; body: string }) {
         role="button"
         tabIndex={0}
         aria-label={"Info: " + label}
-        title={body}
         className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-cyan-300/60 bg-cyan-300/10 text-[11px] font-bold text-cyan-100"
       >
         i
