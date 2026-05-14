@@ -610,11 +610,19 @@ function isPriority(value: unknown): value is Priority {
 function periodsDue(target: Target, dateISO: string) {
   if (dateISO < target.startDate) return 0;
 
-  if (dateISO > todayISO()) {
-    return 1;
-  }
+  const today = todayISO();
 
   if (target.frequency === "once") {
+    if (dateISO === target.startDate) return 1;
+
+    if (dateISO <= today && dateISO > target.startDate) {
+      return 1;
+    }
+
+    return 0;
+  }
+
+  if (dateISO > today) {
     return 1;
   }
 
@@ -630,6 +638,7 @@ function periodsDue(target: Target, dateISO: string) {
 }
 
 function getDueStatusLabel(frequency?: Frequency) {
+  if (frequency === "once") return "Deadline Due";
   if (frequency === "weekly") return "Due This Week";
   if (frequency === "monthly") return "Due This Month";
   return "Due Today";
@@ -2333,14 +2342,14 @@ export default function Home() {
 
   function claimTarget(targetId: string) {
     if (!authorityCapabilities.canSubmitWork) {
-      window.alert("View-only permission cannot claim tasks.");
+      window.alert("View-only permission cannot claim work items.");
       return;
     }
 
     const workerId = getActiveWorkerId();
 
     if (!workerId) {
-      window.alert("Add or select a local profile before claiming a task.");
+      window.alert("Add or select a local profile before claiming work.");
       return;
     }
 
@@ -2349,7 +2358,7 @@ export default function Home() {
     if (!target) return;
 
     if (target.isArchived) {
-      window.alert("Archived tasks cannot be claimed.");
+      window.alert("Archived work items cannot be claimed.");
       return;
     }
 
@@ -2407,7 +2416,7 @@ export default function Home() {
     if (!title) return;
 
     if (!authorityCapabilities.canAssignTargets) {
-      window.alert("Only permission presets with target-management access can add or assign tasks.");
+      window.alert("Only permission presets with target-management access can add or assign work items.");
       return;
     }
 
@@ -2664,7 +2673,7 @@ export default function Home() {
         "Priority",
         "Archive Status",
         "Assigned Profile",
-        "Frequency",
+        "Type / frequency",
         "Target Amount",
         "Unit",
         "Start Date",
@@ -3980,7 +3989,7 @@ setIsCloudSyncing(true);
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
-                Clean task list
+                Clean work list
               </p>
               <h2 className="mt-2 text-2xl font-bold">
                 {activeAppView === "dashboard" ? "Today's work" : "Targets"}
@@ -4001,7 +4010,7 @@ setIsCloudSyncing(true);
             <div>
               <p className="text-sm font-semibold">Logging as local profile</p>
               <p className="mt-1 text-xs text-slate-500">
-                Claims and quick tasks will use this local profile.
+                Claims and quick deadlines will use this local profile.
               </p>
             </div>
 
@@ -4025,7 +4034,7 @@ setIsCloudSyncing(true);
               onKeyDown={(event) => {
                 if (event.key === "Enter") addQuickTaskFromList();
               }}
-              placeholder="Add a task for the selected date..."
+              placeholder="Add a deadline for the selected date..."
               className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-500"
             />
 
@@ -4033,7 +4042,7 @@ setIsCloudSyncing(true);
               onClick={addQuickTaskFromList}
               className="rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 hover:bg-cyan-300"
             >
-              Add task
+              Add deadline
             </button>
           </div>
 
@@ -4085,7 +4094,7 @@ setIsCloudSyncing(true);
 
                         <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs text-cyan-300">
                           {row.target.frequency === "once"
-                            ? "one-time"
+                            ? "deadline"
                             : row.target.frequency}
                         </span>
 
@@ -4875,7 +4884,7 @@ setIsCloudSyncing(true);
             <OnboardingStep
               number="3"
               title="Create targets"
-              body="Add daily, weekly, monthly, or one-time targets with category, priority, unit, and assigned profile."
+              body="Add recurring targets for repeated work, or deadlines for single-date due items."
             />
             <OnboardingStep
               number="4"
@@ -5648,7 +5657,7 @@ setIsCloudSyncing(true);
                             />
                             <p className="mt-1 text-xs text-slate-500">
                               {editFrequency === "once"
-                                ? "Due date for this one-time target."
+                                ? "Due date for this deadline."
                                 : "Start date for this recurring target."}
                             </p>
                           </FieldLabel>
@@ -5661,7 +5670,7 @@ setIsCloudSyncing(true);
                               }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
-                              <option value="once">One-time</option>
+                              <option value="once">Deadline</option>
                               <option value="daily">Daily</option>
                               <option value="weekly">Weekly</option>
                               <option value="monthly">Monthly</option>
@@ -5747,7 +5756,7 @@ setIsCloudSyncing(true);
                               </span>
 
                               <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-medium text-cyan-300">
-                                {row.target.frequency === "once" ? "one-time" : row.target.frequency}
+                                {row.target.frequency === "once" ? "deadline" : row.target.frequency}
                               </span>
 
                               <span
@@ -5762,7 +5771,7 @@ setIsCloudSyncing(true);
                             <p className="mt-2 text-sm leading-6 text-slate-400">
                               Assigned to: {row.owner?.name ?? "Unknown"} - Target:{" "}
                               {formatQuantity(row.target.targetAmount, row.target.unit)} /{" "}
-                              {row.target.frequency === "once" ? "one-time" : row.target.frequency}
+                              {row.target.frequency === "once" ? "deadline" : row.target.frequency}
                             </p>
 
                             {row.target.description && (
@@ -6211,7 +6220,7 @@ setIsCloudSyncing(true);
                   />
                   <p className="mt-1 text-xs text-slate-500">
                     {newFrequency === "once"
-                      ? "Due date for this one-time target."
+                      ? "Due date for this deadline."
                       : "Start date for this recurring target."}
                   </p>
                 </div>
@@ -6223,7 +6232,7 @@ setIsCloudSyncing(true);
                   }
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 >
-                  <option value="once">One-time</option>
+                  <option value="once">Deadline</option>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
