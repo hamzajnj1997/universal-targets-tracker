@@ -229,6 +229,25 @@ export async function listOwnedCloudWorkspaces(
   return ((data ?? []) as WorkspaceRow[]).map(toCloudWorkspaceSummary);
 }
 
+export async function listAccessibleCloudWorkspaces(
+  supabase: SupabaseClient,
+  user: User
+): Promise<CloudWorkspaceSummary[]> {
+  const { data, error } = await supabase
+    .from("workspaces")
+    .select("id,name,owner_id")
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+
+  const workspaces = ((data ?? []) as WorkspaceRow[]).map(toCloudWorkspaceSummary);
+
+  if (workspaces.length > 0) return workspaces;
+
+  const createdWorkspace = await createCloudWorkspace(supabase, user, "My Team");
+  return [createdWorkspace];
+}
+
 export async function createCloudWorkspace(
   supabase: SupabaseClient,
   user: User,
@@ -275,7 +294,6 @@ export async function ensureUserWorkspace(
       .from("workspaces")
       .select("id,name,owner_id")
       .eq("id", safeWorkspaceId)
-      .eq("owner_id", user.id)
       .maybeSingle();
 
     if (selectedError) throw selectedError;
@@ -287,18 +305,15 @@ export async function ensureUserWorkspace(
     return selectedWorkspace as WorkspaceRow;
   }
 
-  const { data: existingWorkspace, error: fetchError } = await supabase
-    .from("workspaces")
-    .select("id,name,owner_id")
-    .eq("owner_id", user.id)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (fetchError) throw fetchError;
+  const accessibleWorkspaces = await listAccessibleCloudWorkspaces(supabase, user);
+  const existingWorkspace = accessibleWorkspaces[0];
 
   if (existingWorkspace) {
-    return existingWorkspace as WorkspaceRow;
+    return {
+      id: existingWorkspace.id,
+      name: existingWorkspace.name,
+      owner_id: existingWorkspace.ownerId,
+    };
   }
 
   const createdWorkspace = await createCloudWorkspace(supabase, user, "My Team");
