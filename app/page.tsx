@@ -1568,24 +1568,43 @@ export default function Home() {
     setHasLoadedSavedData(true);
   }, []);
 
-  useEffect(() => {
-    if (!hasLoadedSavedData) return;
-
+  function persistBrowserSnapshot(snapshot: {
+    workspaceName: string;
+    members: Member[];
+    targets: Target[];
+    logs: ProgressLog[];
+    activityEvents: ActivityEvent[];
+    screenSettings: ScreenSettings;
+  }) {
     const savedAt = new Date().toISOString();
+
     setLastSavedAt(savedAt);
 
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        workspaceName: normalizeWorkspaceName(workspaceName),
-        members,
-        targets,
-        logs,
-        activityEvents,
-        screenSettings,
+        workspaceName: normalizeWorkspaceName(snapshot.workspaceName),
+        members: snapshot.members,
+        targets: snapshot.targets,
+        logs: snapshot.logs,
+        activityEvents: snapshot.activityEvents,
+        screenSettings: snapshot.screenSettings,
         lastSavedAt: savedAt,
       })
     );
+  }
+
+  useEffect(() => {
+    if (!hasLoadedSavedData) return;
+
+    persistBrowserSnapshot({
+      workspaceName,
+      members,
+      targets,
+      logs,
+      activityEvents,
+      screenSettings,
+    });
   }, [workspaceName, members, targets, logs, activityEvents, screenSettings, hasLoadedSavedData]);
 
 
@@ -1648,14 +1667,24 @@ export default function Home() {
         const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
         const loadedActivityEvents = normalizeActivityEvents(result.activityEvents);
 
+        const loadedScreenSettings = result.screenSettings
+          ? normalizeScreenSettings(result.screenSettings)
+          : screenSettings;
+
         setMembers(loadedMembers);
         setTargets(result.targets);
         setLogs(result.logs);
         setActivityEvents(loadedActivityEvents);
+        setScreenSettings(loadedScreenSettings);
 
-        if (result.screenSettings) {
-          setScreenSettings(normalizeScreenSettings(result.screenSettings));
-        }
+        persistBrowserSnapshot({
+          workspaceName: loadedWorkspaceName,
+          members: loadedMembers,
+          targets: result.targets,
+          logs: result.logs,
+          activityEvents: loadedActivityEvents,
+          screenSettings: loadedScreenSettings,
+        });
 
         setWorkspaceName(loadedWorkspaceName);
         setCloudWorkspaceName(result.workspace.name);
@@ -1752,9 +1781,7 @@ export default function Home() {
 
     try {
       const result = await operation(supabase, currentUser, activeCloudWorkspaceId);
-      setDirectSaveStatus("saved");
-      setLastCloudSyncAt(new Date().toISOString());
-      setCloudSyncMessage(successMessage);
+      setCloudSyncMessage("Finalizing saved data...");
       return result;
     } catch (error) {
       setDirectSaveStatus("error");
@@ -1765,6 +1792,25 @@ export default function Home() {
       );
       return null;
     }
+  }
+
+  function finishDirectTargetSave(
+    successMessage: string,
+    nextTargets: Target[],
+    nextLogs = logs
+  ) {
+    persistBrowserSnapshot({
+      workspaceName,
+      members,
+      targets: nextTargets,
+      logs: nextLogs,
+      activityEvents,
+      screenSettings,
+    });
+
+    setLastCloudSyncAt(new Date().toISOString());
+    setDirectSaveStatus("saved");
+    setCloudSyncMessage(successMessage);
   }
 
 
@@ -2490,11 +2536,12 @@ export default function Home() {
 
       if (!savedTarget) return;
 
-      setTargets((currentTargets) =>
-        currentTargets.map((target) =>
-          target.id === editingTargetId ? savedTarget : target
-        )
+      const nextTargets = targets.map((target) =>
+        target.id === editingTargetId ? savedTarget : target
       );
+
+      setTargets(nextTargets);
+      finishDirectTargetSave(`Saved target "${savedTarget.title}".`, nextTargets);
     } else if (currentUser) {
       blockProtectedTargetChange("Target changes were not saved to protected storage.");
       return;
@@ -2535,8 +2582,16 @@ export default function Home() {
 
       if (!savedTarget) return;
 
-      setTargets((currentTargets) =>
-        currentTargets.map((item) => (item.id === targetId ? savedTarget : item))
+      const nextTargets = targets.map((item) =>
+        item.id === targetId ? savedTarget : item
+      );
+
+      setTargets(nextTargets);
+      finishDirectTargetSave(
+        nextArchivedState
+          ? `Archived target "${savedTarget.title}".`
+          : `Restored target "${savedTarget.title}".`,
+        nextTargets
       );
     } else if (currentUser) {
       blockProtectedTargetChange("Archive change was not saved to protected storage.");
@@ -2648,9 +2703,12 @@ export default function Home() {
 
       if (!savedTarget) return;
 
-      setTargets((currentTargets) =>
-        currentTargets.map((item) => (item.id === targetId ? savedTarget : item))
+      const nextTargets = targets.map((item) =>
+        item.id === targetId ? savedTarget : item
       );
+
+      setTargets(nextTargets);
+      finishDirectTargetSave(`Claimed task "${savedTarget.title}".`, nextTargets);
     } else if (currentUser) {
       blockProtectedTargetChange("Task claim was not saved to protected storage.");
       return;
@@ -2692,9 +2750,12 @@ export default function Home() {
 
       if (!savedTarget) return;
 
-      setTargets((currentTargets) =>
-        currentTargets.map((item) => (item.id === targetId ? savedTarget : item))
+      const nextTargets = targets.map((item) =>
+        item.id === targetId ? savedTarget : item
       );
+
+      setTargets(nextTargets);
+      finishDirectTargetSave(`Released task "${savedTarget.title}".`, nextTargets);
     } else if (currentUser) {
       blockProtectedTargetChange("Task claim release was not saved to protected storage.");
       return;
@@ -2752,7 +2813,10 @@ export default function Home() {
 
       if (!savedTarget) return;
 
-      setTargets((currentTargets) => [...currentTargets, savedTarget]);
+      const nextTargets = [...targets, savedTarget];
+
+      setTargets(nextTargets);
+      finishDirectTargetSave(`Saved task "${savedTarget.title}".`, nextTargets);
     } else if (currentUser) {
       blockProtectedTargetChange("Task was not added to protected storage.");
       return;
@@ -2819,7 +2883,10 @@ export default function Home() {
 
       if (!savedTarget) return;
 
-      setTargets((currentTargets) => [...currentTargets, savedTarget]);
+      const nextTargets = [...targets, savedTarget];
+
+      setTargets(nextTargets);
+      finishDirectTargetSave(`Saved target "${savedTarget.title}".`, nextTargets);
     } else if (currentUser) {
       blockProtectedTargetChange("Target was not added to protected storage.");
       return;
@@ -2890,13 +2957,15 @@ export default function Home() {
       return;
     }
 
-    setTargets((currentTargets) =>
-      currentTargets.filter((item) => item.id !== targetId)
-    );
+    const nextTargets = targets.filter((item) => item.id !== targetId);
+    const nextLogs = logs.filter((log) => log.targetId !== targetId);
 
-    setLogs((currentLogs) =>
-      currentLogs.filter((log) => log.targetId !== targetId)
-    );
+    setTargets(nextTargets);
+    setLogs(nextLogs);
+
+    if (canUseDirectPersistence()) {
+      finishDirectTargetSave(`Deleted target "${target.title}".`, nextTargets, nextLogs);
+    }
 
     addActivityEvent(
       "target_deleted",
@@ -4008,7 +4077,17 @@ setIsCloudSyncing(true);
   function goToPreviousWalkthroughStep() {
     setWalkthroughStepIndex((currentIndex) => Math.max(currentIndex - 1, 0));
   }
-  if (!hasLoadedSavedData || !hasCheckedAuth || isTeamAutoLoading) {
+  const isSavedTeamLoadPending =
+    Boolean(currentUser) &&
+    supabaseConnectionStatus === "connected" &&
+    autoLoadedCloudUserId !== currentUser?.id;
+
+  if (
+    !hasLoadedSavedData ||
+    !hasCheckedAuth ||
+    isTeamAutoLoading ||
+    isSavedTeamLoadPending
+  ) {
     return (
       <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
         <div className="mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center">
@@ -4017,11 +4096,13 @@ setIsCloudSyncing(true);
               Universal Targets Tracker
             </p>
             <h1 className="mt-4 text-2xl font-bold sm:text-3xl">
-              {isTeamAutoLoading ? "Loading your saved team" : "Loading your team"}
+              {isTeamAutoLoading || isSavedTeamLoadPending
+                ? "Loading your saved team"
+                : "Loading your team"}
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-300">
-              Preparing the correct date, team data, and browser storage
-              before showing targets.
+              Preparing the correct saved team data before showing targets.
+              This prevents stale browser data from appearing first.
             </p>
           </section>
         </div>
