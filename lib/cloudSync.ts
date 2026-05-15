@@ -867,6 +867,34 @@ export async function deleteCloudProgressLog(
   if (error) throw error;
 }
 
+export async function addCloudWorkspaceMemberByEmail(
+  supabase: SupabaseClient,
+  user: User,
+  workspaceId: string | null | undefined,
+  email: string,
+  role = "Member"
+): Promise<CloudMember> {
+  const safeEmail = email.trim().toLowerCase();
+
+  if (!safeEmail || !safeEmail.includes("@")) {
+    throw new Error("Enter a valid teammate email.");
+  }
+
+  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+
+  const { data, error } = await supabase
+    .rpc("add_workspace_member_by_email", {
+      target_workspace_id: workspace.id,
+      teammate_email: safeEmail,
+      member_role: role,
+    })
+    .single();
+
+  if (error) throw error;
+
+  return toDirectCloudMember(data as DirectCloudMemberRow);
+}
+
 export async function createCloudMember(
   supabase: SupabaseClient,
   user: User,

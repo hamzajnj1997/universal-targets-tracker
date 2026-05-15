@@ -8,6 +8,7 @@ import type { ChangeEvent, ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
 import {
+  addCloudWorkspaceMemberByEmail,
   createCloudWorkspace,
   listAccessibleCloudWorkspaces,
   loadCloudDataFromCloud,
@@ -1196,7 +1197,10 @@ export default function Home() {
     CloudWorkspaceSummary[]
   >([]);
   const [newCloudTeamName, setNewCloudTeamName] = useState("");
+  const [teamMemberEmail, setTeamMemberEmail] = useState("");
+  const [teamMemberRole, setTeamMemberRole] = useState("Member");
   const [isTeamListLoading, setIsTeamListLoading] = useState(false);
+  const [isAddingTeamMember, setIsAddingTeamMember] = useState(false);
   const [autoLoadedCloudUserId, setAutoLoadedCloudUserId] = useState("");
   const [isTeamAutoLoading, setIsTeamAutoLoading] = useState(false);
   const [lastCloudSyncAt, setLastCloudSyncAt] = useState<string | null>(null);
@@ -1906,6 +1910,74 @@ export default function Home() {
     if (!teamId || teamId === activeCloudWorkspaceId) return;
 
     await loadCloudTeamById(teamId);
+  }
+
+
+
+
+  async function handleAddTeamMemberByEmail() {
+    const safeEmail = teamMemberEmail.trim().toLowerCase();
+
+    if (!safeEmail) {
+      window.alert("Enter teammate email first.");
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+
+    if (!currentUser || !supabase || !activeCloudWorkspaceId) {
+      window.alert("Sign in and select a team before adding teammates.");
+      return;
+    }
+
+    if (supabaseConnectionStatus !== "connected") {
+      window.alert("Save backend is not reachable. Cannot add teammate.");
+      return;
+    }
+
+    setIsAddingTeamMember(true);
+    setCloudSyncMessage(`Adding ${safeEmail} to this team...`);
+
+    try {
+      const member = await addCloudWorkspaceMemberByEmail(
+        supabase,
+        currentUser,
+        activeCloudWorkspaceId,
+        safeEmail,
+        teamMemberRole
+      );
+
+      setMembers((currentMembers) => {
+        const exists = currentMembers.some(
+          (currentMember) => currentMember.id === member.id
+        );
+
+        if (exists) {
+          return currentMembers.map((currentMember) =>
+            currentMember.id === member.id ? member : currentMember
+          );
+        }
+
+        return [...currentMembers, member];
+      });
+
+      setTeamMemberEmail("");
+      await loadCloudTeamById(activeCloudWorkspaceId);
+
+      setCloudSyncMessage(
+        `Added ${member.name} as ${member.role}. They can now sign in and access this team.`
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not add teammate. Confirm they already have an account.";
+
+      setCloudSyncMessage(message);
+      window.alert(message);
+    } finally {
+      setIsAddingTeamMember(false);
+    }
   }
 
 
@@ -4281,6 +4353,41 @@ setIsCloudSyncing(true);
                   >
                     {isTeamListLoading ? "Working..." : "Create team"}
                   </button>
+
+                  <div className="flex min-w-full flex-wrap items-center gap-2 border-t border-white/10 pt-3">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Team members: {members.length}
+                    </span>
+
+                    <input
+                      value={teamMemberEmail}
+                      onChange={(event) => setTeamMemberEmail(event.target.value)}
+                      placeholder="teammate@email.com"
+                      className="min-w-56 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                      disabled={isTeamAutoLoading || isAddingTeamMember}
+                    />
+
+                    <select
+                      value={teamMemberRole}
+                      onChange={(event) => setTeamMemberRole(event.target.value)}
+                      className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white"
+                      disabled={isTeamAutoLoading || isAddingTeamMember}
+                      aria-label="Teammate role"
+                    >
+                      <option value="Member">Member</option>
+                      <option value="Leader">Leader</option>
+                      <option value="Admin">Admin</option>
+                      <option value="Viewer">Viewer</option>
+                    </select>
+
+                    <button
+                      onClick={handleAddTeamMemberByEmail}
+                      disabled={isTeamAutoLoading || isAddingTeamMember}
+                      className="rounded-xl border border-cyan-400/40 px-3 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isAddingTeamMember ? "Adding..." : "Add teammate"}
+                    </button>
+                  </div>
                 </>
               )}
             </div>
