@@ -233,10 +233,7 @@ export async function listAccessibleCloudWorkspaces(
   supabase: SupabaseClient,
   user: User
 ): Promise<CloudWorkspaceSummary[]> {
-  const { data, error } = await supabase
-    .from("workspaces")
-    .select("id,name,owner_id")
-    .order("created_at", { ascending: true });
+  const { data, error } = await supabase.rpc("get_accessible_workspaces");
 
   if (error) throw error;
 
@@ -254,32 +251,14 @@ export async function createCloudWorkspace(
   workspaceName = "My Team"
 ): Promise<CloudWorkspaceSummary> {
   const safeWorkspaceName = normalizeWorkspaceName(workspaceName);
-  const displayName = getUserDisplayName(user);
 
-  const { data: createdWorkspace, error: createError } = await supabase
-    .from("workspaces")
-    .insert({
-      owner_id: user.id,
-      name: safeWorkspaceName,
-    })
-    .select("id,name,owner_id")
+  const { data, error } = await supabase
+    .rpc("create_team", { team_name: safeWorkspaceName })
     .single();
 
-  if (createError) throw createError;
+  if (error) throw error;
 
-  const workspace = createdWorkspace as WorkspaceRow;
-
-  const { error: memberError } = await supabase.from("workspace_members").insert({
-    workspace_id: workspace.id,
-    user_id: user.id,
-    display_name: displayName,
-    role: "Owner",
-    app_role: "owner",
-  });
-
-  if (memberError) throw memberError;
-
-  return toCloudWorkspaceSummary(workspace);
+  return toCloudWorkspaceSummary(data as WorkspaceRow);
 }
 
 export async function ensureUserWorkspace(

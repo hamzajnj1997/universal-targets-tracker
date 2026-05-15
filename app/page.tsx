@@ -7,7 +7,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
-import { loadCloudDataFromCloud, saveLocalDataToCloud } from "../lib/cloudSync";
+import {
+  createCloudWorkspace,
+  listAccessibleCloudWorkspaces,
+  loadCloudDataFromCloud,
+  saveLocalDataToCloud,
+  type CloudWorkspaceSummary,
+} from "../lib/cloudSync";
 
 type Frequency = "once" | "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -878,6 +884,36 @@ function getTargetEmptyState({
   };
 }
 
+function formatUnknownError(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+
+  if (error && typeof error === "object") {
+    const maybeError = error as {
+      message?: unknown;
+      details?: unknown;
+      hint?: unknown;
+      code?: unknown;
+    };
+
+    const parts = [
+      typeof maybeError.message === "string" ? maybeError.message : "",
+      typeof maybeError.details === "string" ? maybeError.details : "",
+      typeof maybeError.hint === "string" ? maybeError.hint : "",
+      typeof maybeError.code === "string" ? `Code: ${maybeError.code}` : "",
+    ].filter(Boolean);
+
+    if (parts.length > 0) return parts.join(" | ");
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return fallback;
+    }
+  }
+
+  return fallback;
+}
+
 function normalizeScreenSettings(value: unknown): ScreenSettings {
   const normalized = { ...defaultScreenSettings };
 
@@ -1156,6 +1192,11 @@ export default function Home() {
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudWorkspaceName, setCloudWorkspaceName] = useState("");
   const [activeCloudWorkspaceId, setActiveCloudWorkspaceId] = useState("");
+  const [accessibleCloudTeams, setAccessibleCloudTeams] = useState<
+    CloudWorkspaceSummary[]
+  >([]);
+  const [newCloudTeamName, setNewCloudTeamName] = useState("");
+  const [isTeamListLoading, setIsTeamListLoading] = useState(false);
   const [autoLoadedCloudUserId, setAutoLoadedCloudUserId] = useState("");
   const [isTeamAutoLoading, setIsTeamAutoLoading] = useState(false);
   const [lastCloudSyncAt, setLastCloudSyncAt] = useState<string | null>(null);
@@ -1664,6 +1705,208 @@ export default function Home() {
     hasLoadedSavedData,
     supabaseConnectionStatus,
   ]);
+
+
+
+
+  useEffect(() => {
+    if (!currentUser || supabaseConnectionStatus !== "connected") {
+      setAccessibleCloudTeams([]);
+      setIsTeamListLoading(false);
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      setAccessibleCloudTeams([]);
+      setIsTeamListLoading(false);
+      return;
+    }
+
+    const teamListSupabase = supabase;
+    const teamListUser = currentUser;
+    let isCancelled = false;
+
+    async function loadAccessibleTeams() {
+      setIsTeamListLoading(true);
+
+      try {
+        const teams = await listAccessibleCloudWorkspaces(
+          teamListSupabase,
+          teamListUser
+        );
+
+        if (isCancelled) return;
+
+        setAccessibleCloudTeams(teams);
+
+        if (!activeCloudWorkspaceId && teams[0]?.id) {
+          setActiveCloudWorkspaceId(teams[0].id);
+          setCloudWorkspaceName(teams[0].name);
+          window.localStorage.setItem(
+            getActiveCloudTeamStorageKey(teamListUser.id),
+            teams[0].id
+          );
+        }
+      } catch (error) {
+        if (isCancelled) return;
+
+        setCloudSyncMessage(
+          error instanceof Error
+            ? `Could not load team list: ${error.message}`
+            : "Could not load team list."
+        );
+      } finally {
+        if (!isCancelled) {
+          setIsTeamListLoading(false);
+        }
+      }
+    }
+
+    loadAccessibleTeams();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeCloudWorkspaceId, currentUser?.id, supabaseConnectionStatus]);
+
+  async function loadCloudTeamById(teamId: string) {
+    const supabase = getSupabaseClient();
+    const safeTeamId = teamId.trim();
+
+    if (!currentUser || !supabase || !safeTeamId) {
+      setCloudSyncMessage("Sign in before switching teams.");
+      return;
+    }
+
+    if (supabaseConnectionStatus !== "connected") {
+      setCloudSyncMessage(
+        "Save backend is not reachable. Team switching is unavailable."
+      );
+      return;
+    }
+
+    setIsTeamAutoLoading(true);
+    setCloudSyncMessage("Switching team...");
+
+    try {
+      const result = await loadCloudDataFromCloud(supabase, currentUser, {
+        workspaceId: safeTeamId,
+      });
+
+      const loadedCloudMembers =
+        result.members.length > 0 ? result.members : initialMembers;
+      const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
+
+      setMembers(loadedCloudMembers);
+      setTargets(result.targets);
+      setLogs(result.logs);
+      setActivityEvents(normalizeActivityEvents(result.activityEvents));
+
+      if (result.screenSettings) {
+        setScreenSettings(normalizeScreenSettings(result.screenSettings));
+      }
+
+      setSelectedMemberId("all");
+      setActiveWorkerId(loadedCloudMembers[0]?.id ?? "me");
+      setNewOwnerId(loadedCloudMembers[0]?.id ?? "me");
+
+      setWorkspaceName(loadedWorkspaceName);
+      setCloudWorkspaceName(result.workspace.name);
+      setActiveCloudWorkspaceId(result.workspace.id);
+      setAutoLoadedCloudUserId(currentUser.id);
+      window.localStorage.setItem(
+        getActiveCloudTeamStorageKey(currentUser.id),
+        result.workspace.id
+      );
+      workspaceNameBeforeEditRef.current = loadedWorkspaceName;
+      setLastCloudSyncAt(new Date().toISOString());
+
+      setAccessibleCloudTeams((currentTeams) => {
+        const teamExists = currentTeams.some(
+          (team) => team.id === result.workspace.id
+        );
+
+        if (teamExists) {
+          return currentTeams.map((team) =>
+            team.id === result.workspace.id
+              ? {
+                  id: result.workspace.id,
+                  name: result.workspace.name,
+                  ownerId: result.workspace.owner_id,
+                }
+              : team
+          );
+        }
+
+        return [
+          ...currentTeams,
+          {
+            id: result.workspace.id,
+            name: result.workspace.name,
+            ownerId: result.workspace.owner_id,
+          },
+        ];
+      });
+
+      setCloudSyncMessage(
+        `Switched to "${result.workspace.name}": ${loadedCloudMembers.length} local profiles, ${result.targets.length} targets, and ${result.logs.length} progress logs.`
+      );
+    } catch (error) {
+      const message = formatUnknownError(error, "Team switch failed.");
+
+      setCloudSyncMessage(message);
+      window.alert(message);
+    } finally {
+      setIsTeamAutoLoading(false);
+    }
+  }
+
+  async function handleCreateCloudTeam() {
+    const supabase = getSupabaseClient();
+    const safeTeamName = normalizeWorkspaceName(newCloudTeamName || "New Team");
+
+    if (!currentUser || !supabase) {
+      setCloudSyncMessage("Sign in before creating a team.");
+      return;
+    }
+
+    if (supabaseConnectionStatus !== "connected") {
+      setCloudSyncMessage(
+        "Save backend is not reachable. Team creation is unavailable."
+      );
+      return;
+    }
+
+    setIsTeamListLoading(true);
+    setCloudSyncMessage(`Creating team "${safeTeamName}"...`);
+
+    try {
+      const createdTeam = await createCloudWorkspace(
+        supabase,
+        currentUser,
+        safeTeamName
+      );
+
+      setAccessibleCloudTeams((currentTeams) => [...currentTeams, createdTeam]);
+      setNewCloudTeamName("");
+      await loadCloudTeamById(createdTeam.id);
+    } catch (error) {
+      const message = formatUnknownError(error, "Team creation failed.");
+
+      setCloudSyncMessage(message);
+      window.alert(message);
+    } finally {
+      setIsTeamListLoading(false);
+    }
+  }
+
+  async function handleSwitchCloudTeam(teamId: string) {
+    if (!teamId || teamId === activeCloudWorkspaceId) return;
+
+    await loadCloudTeamById(teamId);
+  }
 
 
 
@@ -3997,9 +4240,49 @@ setIsCloudSyncing(true);
               Team targets, backlog, and progress
             </h1>
 
-            <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
-              <span className="text-slate-400">Team:</span>
-              <span className="truncate font-semibold text-white">{workspaceName || DEFAULT_WORKSPACE_NAME}</span>
+            <div className="mt-4 flex max-w-5xl flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-3 text-sm text-slate-200 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="inline-flex max-w-full items-center gap-2 px-1">
+                <span className="text-slate-400">Team:</span>
+                <span className="truncate font-semibold text-white">{workspaceName || DEFAULT_WORKSPACE_NAME}</span>
+              </div>
+
+              {currentUser && (
+                <>
+                  <select
+                    value={activeCloudWorkspaceId}
+                    onChange={(event) => handleSwitchCloudTeam(event.target.value)}
+                    disabled={isTeamAutoLoading || isTeamListLoading || accessibleCloudTeams.length === 0}
+                    className="min-w-56 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Switch team"
+                  >
+                    {accessibleCloudTeams.length === 0 ? (
+                      <option value="">Loading teams...</option>
+                    ) : (
+                      accessibleCloudTeams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+
+                  <input
+                    value={newCloudTeamName}
+                    onChange={(event) => setNewCloudTeamName(event.target.value)}
+                    placeholder="New team name"
+                    className="min-w-48 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                    disabled={isTeamAutoLoading || isTeamListLoading}
+                  />
+
+                  <button
+                    onClick={handleCreateCloudTeam}
+                    disabled={isTeamAutoLoading || isTeamListLoading}
+                    className="rounded-xl border border-emerald-400/40 px-3 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isTeamListLoading ? "Working..." : "Create team"}
+                  </button>
+                </>
+              )}
             </div>
 
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
