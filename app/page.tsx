@@ -7,7 +7,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
-import { loadCloudDataFromCloud, saveLocalDataToCloud } from "../lib/cloudSync";
+import {
+  archiveCloudTarget,
+  createCloudTarget,
+  deleteCloudTarget,
+  loadCloudDataFromCloud,
+  saveLocalDataToCloud,
+  updateCloudTarget,
+  updateCloudTargetClaim,
+} from "../lib/cloudSync";
 
 type Frequency = "once" | "daily" | "weekly" | "monthly";
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -31,6 +39,7 @@ type ScreenSectionKey =
 type ScreenSettings = Record<ScreenSectionKey, boolean>;
 type ScreenPresetKey = "simple" | "manager" | "calendar" | "admin" | "full";
 type SupabaseConnectionStatus = "checking" | "connected" | "missing" | "unreachable" | "error";
+type DirectSaveStatus = "idle" | "saving" | "saved" | "error";
 type AuthMode = "login" | "signup";
 type AppView = "dashboard" | "targets" | "calendar" | "workspace" | "reports" | "settings";
 type WorkspaceAuthorityRole = "owner" | "admin" | "leader" | "parent" | "member" | "viewer";
@@ -878,6 +887,29 @@ function getTargetEmptyState({
   };
 }
 
+function getDirectSaveStatusLabel(status: DirectSaveStatus) {
+  if (status === "saving") return "Saving...";
+  if (status === "saved") return "Saved";
+  if (status === "error") return "Save failed";
+  return "Ready";
+}
+
+function getDirectSaveStatusClass(status: DirectSaveStatus) {
+  if (status === "saving") {
+    return "rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100";
+  }
+
+  if (status === "saved") {
+    return "rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100";
+  }
+
+  if (status === "error") {
+    return "rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-semibold text-red-100";
+  }
+
+  return "rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200";
+}
+
 function normalizeScreenSettings(value: unknown): ScreenSettings {
   const normalized = { ...defaultScreenSettings };
 
@@ -1154,6 +1186,8 @@ export default function Home() {
     "Team data loads automatically after sign in. Advanced recovery is available only when needed."
   );
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [directSaveStatus, setDirectSaveStatus] =
+    useState<DirectSaveStatus>("idle");
   const [cloudWorkspaceName, setCloudWorkspaceName] = useState("");
   const [activeCloudWorkspaceId, setActiveCloudWorkspaceId] = useState("");
   const [autoLoadedCloudUserId, setAutoLoadedCloudUserId] = useState("");
@@ -1664,6 +1698,66 @@ export default function Home() {
     hasLoadedSavedData,
     supabaseConnectionStatus,
   ]);
+
+
+
+
+  function canUseDirectPersistence() {
+    return Boolean(
+      currentUser &&
+        activeCloudWorkspaceId &&
+        supabaseConnectionStatus === "connected" &&
+        !isTeamAutoLoading &&
+        !isCloudSyncing &&
+        getSupabaseClient()
+    );
+  }
+
+  async function runDirectTargetSave<T>(
+    savingMessage: string,
+    successMessage: string,
+    operation: (
+      supabase: NonNullable<ReturnType<typeof getSupabaseClient>>,
+      user: User,
+      workspaceId: string
+    ) => Promise<T>
+  ) {
+    const supabase = getSupabaseClient();
+
+    if (
+      !currentUser ||
+      !activeCloudWorkspaceId ||
+      supabaseConnectionStatus !== "connected" ||
+      isTeamAutoLoading ||
+      isCloudSyncing ||
+      !supabase
+    ) {
+      setDirectSaveStatus("idle");
+      setCloudSyncMessage(
+        "Change saved on this device only. Sign in and load a saved team for protected saving."
+      );
+      return null;
+    }
+
+    setDirectSaveStatus("saving");
+    setCloudSyncMessage(savingMessage);
+
+    try {
+      const result = await operation(supabase, currentUser, activeCloudWorkspaceId);
+      setDirectSaveStatus("saved");
+      setLastCloudSyncAt(new Date().toISOString());
+      setCloudSyncMessage(successMessage);
+      return result;
+    } catch (error) {
+      setDirectSaveStatus("error");
+      setCloudSyncMessage(
+        error instanceof Error
+          ? `Save failed: ${error.message}`
+          : "Save failed. Export a JSON backup before changing devices."
+      );
+      return null;
+    }
+  }
 
 
 
@@ -2334,7 +2428,7 @@ export default function Home() {
     setEditUnit("tasks");
   }
 
-  function saveEditedTarget() {
+  async function saveEditedTarget() {
     if (!editingTargetId) return;
 
     if (!editTitle.trim()) {
@@ -2362,29 +2456,49 @@ export default function Home() {
       return;
     }
 
-    setTargets((currentTargets) =>
-      currentTargets.map((target) =>
-        target.id === editingTargetId
-          ? {
-              ...target,
-              title: editTitle.trim(),
-              description: editDescription.trim(),
-              category: editCategory.trim() || "General",
-              priority: editPriority,
-              ownerId: editOwnerId,
-              frequency: editFrequency,
-              startDate: editStartDate,
-              targetAmount: editAmount,
-              unit: editUnit.trim(),
-            }
-          : target
-      )
-    );
+    const currentTarget = targets.find((target) => target.id === editingTargetId);
+    if (!currentTarget) return;
+
+    const updatedTarget = {
+      ...currentTarget,
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      category: editCategory.trim() || "General",
+      priority: editPriority,
+      ownerId: editOwnerId,
+      frequency: editFrequency,
+      startDate: editStartDate,
+      targetAmount: editAmount,
+      unit: editUnit.trim(),
+    };
+
+    if (canUseDirectPersistence()) {
+      const savedTarget = await runDirectTargetSave(
+        "Saving target changes...",
+        `Saved target "${updatedTarget.title}".`,
+        (supabase, user, workspaceId) =>
+          updateCloudTarget(supabase, user, workspaceId, updatedTarget)
+      );
+
+      if (!savedTarget) return;
+
+      setTargets((currentTargets) =>
+        currentTargets.map((target) =>
+          target.id === editingTargetId ? savedTarget : target
+        )
+      );
+    } else {
+      setTargets((currentTargets) =>
+        currentTargets.map((target) =>
+          target.id === editingTargetId ? updatedTarget : target
+        )
+      );
+    }
 
     cancelEditingTarget();
   }
 
-  function toggleTargetArchive(targetId: string) {
+  async function toggleTargetArchive(targetId: string) {
     const target = targets.find((item) => item.id === targetId);
     if (!target) return;
 
@@ -2396,16 +2510,35 @@ export default function Home() {
 
     if (!shouldToggle) return;
 
-    setTargets((currentTargets) =>
-      currentTargets.map((item) =>
-        item.id === targetId
-          ? {
-              ...item,
-              isArchived: !item.isArchived,
-            }
-          : item
-      )
-    );
+    const nextArchivedState = !target.isArchived;
+
+    if (canUseDirectPersistence()) {
+      const savedTarget = await runDirectTargetSave(
+        nextArchivedState ? "Archiving target..." : "Restoring target...",
+        nextArchivedState
+          ? `Archived target "${target.title}".`
+          : `Restored target "${target.title}".`,
+        (supabase, user, workspaceId) =>
+          archiveCloudTarget(supabase, user, workspaceId, targetId, nextArchivedState)
+      );
+
+      if (!savedTarget) return;
+
+      setTargets((currentTargets) =>
+        currentTargets.map((item) => (item.id === targetId ? savedTarget : item))
+      );
+    } else {
+      setTargets((currentTargets) =>
+        currentTargets.map((item) =>
+          item.id === targetId
+            ? {
+                ...item,
+                isArchived: nextArchivedState,
+              }
+            : item
+        )
+      );
+    }
 
     if (editingTargetId === targetId) cancelEditingTarget();
   }
@@ -2460,7 +2593,7 @@ export default function Home() {
     return members.find((member) => member.id === memberId)?.name ?? "Unknown";
   }
 
-  function claimTarget(targetId: string) {
+  async function claimTarget(targetId: string) {
     if (!authorityCapabilities.canSubmitWork) {
       window.alert("View-only permission cannot claim work items.");
       return;
@@ -2491,20 +2624,35 @@ export default function Home() {
       return;
     }
 
-    setTargets((currentTargets) =>
-      currentTargets.map((item) =>
-        item.id === targetId
-          ? {
-              ...item,
-              claimedByMemberId: workerId,
-              claimedAt: new Date().toISOString(),
-            }
-          : item
-      )
-    );
+    if (canUseDirectPersistence()) {
+      const savedTarget = await runDirectTargetSave(
+        "Claiming task...",
+        `Claimed task "${target.title}".`,
+        (supabase, user, workspaceId) =>
+          updateCloudTargetClaim(supabase, user, workspaceId, targetId, workerId)
+      );
+
+      if (!savedTarget) return;
+
+      setTargets((currentTargets) =>
+        currentTargets.map((item) => (item.id === targetId ? savedTarget : item))
+      );
+    } else {
+      setTargets((currentTargets) =>
+        currentTargets.map((item) =>
+          item.id === targetId
+            ? {
+                ...item,
+                claimedByMemberId: workerId,
+                claimedAt: new Date().toISOString(),
+              }
+            : item
+        )
+      );
+    }
   }
 
-  function releaseTargetClaim(targetId: string) {
+  async function releaseTargetClaim(targetId: string) {
     const workerId = getActiveWorkerId();
     const target = targets.find((item) => item.id === targetId);
 
@@ -2517,20 +2665,35 @@ export default function Home() {
       return;
     }
 
-    setTargets((currentTargets) =>
-      currentTargets.map((item) =>
-        item.id === targetId
-          ? {
-              ...item,
-              claimedByMemberId: undefined,
-              claimedAt: undefined,
-            }
-          : item
-      )
-    );
+    if (canUseDirectPersistence()) {
+      const savedTarget = await runDirectTargetSave(
+        "Releasing task claim...",
+        `Released task "${target.title}".`,
+        (supabase, user, workspaceId) =>
+          updateCloudTargetClaim(supabase, user, workspaceId, targetId)
+      );
+
+      if (!savedTarget) return;
+
+      setTargets((currentTargets) =>
+        currentTargets.map((item) => (item.id === targetId ? savedTarget : item))
+      );
+    } else {
+      setTargets((currentTargets) =>
+        currentTargets.map((item) =>
+          item.id === targetId
+            ? {
+                ...item,
+                claimedByMemberId: undefined,
+                claimedAt: undefined,
+              }
+            : item
+        )
+      );
+    }
   }
 
-  function addQuickTaskFromList() {
+  async function addQuickTaskFromList() {
     const title = quickTaskTitle.trim();
 
     if (!title) return;
@@ -2546,27 +2709,44 @@ export default function Home() {
         ? selectedMemberId
         : members[0]?.id ?? "me";
 
-    setTargets((currentTargets) => [
-      ...currentTargets,
-      {
-        id: createId("target"),
-        title,
-        description: "",
-        category: "General",
-        priority: "medium",
-        ownerId,
-        frequency: "once",
-        targetAmount: 1,
-        unit: "task",
-        startDate: selectedDate,
-        isArchived: false,
-      },
-    ]);
+    const targetPayload = {
+      title,
+      description: "",
+      category: "General",
+      priority: "medium" as Priority,
+      ownerId,
+      frequency: "once" as Frequency,
+      targetAmount: 1,
+      unit: "task",
+      startDate: selectedDate,
+      isArchived: false,
+    };
+
+    if (canUseDirectPersistence()) {
+      const savedTarget = await runDirectTargetSave(
+        "Saving task...",
+        `Saved task "${title}".`,
+        (supabase, user, workspaceId) =>
+          createCloudTarget(supabase, user, workspaceId, targetPayload)
+      );
+
+      if (!savedTarget) return;
+
+      setTargets((currentTargets) => [...currentTargets, savedTarget]);
+    } else {
+      setTargets((currentTargets) => [
+        ...currentTargets,
+        {
+          id: createId("target"),
+          ...targetPayload,
+        },
+      ]);
+    }
 
     setQuickTaskTitle("");
   }
 
-  function addTarget() {
+  async function addTarget() {
     if (!newTitle.trim()) return;
 
     if (!isValidDateISO(newStartDate)) {
@@ -2593,22 +2773,39 @@ export default function Home() {
       return;
     }
 
-    setTargets((currentTargets) => [
-      ...currentTargets,
-      {
-        id: createId("target"),
-        title: newTitle.trim(),
-        description: newDescription.trim(),
-        category: newCategory.trim() || "General",
-        priority: newPriority,
-        ownerId,
-        frequency: newFrequency,
-        targetAmount: newAmount,
-        unit: newUnit.trim(),
-        startDate: newStartDate,
-        isArchived: false,
-      },
-    ]);
+    const targetPayload = {
+      title: newTitle.trim(),
+      description: newDescription.trim(),
+      category: newCategory.trim() || "General",
+      priority: newPriority,
+      ownerId,
+      frequency: newFrequency,
+      targetAmount: newAmount,
+      unit: newUnit.trim(),
+      startDate: newStartDate,
+      isArchived: false,
+    };
+
+    if (canUseDirectPersistence()) {
+      const savedTarget = await runDirectTargetSave(
+        "Saving target...",
+        `Saved target "${targetPayload.title}".`,
+        (supabase, user, workspaceId) =>
+          createCloudTarget(supabase, user, workspaceId, targetPayload)
+      );
+
+      if (!savedTarget) return;
+
+      setTargets((currentTargets) => [...currentTargets, savedTarget]);
+    } else {
+      setTargets((currentTargets) => [
+        ...currentTargets,
+        {
+          id: createId("target"),
+          ...targetPayload,
+        },
+      ]);
+    }
 
     setNewTitle("");
     setNewDescription("");
@@ -2639,7 +2836,7 @@ export default function Home() {
     setNewMemberName("");
   }
 
-  function deleteTarget(targetId: string) {
+  async function deleteTarget(targetId: string) {
     const target = targets.find((item) => item.id === targetId);
     if (!target) return;
 
@@ -2650,6 +2847,19 @@ export default function Home() {
     );
 
     if (!shouldDelete) return;
+
+    if (canUseDirectPersistence()) {
+      const didDelete = await runDirectTargetSave(
+        "Deleting target...",
+        `Deleted target "${target.title}".`,
+        async (supabase, user, workspaceId) => {
+          await deleteCloudTarget(supabase, user, workspaceId, targetId);
+          return true;
+        }
+      );
+
+      if (!didDelete) return;
+    }
 
     setTargets((currentTargets) =>
       currentTargets.filter((item) => item.id !== targetId)
@@ -3997,9 +4207,17 @@ setIsCloudSyncing(true);
               Team targets, backlog, and progress
             </h1>
 
-            <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
-              <span className="text-slate-400">Team:</span>
-              <span className="truncate font-semibold text-white">{workspaceName || DEFAULT_WORKSPACE_NAME}</span>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">
+                <span className="text-slate-400">Team:</span>
+                <span className="truncate font-semibold text-white">{workspaceName || DEFAULT_WORKSPACE_NAME}</span>
+              </div>
+
+              {currentUser && (
+                <div className={getDirectSaveStatusClass(directSaveStatus)}>
+                  Save status: {getDirectSaveStatusLabel(directSaveStatus)}
+                </div>
+              )}
             </div>
 
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
