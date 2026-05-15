@@ -57,6 +57,8 @@ export type CloudSyncPayload = {
   screenSettings: Record<string, boolean>;
 };
 
+const OPEN_TEAM_OWNER_ID = "team";
+
 type WorkspaceRow = {
   id: string;
   name: string;
@@ -413,7 +415,10 @@ export async function saveLocalDataToCloud(
 
   const targetRows = payload.targets.map((target) => ({
     workspace_id: workspace.id,
-    owner_member_id: memberIdMap.get(target.ownerId) ?? fallbackMemberId,
+    owner_member_id:
+      target.ownerId === OPEN_TEAM_OWNER_ID
+        ? null
+        : memberIdMap.get(target.ownerId) ?? fallbackMemberId,
     title: target.title || "Untitled target",
     description: target.description || "",
     category: target.category || "General",
@@ -507,8 +512,6 @@ export async function loadCloudDataFromCloud(
       role: member.role || "Member",
     })) ?? [];
 
-  const fallbackMemberId = members[0]?.id ?? "me";
-
   const { data: targetRows, error: targetsError } = await supabase
     .from("targets")
     .select("id,owner_member_id,title,description,category,priority,frequency,target_amount,unit,start_date,is_archived,claimed_by_member_id,claimed_at")
@@ -524,7 +527,7 @@ export async function loadCloudDataFromCloud(
       description: target.description || "",
       category: target.category || "General",
       priority: normalizePriority(target.priority),
-      ownerId: target.owner_member_id ?? fallbackMemberId,
+      ownerId: target.owner_member_id ?? OPEN_TEAM_OWNER_ID,
       frequency: normalizeFrequency(target.frequency),
       targetAmount: Number(target.target_amount) || 1,
       unit: target.unit || "tasks",
@@ -618,14 +621,14 @@ function normalizeDirectAppRole(role: string | null | undefined) {
   return "member";
 }
 
-function toDirectCloudTarget(row: DirectCloudTargetRow, fallbackOwnerId = "me"): CloudTarget {
+function toDirectCloudTarget(row: DirectCloudTargetRow): CloudTarget {
   return {
     id: row.id,
     title: row.title || "Untitled target",
     description: row.description || "",
     category: row.category || "General",
     priority: normalizePriority(row.priority),
-    ownerId: row.owner_member_id ?? fallbackOwnerId,
+    ownerId: row.owner_member_id ?? OPEN_TEAM_OWNER_ID,
     frequency: normalizeFrequency(row.frequency),
     targetAmount: Number(row.target_amount) || 1,
     unit: row.unit || "tasks",
@@ -674,7 +677,8 @@ export async function createCloudTarget(
     .from("targets")
     .insert({
       workspace_id: workspace.id,
-      owner_member_id: target.ownerId || null,
+      owner_member_id:
+        target.ownerId === OPEN_TEAM_OWNER_ID ? null : target.ownerId || null,
       title: target.title || "Untitled target",
       description: target.description || "",
       category: target.category || "General",
@@ -692,7 +696,7 @@ export async function createCloudTarget(
 
   if (error) throw error;
 
-  return toDirectCloudTarget(data as DirectCloudTargetRow, target.ownerId);
+  return toDirectCloudTarget(data as DirectCloudTargetRow);
 }
 
 export async function updateCloudTarget(
@@ -706,7 +710,8 @@ export async function updateCloudTarget(
   const { data, error } = await supabase
     .from("targets")
     .update({
-      owner_member_id: target.ownerId || null,
+      owner_member_id:
+        target.ownerId === OPEN_TEAM_OWNER_ID ? null : target.ownerId || null,
       title: target.title || "Untitled target",
       description: target.description || "",
       category: target.category || "General",
@@ -726,7 +731,7 @@ export async function updateCloudTarget(
 
   if (error) throw error;
 
-  return toDirectCloudTarget(data as DirectCloudTargetRow, target.ownerId);
+  return toDirectCloudTarget(data as DirectCloudTargetRow);
 }
 
 export async function archiveCloudTarget(

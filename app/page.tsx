@@ -151,6 +151,7 @@ function getActiveCloudTeamStorageKey(userId: string) {
 const MAX_ACTIVITY_EVENTS = 100;
 const APP_BACKUP_VERSION = 41;
 const DEFAULT_WORKSPACE_NAME = "My Team";
+const OPEN_TEAM_OWNER_ID = "team";
 const DEMO_WORKSPACE_NAME = "Sample Team";
 
 const FREE_PLAN_NAME = "Free";
@@ -1137,7 +1138,7 @@ export default function Home() {
   const [newUnit, setNewUnit] = useState("tasks");
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
   const [newStartDate, setNewStartDate] = useState(todayISO());
-  const [newOwnerId, setNewOwnerId] = useState("me");
+  const [newOwnerId, setNewOwnerId] = useState(OPEN_TEAM_OWNER_ID);
 
   const [manualAmounts, setManualAmounts] = useState<Record<string, string>>(
     {}
@@ -1148,7 +1149,7 @@ export default function Home() {
   const [editDescription, setEditDescription] = useState("");
   const [editCategory, setEditCategory] = useState("General");
   const [editPriority, setEditPriority] = useState<Priority>("medium");
-  const [editOwnerId, setEditOwnerId] = useState("me");
+  const [editOwnerId, setEditOwnerId] = useState(OPEN_TEAM_OWNER_ID);
   const [editFrequency, setEditFrequency] = useState<Frequency>("daily");
   const [editStartDate, setEditStartDate] = useState(todayISO());
   const [editAmount, setEditAmount] = useState(1);
@@ -1539,7 +1540,7 @@ export default function Home() {
         setLogs(safeState.logs);
         setActivityEvents(normalizeActivityEvents(parsedData.activityEvents));
         setWorkspaceName(normalizeWorkspaceName(parsedData.workspaceName));
-        setNewOwnerId(safeState.members[0]?.id ?? "me");
+        setNewOwnerId(OPEN_TEAM_OWNER_ID);
         setSelectedDate(clientToday);
         setCalendarMonth(monthStartISO(clientToday));
 
@@ -1676,7 +1677,7 @@ export default function Home() {
 
         setSelectedMemberId("all");
         setActiveWorkerId(loadedMembers[0]?.id ?? "me");
-        setNewOwnerId(loadedMembers[0]?.id ?? "me");
+        setNewOwnerId(OPEN_TEAM_OWNER_ID);
         setLastCloudSyncAt(new Date().toISOString());
         setCloudSyncMessage(
           `Loaded "${result.workspace.name}" automatically: ${loadedMembers.length} local profiles, ${result.targets.length} targets, and ${result.logs.length} progress logs.`
@@ -1814,7 +1815,7 @@ export default function Home() {
 
       setSelectedMemberId("all");
       setActiveWorkerId(loadedCloudMembers[0]?.id ?? "me");
-      setNewOwnerId(loadedCloudMembers[0]?.id ?? "me");
+      setNewOwnerId(OPEN_TEAM_OWNER_ID);
 
       setWorkspaceName(loadedWorkspaceName);
       setCloudWorkspaceName(result.workspace.name);
@@ -2043,12 +2044,18 @@ export default function Home() {
       setActiveWorkerId(fallbackMemberId);
     }
 
-    if (!validMemberIds.has(newOwnerId)) {
-      setNewOwnerId(fallbackMemberId);
+    if (
+      newOwnerId !== OPEN_TEAM_OWNER_ID &&
+      !validMemberIds.has(newOwnerId)
+    ) {
+      setNewOwnerId(OPEN_TEAM_OWNER_ID);
     }
 
-    if (!validMemberIds.has(editOwnerId)) {
-      setEditOwnerId(fallbackMemberId);
+    if (
+      editOwnerId !== OPEN_TEAM_OWNER_ID &&
+      !validMemberIds.has(editOwnerId)
+    ) {
+      setEditOwnerId(OPEN_TEAM_OWNER_ID);
     }
   }, [members, selectedMemberId, activeWorkerId, newOwnerId, editOwnerId]);
 
@@ -2642,7 +2649,7 @@ export default function Home() {
     setEditDescription("");
     setEditCategory("General");
     setEditPriority("medium");
-    setEditOwnerId("me");
+    setEditOwnerId(OPEN_TEAM_OWNER_ID);
     setEditFrequency("daily");
     setEditStartDate(todayISO());
     setEditAmount(1);
@@ -2672,8 +2679,11 @@ export default function Home() {
       return;
     }
 
-    if (!members.some((member) => member.id === editOwnerId)) {
-      window.alert("Choose a valid assigned local profile.");
+    if (
+      editOwnerId !== OPEN_TEAM_OWNER_ID &&
+      !members.some((member) => member.id === editOwnerId)
+    ) {
+      window.alert("Choose a valid assigned local profile or Open to team.");
       return;
     }
 
@@ -2859,7 +2869,7 @@ export default function Home() {
       selectedMemberId !== "all" &&
       members.some((member) => member.id === selectedMemberId)
         ? selectedMemberId
-        : members[0]?.id ?? "me";
+        : OPEN_TEAM_OWNER_ID;
 
     setTargets((currentTargets) => [
       ...currentTargets,
@@ -2899,9 +2909,12 @@ export default function Home() {
       return;
     }
 
-    const ownerId = members.some((member) => member.id === newOwnerId)
-      ? newOwnerId
-      : members[0]?.id;
+    const ownerId =
+      newOwnerId === OPEN_TEAM_OWNER_ID
+        ? OPEN_TEAM_OWNER_ID
+        : members.some((member) => member.id === newOwnerId)
+        ? newOwnerId
+        : members[0]?.id;
 
     if (!ownerId) {
       window.alert("Add at least one local profile before creating a target.");
@@ -3037,10 +3050,8 @@ export default function Home() {
     if (selectedMemberId === memberId) setSelectedMemberId("all");
 
     if (newOwnerId === memberId || editOwnerId === memberId) {
-      const nextMember = members.find((item) => item.id !== memberId);
-      const nextMemberId = nextMember?.id ?? "me";
-      setNewOwnerId(nextMemberId);
-      setEditOwnerId(nextMemberId);
+      setNewOwnerId(OPEN_TEAM_OWNER_ID);
+      setEditOwnerId(OPEN_TEAM_OWNER_ID);
     }
 
     if (editingMemberId === memberId) cancelEditingMember();
@@ -3239,7 +3250,7 @@ export default function Home() {
         },
         importedWorkspaceName
       );
-      setNewOwnerId(safeState.members[0]?.id ?? "me");
+      setNewOwnerId(OPEN_TEAM_OWNER_ID);
       setSelectedMemberId("all");
       setSearchQuery("");
       setPriorityFilter("all");
@@ -3317,7 +3328,7 @@ export default function Home() {
     setStatusFilter("all");
     setCategoryFilter("all");
     setArchiveFilter("active");
-    setNewOwnerId("me");
+    setNewOwnerId(OPEN_TEAM_OWNER_ID);
     setNewCategory("General");
     setScreenSettings(defaultScreenSettings);
     setCurrentAuthorityRole("owner");
@@ -3435,7 +3446,7 @@ export default function Home() {
     workspaceNameBeforeEditRef.current = DEFAULT_WORKSPACE_NAME;
     setSelectedMemberId("all");
     setActiveWorkerId(freshMember.id);
-    setNewOwnerId(freshMember.id);
+    setNewOwnerId(OPEN_TEAM_OWNER_ID);
     setSelectedDate(freshDate);
     setCalendarMonth(monthStartISO(freshDate));
     setHasDismissedSampleBanner(true);
@@ -3964,7 +3975,7 @@ setIsCloudSyncing(true);
 
       setSelectedMemberId("all");
       setActiveWorkerId(loadedCloudMembers[0]?.id ?? "me");
-      setNewOwnerId(loadedCloudMembers[0]?.id ?? "me");
+      setNewOwnerId(OPEN_TEAM_OWNER_ID);
       const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
 
       setWorkspaceName(loadedWorkspaceName);
@@ -6160,7 +6171,7 @@ setIsCloudSyncing(true);
                             </select>
                           </FieldLabel>
 
-                          <FieldLabel label="Assigned local profile">
+                          <FieldLabel label="Assigned to">
                             <select
                               value={editOwnerId}
                               onChange={(event) =>
@@ -6168,7 +6179,8 @@ setIsCloudSyncing(true);
                               }
                               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
                             >
-                              {members.map((member) => (
+                                                <option value={OPEN_TEAM_OWNER_ID}>Open to team</option>
+{members.map((member) => (
                                 <option key={member.id} value={member.id}>
                                   {member.name}
                                 </option>
@@ -6773,7 +6785,8 @@ setIsCloudSyncing(true);
                   onChange={(event) => setNewOwnerId(event.target.value)}
                   className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
                 >
-                  {members.map((member) => (
+                                    <option value={OPEN_TEAM_OWNER_ID}>Assign to: Open to team</option>
+{members.map((member) => (
                     <option key={member.id} value={member.id}>
                       Assign to: {member.name}
                     </option>
