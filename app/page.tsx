@@ -1713,6 +1713,14 @@ export default function Home() {
     );
   }
 
+  function blockProtectedTargetChange(message: string) {
+    setDirectSaveStatus("error");
+    setCloudSyncMessage(
+      message +
+        " Wait until your saved team finishes loading, then try again."
+    );
+  }
+
   async function runDirectTargetSave<T>(
     savingMessage: string,
     successMessage: string,
@@ -2487,6 +2495,9 @@ export default function Home() {
           target.id === editingTargetId ? savedTarget : target
         )
       );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Target changes were not saved to protected storage.");
+      return;
     } else {
       setTargets((currentTargets) =>
         currentTargets.map((target) =>
@@ -2527,6 +2538,9 @@ export default function Home() {
       setTargets((currentTargets) =>
         currentTargets.map((item) => (item.id === targetId ? savedTarget : item))
       );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Archive change was not saved to protected storage.");
+      return;
     } else {
       setTargets((currentTargets) =>
         currentTargets.map((item) =>
@@ -2637,6 +2651,9 @@ export default function Home() {
       setTargets((currentTargets) =>
         currentTargets.map((item) => (item.id === targetId ? savedTarget : item))
       );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Task claim was not saved to protected storage.");
+      return;
     } else {
       setTargets((currentTargets) =>
         currentTargets.map((item) =>
@@ -2678,6 +2695,9 @@ export default function Home() {
       setTargets((currentTargets) =>
         currentTargets.map((item) => (item.id === targetId ? savedTarget : item))
       );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Task claim release was not saved to protected storage.");
+      return;
     } else {
       setTargets((currentTargets) =>
         currentTargets.map((item) =>
@@ -2733,6 +2753,9 @@ export default function Home() {
       if (!savedTarget) return;
 
       setTargets((currentTargets) => [...currentTargets, savedTarget]);
+    } else if (currentUser) {
+      blockProtectedTargetChange("Task was not added to protected storage.");
+      return;
     } else {
       setTargets((currentTargets) => [
         ...currentTargets,
@@ -2797,6 +2820,9 @@ export default function Home() {
       if (!savedTarget) return;
 
       setTargets((currentTargets) => [...currentTargets, savedTarget]);
+    } else if (currentUser) {
+      blockProtectedTargetChange("Target was not added to protected storage.");
+      return;
     } else {
       setTargets((currentTargets) => [
         ...currentTargets,
@@ -2859,6 +2885,9 @@ export default function Home() {
       );
 
       if (!didDelete) return;
+    } else if (currentUser) {
+      blockProtectedTargetChange("Target was not deleted from protected storage.");
+      return;
     }
 
     setTargets((currentTargets) =>
