@@ -1794,7 +1794,7 @@ export default function Home() {
     }
   }
 
-  function finishDirectTargetSave(
+  async function finishDirectTargetSave(
     successMessage: string,
     nextTargets: Target[],
     nextLogs = logs
@@ -1807,6 +1807,64 @@ export default function Home() {
       activityEvents,
       screenSettings,
     });
+
+    const supabase = getSupabaseClient();
+
+    if (
+      currentUser &&
+      activeCloudWorkspaceId &&
+      supabaseConnectionStatus === "connected" &&
+      supabase
+    ) {
+      setCloudSyncMessage("Verifying saved data...");
+
+      try {
+        const verified = await loadCloudDataFromCloud(supabase, currentUser, {
+          workspaceId: activeCloudWorkspaceId,
+        });
+
+        const verifiedMembers =
+          verified.members.length > 0 ? verified.members : initialMembers;
+        const verifiedWorkspaceName = normalizeWorkspaceName(verified.workspace.name);
+        const verifiedActivityEvents = normalizeActivityEvents(
+          verified.activityEvents
+        );
+        const verifiedScreenSettings = verified.screenSettings
+          ? normalizeScreenSettings(verified.screenSettings)
+          : screenSettings;
+
+        setMembers(verifiedMembers);
+        setTargets(verified.targets);
+        setLogs(verified.logs);
+        setActivityEvents(verifiedActivityEvents);
+        setScreenSettings(verifiedScreenSettings);
+        setWorkspaceName(verifiedWorkspaceName);
+        setCloudWorkspaceName(verified.workspace.name);
+        setActiveCloudWorkspaceId(verified.workspace.id);
+        window.localStorage.setItem(
+          getActiveCloudTeamStorageKey(currentUser.id),
+          verified.workspace.id
+        );
+        workspaceNameBeforeEditRef.current = verifiedWorkspaceName;
+
+        persistBrowserSnapshot({
+          workspaceName: verifiedWorkspaceName,
+          members: verifiedMembers,
+          targets: verified.targets,
+          logs: verified.logs,
+          activityEvents: verifiedActivityEvents,
+          screenSettings: verifiedScreenSettings,
+        });
+      } catch (error) {
+        setDirectSaveStatus("error");
+        setCloudSyncMessage(
+          error instanceof Error
+            ? `Saved action could not be verified: ${error.message}`
+            : "Saved action could not be verified. Refresh before continuing."
+        );
+        return;
+      }
+    }
 
     setLastCloudSyncAt(new Date().toISOString());
     setDirectSaveStatus("saved");
@@ -2541,7 +2599,7 @@ export default function Home() {
       );
 
       setTargets(nextTargets);
-      finishDirectTargetSave(`Saved target "${savedTarget.title}".`, nextTargets);
+      await finishDirectTargetSave(`Saved target "${savedTarget.title}".`, nextTargets);
     } else if (currentUser) {
       blockProtectedTargetChange("Target changes were not saved to protected storage.");
       return;
@@ -2587,7 +2645,7 @@ export default function Home() {
       );
 
       setTargets(nextTargets);
-      finishDirectTargetSave(
+      await finishDirectTargetSave(
         nextArchivedState
           ? `Archived target "${savedTarget.title}".`
           : `Restored target "${savedTarget.title}".`,
@@ -2694,6 +2752,19 @@ export default function Home() {
     }
 
     if (canUseDirectPersistence()) {
+      const optimisticClaimedAt = new Date().toISOString();
+      const optimisticTargets = targets.map((item) =>
+        item.id === targetId
+          ? {
+              ...item,
+              claimedByMemberId: workerId,
+              claimedAt: optimisticClaimedAt,
+            }
+          : item
+      );
+
+      setTargets(optimisticTargets);
+
       const savedTarget = await runDirectTargetSave(
         "Claiming task...",
         `Claimed task "${target.title}".`,
@@ -2701,14 +2772,23 @@ export default function Home() {
           updateCloudTargetClaim(supabase, user, workspaceId, targetId, workerId)
       );
 
-      if (!savedTarget) return;
+      if (!savedTarget) {
+        setTargets(targets);
+        return;
+      }
 
-      const nextTargets = targets.map((item) =>
-        item.id === targetId ? savedTarget : item
+      const nextTargets = optimisticTargets.map((item) =>
+        item.id === targetId
+          ? {
+              ...item,
+              claimedByMemberId: savedTarget.claimedByMemberId ?? workerId,
+              claimedAt: savedTarget.claimedAt ?? optimisticClaimedAt,
+            }
+          : item
       );
 
       setTargets(nextTargets);
-      finishDirectTargetSave(`Claimed task "${savedTarget.title}".`, nextTargets);
+      await finishDirectTargetSave(`Claimed task "${target.title}".`, nextTargets);
     } else if (currentUser) {
       blockProtectedTargetChange("Task claim was not saved to protected storage.");
       return;
@@ -2741,6 +2821,18 @@ export default function Home() {
     }
 
     if (canUseDirectPersistence()) {
+      const optimisticTargets = targets.map((item) =>
+        item.id === targetId
+          ? {
+              ...item,
+              claimedByMemberId: undefined,
+              claimedAt: undefined,
+            }
+          : item
+      );
+
+      setTargets(optimisticTargets);
+
       const savedTarget = await runDirectTargetSave(
         "Releasing task claim...",
         `Released task "${target.title}".`,
@@ -2748,14 +2840,23 @@ export default function Home() {
           updateCloudTargetClaim(supabase, user, workspaceId, targetId)
       );
 
-      if (!savedTarget) return;
+      if (!savedTarget) {
+        setTargets(targets);
+        return;
+      }
 
-      const nextTargets = targets.map((item) =>
-        item.id === targetId ? savedTarget : item
+      const nextTargets = optimisticTargets.map((item) =>
+        item.id === targetId
+          ? {
+              ...item,
+              claimedByMemberId: undefined,
+              claimedAt: undefined,
+            }
+          : item
       );
 
       setTargets(nextTargets);
-      finishDirectTargetSave(`Released task "${savedTarget.title}".`, nextTargets);
+      await finishDirectTargetSave(`Released task "${target.title}".`, nextTargets);
     } else if (currentUser) {
       blockProtectedTargetChange("Task claim release was not saved to protected storage.");
       return;
@@ -2816,7 +2917,7 @@ export default function Home() {
       const nextTargets = [...targets, savedTarget];
 
       setTargets(nextTargets);
-      finishDirectTargetSave(`Saved task "${savedTarget.title}".`, nextTargets);
+      await finishDirectTargetSave(`Saved task "${savedTarget.title}".`, nextTargets);
     } else if (currentUser) {
       blockProtectedTargetChange("Task was not added to protected storage.");
       return;
@@ -2886,7 +2987,7 @@ export default function Home() {
       const nextTargets = [...targets, savedTarget];
 
       setTargets(nextTargets);
-      finishDirectTargetSave(`Saved target "${savedTarget.title}".`, nextTargets);
+      await finishDirectTargetSave(`Saved target "${savedTarget.title}".`, nextTargets);
     } else if (currentUser) {
       blockProtectedTargetChange("Target was not added to protected storage.");
       return;
@@ -2964,7 +3065,7 @@ export default function Home() {
     setLogs(nextLogs);
 
     if (canUseDirectPersistence()) {
-      finishDirectTargetSave(`Deleted target "${target.title}".`, nextTargets, nextLogs);
+      await finishDirectTargetSave(`Deleted target "${target.title}".`, nextTargets, nextLogs);
     }
 
     addActivityEvent(
