@@ -114,12 +114,6 @@ function normalizeWorkspaceName(value: unknown, fallback = "My Team") {
   return trimmed.slice(0, 80);
 }
 
-function getUserDisplayName(user: User) {
-  return typeof user.user_metadata?.display_name === "string" &&
-    user.user_metadata.display_name.trim()
-    ? user.user_metadata.display_name.trim()
-    : user.email ?? "Me";
-}
 
 function toCloudWorkspaceSummary(workspace: WorkspaceRow): CloudWorkspaceSummary {
   return {
