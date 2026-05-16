@@ -6,6 +6,7 @@ export type CloudProgressLogStatus = "pending" | "approved" | "rejected";
 
 export type CloudMember = {
   id: string;
+  userId?: string;
   name: string;
   role: string;
 };
@@ -499,7 +500,7 @@ export async function loadCloudDataFromCloud(
 
   const { data: memberRows, error: membersError } = await supabase
     .from("workspace_members")
-    .select("id,display_name,role")
+    .select("id,user_id,display_name,role")
     .eq("workspace_id", workspace.id)
     .order("created_at", { ascending: true });
 
@@ -508,6 +509,7 @@ export async function loadCloudDataFromCloud(
   const members: CloudMember[] =
     memberRows?.map((member) => ({
       id: member.id,
+      userId: member.user_id ?? undefined,
       name: member.display_name || "Unnamed member",
       role: member.role || "Member",
     })) ?? [];
@@ -604,6 +606,7 @@ type DirectCloudProgressLogRow = {
 
 type DirectCloudMemberRow = {
   id: string;
+  user_id: string | null;
   display_name: string | null;
   role: string | null;
   app_role: string | null;
@@ -652,6 +655,7 @@ function toDirectCloudProgressLog(row: DirectCloudProgressLogRow): CloudProgress
 function toDirectCloudMember(row: DirectCloudMemberRow): CloudMember {
   return {
     id: row.id,
+    userId: row.user_id ?? undefined,
     name: row.display_name || "Unnamed member",
     role: row.role || "Member",
   };
@@ -663,7 +667,7 @@ const DIRECT_TARGET_SELECT =
 const DIRECT_PROGRESS_LOG_SELECT =
   "id,target_id,progress_date,achieved_amount,created_at";
 
-const DIRECT_MEMBER_SELECT = "id,display_name,role,app_role";
+const DIRECT_MEMBER_SELECT = "id,user_id,display_name,role,app_role";
 
 export async function createCloudTarget(
   supabase: SupabaseClient,

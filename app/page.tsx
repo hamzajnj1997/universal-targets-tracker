@@ -68,6 +68,7 @@ type WorkspaceInvite = {
 
 type Member = {
   id: string;
+  userId?: string;
   name: string;
   role: string;
 };
@@ -1676,7 +1677,11 @@ export default function Home() {
         workspaceNameBeforeEditRef.current = loadedWorkspaceName;
 
         setSelectedMemberId("all");
-        setActiveWorkerId(loadedMembers[0]?.id ?? "me");
+        setActiveWorkerId(
+          loadedMembers.find((member) => member.userId === currentUser?.id)?.id ??
+            loadedMembers[0]?.id ??
+            "me"
+        );
         setNewOwnerId(OPEN_TEAM_OWNER_ID);
         setLastCloudSyncAt(new Date().toISOString());
         setCloudSyncMessage(
@@ -1814,7 +1819,12 @@ export default function Home() {
       }
 
       setSelectedMemberId("all");
-      setActiveWorkerId(loadedCloudMembers[0]?.id ?? "me");
+      setActiveWorkerId(
+        loadedCloudMembers.find((member) => member.userId === currentUser?.id)
+          ?.id ??
+          loadedCloudMembers[0]?.id ??
+          "me"
+      );
       setNewOwnerId(OPEN_TEAM_OWNER_ID);
 
       setWorkspaceName(loadedWorkspaceName);
@@ -2059,6 +2069,35 @@ export default function Home() {
     }
   }, [members, selectedMemberId, activeWorkerId, newOwnerId, editOwnerId]);
 
+  function getSignedInTeamMember() {
+    if (!currentUser) return null;
+
+    return members.find((member) => member.userId === currentUser?.id) ?? null;
+  }
+
+  function canSignedInUserSeeTarget(target: Target) {
+    if (!currentUser) return true;
+
+    const signedInMember = getSignedInTeamMember();
+    const normalizedRole = signedInMember?.role.trim().toLowerCase() ?? "";
+
+    if (
+      normalizedRole === "owner" ||
+      normalizedRole === "admin" ||
+      normalizedRole === "leader"
+    ) {
+      return true;
+    }
+
+    const signedInMemberId = signedInMember?.id ?? "";
+
+    return (
+      target.ownerId === OPEN_TEAM_OWNER_ID ||
+      Boolean(signedInMemberId && target.ownerId === signedInMemberId) ||
+      Boolean(signedInMemberId && target.claimedByMemberId === signedInMemberId)
+    );
+  }
+
   function calculateTargetSnapshot(target: Target, dateISO: string) {
     const owner = members.find((member) => member.id === target.ownerId);
     const required = periodsDue(target, dateISO) * target.targetAmount;
@@ -2097,6 +2136,10 @@ export default function Home() {
 
   function rowMatchesFilters(row: ReturnType<typeof calculateTargetSnapshot>) {
     const query = searchQuery.trim().toLowerCase();
+
+    if (!canSignedInUserSeeTarget(row.target)) {
+      return false;
+    }
 
     const memberMatches =
       selectedMemberId === "all" || row.target.ownerId === selectedMemberId;
@@ -3974,7 +4017,12 @@ setIsCloudSyncing(true);
       }
 
       setSelectedMemberId("all");
-      setActiveWorkerId(loadedCloudMembers[0]?.id ?? "me");
+      setActiveWorkerId(
+        loadedCloudMembers.find((member) => member.userId === currentUser?.id)
+          ?.id ??
+          loadedCloudMembers[0]?.id ??
+          "me"
+      );
       setNewOwnerId(OPEN_TEAM_OWNER_ID);
       const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
 
