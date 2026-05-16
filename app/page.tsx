@@ -9,10 +9,13 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
 import {
   addCloudWorkspaceMemberByEmail,
+  createCloudTarget,
   createCloudWorkspace,
+  deleteCloudTarget,
   listAccessibleCloudWorkspaces,
   loadCloudDataFromCloud,
   saveLocalDataToCloud,
+  updateCloudTarget,
   type CloudWorkspaceSummary,
 } from "../lib/cloudSync";
 
@@ -1994,6 +1997,291 @@ export default function Home() {
 
 
 
+  function canUseDirectTargetPersistence() {
+    return Boolean(
+      currentUser &&
+        activeCloudWorkspaceId &&
+        supabaseConnectionStatus === "connected" &&
+        !isTeamAutoLoading &&
+        !isCloudSyncing &&
+        getSupabaseClient()
+    );
+  }
+
+  function blockProtectedTargetChange(message: string) {
+    setCloudSyncMessage(
+      message +
+        " Wait until your saved team finishes loading, then try again."
+    );
+  }
+
+  async function runDirectTargetMutation<T>(
+    savingMessage: string,
+    operation: (
+      supabase: NonNullable<ReturnType<typeof getSupabaseClient>>,
+      user: User,
+      workspaceId: string
+    ) => Promise<T>
+  ) {
+    const supabase = getSupabaseClient();
+
+    if (
+      !currentUser ||
+      !activeCloudWorkspaceId ||
+      supabaseConnectionStatus !== "connected" ||
+      isTeamAutoLoading ||
+      isCloudSyncing ||
+      !supabase
+    ) {
+      setCloudSyncMessage(
+        "Protected saving is not ready. Wait until your saved team finishes loading, then try again."
+      );
+      return null;
+    }
+
+    setCloudSyncMessage(savingMessage);
+
+    try {
+      return await operation(supabase, currentUser, activeCloudWorkspaceId);
+    } catch (error) {
+      setCloudSyncMessage(
+        error instanceof Error
+          ? `Save failed: ${error.message}`
+          : "Save failed. Export a JSON backup before changing devices."
+      );
+      return null;
+    }
+  }
+
+  function persistBrowserSnapshot({
+    nextWorkspaceName = workspaceName,
+    nextMembers = members,
+    nextTargets = targets,
+    nextLogs = logs,
+    nextActivityEvents = activityEvents,
+    nextScreenSettings = screenSettings,
+  }: {
+    nextWorkspaceName?: string;
+    nextMembers?: Member[];
+    nextTargets?: Target[];
+    nextLogs?: ProgressLog[];
+    nextActivityEvents?: ActivityEvent[];
+    nextScreenSettings?: ScreenSettings;
+  }) {
+    const savedAt = new Date().toISOString();
+
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        workspaceName: normalizeWorkspaceName(nextWorkspaceName),
+        members: nextMembers,
+        targets: nextTargets,
+        logs: nextLogs,
+        activityEvents: nextActivityEvents,
+        screenSettings: nextScreenSettings,
+        lastSavedAt: savedAt,
+      })
+    );
+
+    setLastCloudSyncAt(savedAt);
+  }
+
+  function finishDirectTargetMutation(
+    successMessage: string,
+    nextTargets = targets,
+    nextLogs = logs
+  ) {
+    persistBrowserSnapshot({
+      nextTargets,
+      nextLogs,
+    });
+
+    setCloudSyncMessage(successMessage);
+  }
+
+
+
+
+  type LiveTargetRow = {
+    id?: unknown;
+    owner_member_id?: unknown;
+    title?: unknown;
+    description?: unknown;
+    category?: unknown;
+    priority?: unknown;
+    frequency?: unknown;
+    target_amount?: unknown;
+    unit?: unknown;
+    start_date?: unknown;
+    is_archived?: unknown;
+    claimed_by_member_id?: unknown;
+    claimed_at?: unknown;
+  };
+
+  function getLiveString(value: unknown, fallback = "") {
+    return typeof value === "string" && value.trim() ? value.trim() : fallback;
+  }
+
+  function getLiveTargetId(row: unknown) {
+    const maybeRow = row as { id?: unknown } | null | undefined;
+    return typeof maybeRow?.id === "string" ? maybeRow.id : "";
+  }
+
+  function normalizeLivePriority(value: unknown): Priority {
+    if (
+      value === "low" ||
+      value === "medium" ||
+      value === "high" ||
+      value === "urgent"
+    ) {
+      return value;
+    }
+
+    return "medium";
+  }
+
+  function normalizeLiveFrequency(value: unknown): Frequency {
+    if (
+      value === "once" ||
+      value === "daily" ||
+      value === "weekly" ||
+      value === "monthly"
+    ) {
+      return value;
+    }
+
+    return "once";
+  }
+
+  function liveTargetRowToTarget(row: LiveTargetRow): Target {
+    return {
+      id: getLiveString(row.id),
+      title: getLiveString(row.title, "Untitled target"),
+      description: getLiveString(row.description),
+      category: getLiveString(row.category, "General"),
+      priority: normalizeLivePriority(row.priority),
+      ownerId: getLiveString(row.owner_member_id) || OPEN_TEAM_OWNER_ID,
+      frequency: normalizeLiveFrequency(row.frequency),
+      targetAmount: Number(row.target_amount) || 1,
+      unit: getLiveString(row.unit, "tasks"),
+      startDate: getLiveString(row.start_date, todayISO()),
+      isArchived: Boolean(row.is_archived),
+      claimedByMemberId: getLiveString(row.claimed_by_member_id) || undefined,
+      claimedAt: getLiveString(row.claimed_at) || undefined,
+    };
+  }
+
+  useEffect(() => {
+    if (
+      !currentUser ||
+      !activeCloudWorkspaceId ||
+      supabaseConnectionStatus !== "connected" ||
+      isTeamAutoLoading
+    ) {
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+
+    if (!supabase) return;
+
+    let isCancelled = false;
+
+    const channel = supabase
+      .channel(`live-targets-${activeCloudWorkspaceId}-${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "targets",
+          filter: `workspace_id=eq.${activeCloudWorkspaceId}`,
+        },
+        (payload) => {
+          if (isCancelled) return;
+
+          if (payload.eventType === "DELETE") {
+            const targetId = getLiveTargetId(payload.old);
+
+            if (!targetId) return;
+
+            setTargets((currentTargets) => {
+              const nextTargets = currentTargets.filter(
+                (target) => target.id !== targetId
+              );
+
+              persistBrowserSnapshot({ nextTargets });
+              return nextTargets;
+            });
+
+            setLogs((currentLogs) => {
+              const nextLogs = currentLogs.filter(
+                (log) => log.targetId !== targetId
+              );
+
+              persistBrowserSnapshot({ nextLogs });
+              return nextLogs;
+            });
+
+            setCloudSyncMessage("Live sync: target deleted.");
+            return;
+          }
+
+          const targetId = getLiveTargetId(payload.new);
+
+          if (!targetId) return;
+
+          const liveTarget = liveTargetRowToTarget(payload.new as LiveTargetRow);
+
+          setTargets((currentTargets) => {
+            const targetExists = currentTargets.some(
+              (target) => target.id === liveTarget.id
+            );
+
+            const nextTargets = targetExists
+              ? currentTargets.map((target) =>
+                  target.id === liveTarget.id ? liveTarget : target
+                )
+              : [...currentTargets, liveTarget];
+
+            persistBrowserSnapshot({ nextTargets });
+            return nextTargets;
+          });
+
+          setCloudSyncMessage(
+            payload.eventType === "INSERT"
+              ? `Live sync: target added "${liveTarget.title}".`
+              : `Live sync: target updated "${liveTarget.title}".`
+          );
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setCloudSyncMessage("Live target sync connected.");
+          return;
+        }
+
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setCloudSyncMessage(
+            "Live target sync issue. Refresh if team changes do not appear."
+          );
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+      void supabase.removeChannel(channel);
+    };
+  }, [
+    activeCloudWorkspaceId,
+    currentUser?.id,
+    isTeamAutoLoading,
+    supabaseConnectionStatus,
+  ]);
+
+
+
+
   function addActivityEvent(
     action: ActivityEventAction,
     message: string,
@@ -2699,7 +2987,7 @@ export default function Home() {
     setEditUnit("tasks");
   }
 
-  function saveEditedTarget() {
+  async function saveEditedTarget() {
     if (!editingTargetId) return;
 
     if (!editTitle.trim()) {
@@ -2730,24 +3018,50 @@ export default function Home() {
       return;
     }
 
-    setTargets((currentTargets) =>
-      currentTargets.map((target) =>
-        target.id === editingTargetId
-          ? {
-              ...target,
-              title: editTitle.trim(),
-              description: editDescription.trim(),
-              category: editCategory.trim() || "General",
-              priority: editPriority,
-              ownerId: editOwnerId,
-              frequency: editFrequency,
-              startDate: editStartDate,
-              targetAmount: editAmount,
-              unit: editUnit.trim(),
-            }
-          : target
-      )
-    );
+    const currentTarget = targets.find((target) => target.id === editingTargetId);
+    if (!currentTarget) return;
+
+    const updatedTarget = {
+      ...currentTarget,
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      category: editCategory.trim() || "General",
+      priority: editPriority,
+      ownerId: editOwnerId,
+      frequency: editFrequency,
+      startDate: editStartDate,
+      targetAmount: editAmount,
+      unit: editUnit.trim(),
+    };
+
+    if (canUseDirectTargetPersistence()) {
+      const savedTarget = await runDirectTargetMutation(
+        "Saving target changes...",
+        (supabase, user, workspaceId) =>
+          updateCloudTarget(supabase, user, workspaceId, updatedTarget)
+      );
+
+      if (!savedTarget) return;
+
+      const nextTargets = targets.map((target) =>
+        target.id === editingTargetId ? savedTarget : target
+      );
+
+      setTargets(nextTargets);
+      finishDirectTargetMutation(
+        `Saved target "${savedTarget.title}".`,
+        nextTargets
+      );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Target changes were not saved to protected storage.");
+      return;
+    } else {
+      setTargets((currentTargets) =>
+        currentTargets.map((target) =>
+          target.id === editingTargetId ? updatedTarget : target
+        )
+      );
+    }
 
     cancelEditingTarget();
   }
@@ -2898,7 +3212,7 @@ export default function Home() {
     );
   }
 
-  function addQuickTaskFromList() {
+  async function addQuickTaskFromList() {
     const title = quickTaskTitle.trim();
 
     if (!title) return;
@@ -2914,27 +3228,52 @@ export default function Home() {
         ? selectedMemberId
         : OPEN_TEAM_OWNER_ID;
 
-    setTargets((currentTargets) => [
-      ...currentTargets,
-      {
-        id: createId("target"),
-        title,
-        description: "",
-        category: "General",
-        priority: "medium",
-        ownerId,
-        frequency: "once",
-        targetAmount: 1,
-        unit: "task",
-        startDate: selectedDate,
-        isArchived: false,
-      },
-    ]);
+    const targetPayload = {
+      title,
+      description: "",
+      category: "General",
+      priority: "medium" as Priority,
+      ownerId,
+      frequency: "once" as Frequency,
+      targetAmount: 1,
+      unit: "task",
+      startDate: selectedDate,
+      isArchived: false,
+    };
+
+    if (canUseDirectTargetPersistence()) {
+      const savedTarget = await runDirectTargetMutation(
+        "Saving task...",
+        (supabase, user, workspaceId) =>
+          createCloudTarget(supabase, user, workspaceId, targetPayload)
+      );
+
+      if (!savedTarget) return;
+
+      const nextTargets = [...targets, savedTarget];
+
+      setTargets(nextTargets);
+      finishDirectTargetMutation(
+        `Saved task "${savedTarget.title}".`,
+        nextTargets
+      );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Task was not added to protected storage.");
+      return;
+    } else {
+      setTargets((currentTargets) => [
+        ...currentTargets,
+        {
+          id: createId("target"),
+          ...targetPayload,
+        },
+      ]);
+    }
 
     setQuickTaskTitle("");
   }
 
-  function addTarget() {
+  async function addTarget() {
     if (!newTitle.trim()) return;
 
     if (!isValidDateISO(newStartDate)) {
@@ -2964,22 +3303,47 @@ export default function Home() {
       return;
     }
 
-    setTargets((currentTargets) => [
-      ...currentTargets,
-      {
-        id: createId("target"),
-        title: newTitle.trim(),
-        description: newDescription.trim(),
-        category: newCategory.trim() || "General",
-        priority: newPriority,
-        ownerId,
-        frequency: newFrequency,
-        targetAmount: newAmount,
-        unit: newUnit.trim(),
-        startDate: newStartDate,
-        isArchived: false,
-      },
-    ]);
+    const targetPayload = {
+      title: newTitle.trim(),
+      description: newDescription.trim(),
+      category: newCategory.trim() || "General",
+      priority: newPriority,
+      ownerId,
+      frequency: newFrequency,
+      targetAmount: newAmount,
+      unit: newUnit.trim(),
+      startDate: newStartDate,
+      isArchived: false,
+    };
+
+    if (canUseDirectTargetPersistence()) {
+      const savedTarget = await runDirectTargetMutation(
+        "Saving target...",
+        (supabase, user, workspaceId) =>
+          createCloudTarget(supabase, user, workspaceId, targetPayload)
+      );
+
+      if (!savedTarget) return;
+
+      const nextTargets = [...targets, savedTarget];
+
+      setTargets(nextTargets);
+      finishDirectTargetMutation(
+        `Saved target "${savedTarget.title}".`,
+        nextTargets
+      );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Target was not added to protected storage.");
+      return;
+    } else {
+      setTargets((currentTargets) => [
+        ...currentTargets,
+        {
+          id: createId("target"),
+          ...targetPayload,
+        },
+      ]);
+    }
 
     setNewTitle("");
     setNewDescription("");
@@ -3010,7 +3374,7 @@ export default function Home() {
     setNewMemberName("");
   }
 
-  function deleteTarget(targetId: string) {
+  async function deleteTarget(targetId: string) {
     const target = targets.find((item) => item.id === targetId);
     if (!target) return;
 
@@ -3022,13 +3386,28 @@ export default function Home() {
 
     if (!shouldDelete) return;
 
-    setTargets((currentTargets) =>
-      currentTargets.filter((item) => item.id !== targetId)
-    );
+    const usesDirectPersistence = canUseDirectTargetPersistence();
 
-    setLogs((currentLogs) =>
-      currentLogs.filter((log) => log.targetId !== targetId)
-    );
+    if (usesDirectPersistence) {
+      const didDelete = await runDirectTargetMutation(
+        "Deleting target...",
+        async (supabase, user, workspaceId) => {
+          await deleteCloudTarget(supabase, user, workspaceId, targetId);
+          return true;
+        }
+      );
+
+      if (!didDelete) return;
+    } else if (currentUser) {
+      blockProtectedTargetChange("Target was not deleted from protected storage.");
+      return;
+    }
+
+    const nextTargets = targets.filter((item) => item.id !== targetId);
+    const nextLogs = logs.filter((log) => log.targetId !== targetId);
+
+    setTargets(nextTargets);
+    setLogs(nextLogs);
 
     addActivityEvent(
       "target_deleted",
@@ -3039,6 +3418,14 @@ export default function Home() {
         removedLogCount,
       }
     );
+
+    if (usesDirectPersistence) {
+      finishDirectTargetMutation(
+        `Deleted target "${target.title}".`,
+        nextTargets,
+        nextLogs
+      );
+    }
 
     if (editingTargetId === targetId) cancelEditingTarget();
   }
