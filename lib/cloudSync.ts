@@ -767,17 +767,12 @@ export async function updateCloudTargetClaim(
   targetId: string,
   claimedByMemberId?: string
 ): Promise<CloudTarget> {
-  const workspace = await ensureUserWorkspace(supabase, user, workspaceId);
+  await ensureUserWorkspace(supabase, user, workspaceId);
 
   const { data, error } = await supabase
-    .from("targets")
-    .update({
-      claimed_by_member_id: claimedByMemberId ?? null,
-      claimed_at: claimedByMemberId ? new Date().toISOString() : null,
+    .rpc(claimedByMemberId ? "claim_target" : "release_target_claim", {
+      target_id: targetId,
     })
-    .eq("id", targetId)
-    .eq("workspace_id", workspace.id)
-    .select(DIRECT_TARGET_SELECT)
     .single();
 
   if (error) throw error;

@@ -16,6 +16,7 @@ import {
   loadCloudDataFromCloud,
   saveLocalDataToCloud,
   updateCloudTarget,
+  updateCloudTargetClaim,
   type CloudWorkspaceSummary,
 } from "../lib/cloudSync";
 
@@ -3142,7 +3143,7 @@ export default function Home() {
     return members.find((member) => member.id === memberId)?.name ?? "Unknown";
   }
 
-  function claimTarget(targetId: string) {
+  async function claimTarget(targetId: string) {
     if (!authorityCapabilities.canSubmitWork) {
       window.alert("View-only permission cannot claim work items.");
       return;
@@ -3173,20 +3174,43 @@ export default function Home() {
       return;
     }
 
-    setTargets((currentTargets) =>
-      currentTargets.map((item) =>
-        item.id === targetId
-          ? {
-              ...item,
-              claimedByMemberId: workerId,
-              claimedAt: new Date().toISOString(),
-            }
-          : item
-      )
-    );
+    if (canUseDirectTargetPersistence()) {
+      const savedTarget = await runDirectTargetMutation(
+        "Claiming task...",
+        (supabase, user, workspaceId) =>
+          updateCloudTargetClaim(supabase, user, workspaceId, targetId, workerId)
+      );
+
+      if (!savedTarget) return;
+
+      const nextTargets = targets.map((item) =>
+        item.id === targetId ? savedTarget : item
+      );
+
+      setTargets(nextTargets);
+      finishDirectTargetMutation(
+        `Claimed task "${savedTarget.title}".`,
+        nextTargets
+      );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Task claim was not saved to protected storage.");
+      return;
+    } else {
+      setTargets((currentTargets) =>
+        currentTargets.map((item) =>
+          item.id === targetId
+            ? {
+                ...item,
+                claimedByMemberId: workerId,
+                claimedAt: new Date().toISOString(),
+              }
+            : item
+        )
+      );
+    }
   }
 
-  function releaseTargetClaim(targetId: string) {
+  async function releaseTargetClaim(targetId: string) {
     const workerId = getActiveWorkerId();
     const target = targets.find((item) => item.id === targetId);
 
@@ -3199,17 +3223,40 @@ export default function Home() {
       return;
     }
 
-    setTargets((currentTargets) =>
-      currentTargets.map((item) =>
-        item.id === targetId
-          ? {
-              ...item,
-              claimedByMemberId: undefined,
-              claimedAt: undefined,
-            }
-          : item
-      )
-    );
+    if (canUseDirectTargetPersistence()) {
+      const savedTarget = await runDirectTargetMutation(
+        "Releasing task claim...",
+        (supabase, user, workspaceId) =>
+          updateCloudTargetClaim(supabase, user, workspaceId, targetId)
+      );
+
+      if (!savedTarget) return;
+
+      const nextTargets = targets.map((item) =>
+        item.id === targetId ? savedTarget : item
+      );
+
+      setTargets(nextTargets);
+      finishDirectTargetMutation(
+        `Released task "${savedTarget.title}".`,
+        nextTargets
+      );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Task claim release was not saved to protected storage.");
+      return;
+    } else {
+      setTargets((currentTargets) =>
+        currentTargets.map((item) =>
+          item.id === targetId
+            ? {
+                ...item,
+                claimedByMemberId: undefined,
+                claimedAt: undefined,
+              }
+            : item
+        )
+      );
+    }
   }
 
   async function addQuickTaskFromList() {
