@@ -5139,10 +5139,22 @@ setIsCloudSyncing(true);
                       </p>
 
                       {row.target.claimedByMemberId ? (
-                        <p className="mt-2 inline-flex rounded-full bg-fuchsia-500/20 px-3 py-1 text-xs font-semibold text-fuchsia-200">
-                          Already working:{" "}
-                          {getClaimedMemberName(row.target.claimedByMemberId)}
-                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <p className="inline-flex rounded-full bg-fuchsia-500/20 px-3 py-1 text-xs font-semibold text-fuchsia-200">
+                            Taken by{" "}
+                            {getClaimedMemberName(row.target.claimedByMemberId)}
+                          </p>
+
+                          {authorityCapabilities.canAssignTargets && (
+                            <button
+                              type="button"
+                              onClick={() => releaseTargetClaim(row.target.id)}
+                              className="rounded-full border border-fuchsia-400/30 px-3 py-1 text-xs font-semibold text-fuchsia-100 hover:bg-fuchsia-400/10"
+                            >
+                              Release claim
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         <p className="mt-2 inline-flex rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
                           Available
@@ -5164,12 +5176,22 @@ setIsCloudSyncing(true);
                       </button>
 
                       {row.target.claimedByMemberId ? (
-                        <button
-                          onClick={() => releaseTargetClaim(row.target.id)}
-                          className="rounded-xl border border-fuchsia-400/30 px-3 py-2 text-sm text-fuchsia-200 hover:bg-fuchsia-400/10"
-                        >
-                          Release
-                        </button>
+                        row.target.claimedByMemberId === getActiveWorkerId() ? (
+                          <button
+                            onClick={() => releaseTargetClaim(row.target.id)}
+                            className="rounded-xl border border-fuchsia-400/30 px-3 py-2 text-sm text-fuchsia-200 hover:bg-fuchsia-400/10"
+                          >
+                            Release
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            className="rounded-xl border border-slate-500/30 px-3 py-2 text-sm text-slate-300 opacity-70"
+                          >
+                            Taken
+                          </button>
+                        )
                       ) : (
                         <button
                           onClick={() => claimTarget(row.target.id)}
