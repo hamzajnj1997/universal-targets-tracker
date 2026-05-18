@@ -1178,7 +1178,7 @@ export default function Home() {
   );
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [currentAuthorityRole, setCurrentAuthorityRole] =
-    useState<WorkspaceAuthorityRole>("owner");
+    useState<WorkspaceAuthorityRole>("member");
   const [activeAppView, setActiveAppView] = useState<AppView>("dashboard");
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [isWalkthroughOpen, setIsWalkthroughOpen] = useState(false);
@@ -2339,7 +2339,22 @@ export default function Home() {
     if (members.length === 0) return;
 
     const validMemberIds = new Set(members.map((member) => member.id));
-    if (selectedMemberId !== "all" && !validMemberIds.has(selectedMemberId)) {
+    const canUseAllProfiles = getAuthorityCapabilities(
+      currentAuthorityRole
+    ).canEditSettings;
+
+    if (
+      !canUseAllProfiles &&
+      activeWorkerId &&
+      validMemberIds.has(activeWorkerId) &&
+      selectedMemberId !== activeWorkerId
+    ) {
+      setSelectedMemberId(activeWorkerId);
+    } else if (
+      canUseAllProfiles &&
+      selectedMemberId !== "all" &&
+      !validMemberIds.has(selectedMemberId)
+    ) {
       setSelectedMemberId("all");
     }
 
@@ -2360,7 +2375,14 @@ export default function Home() {
     ) {
       setEditOwnerId(OPEN_TEAM_OWNER_ID);
     }
-  }, [members, selectedMemberId, activeWorkerId, newOwnerId, editOwnerId]);
+  }, [
+    members,
+    selectedMemberId,
+    activeWorkerId,
+    newOwnerId,
+    editOwnerId,
+    currentAuthorityRole,
+  ]);
 
   function getSignedInTeamMember() {
     if (!currentUser) return null;
@@ -2434,8 +2456,18 @@ export default function Home() {
       return false;
     }
 
+    const activeWorkerForFilter = getActiveWorkerId();
+    const canUseAllProfileFilter = getAuthorityCapabilities(
+      currentAuthorityRole
+    ).canEditSettings;
+    const effectiveSelectedMemberId = canUseAllProfileFilter
+      ? selectedMemberId
+      : activeWorkerForFilter;
+
     const memberMatches =
-      selectedMemberId === "all" || row.target.ownerId === selectedMemberId;
+      effectiveSelectedMemberId === "all" ||
+      row.target.ownerId === effectiveSelectedMemberId ||
+      (!canUseAllProfileFilter && row.target.ownerId === OPEN_TEAM_OWNER_ID);
 
     const priorityMatches =
       priorityFilter === "all" || row.target.priority === priorityFilter;
@@ -5198,7 +5230,9 @@ setIsCloudSyncing(true);
                 onChange={(event) => setSelectedMemberId(event.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"
               >
-                <option value="all">All profiles</option>
+                {authorityCapabilities.canEditSettings && (
+                  <option value="all">All profiles</option>
+                )}
                 {members.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
