@@ -9,6 +9,7 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
 import {
   addCloudWorkspaceMemberByEmail,
+  createCloudMember,
   createCloudProgressLog,
   createCloudTarget,
   createCloudWorkspace,
@@ -3562,22 +3563,50 @@ export default function Home() {
     setNewStartDate(todayISO());
   }
 
-  function addMember() {
+  async function addMember() {
     if (!authorityCapabilities.canManageMembers) {
       window.alert("Only permission presets with profile-management access can add local profiles.");
       return;
     }
 
-    if (!newMemberName.trim()) return;
+    const memberName = newMemberName.trim();
 
-    const newMemberId = createId("member");
+    if (!memberName) return;
 
-    setMembers((currentMembers) => [
-      ...currentMembers,
-      { id: newMemberId, name: newMemberName.trim(), role: LOCAL_PROFILE_ROLE },
-    ]);
+    const localMember: Member = {
+      id: createId("member"),
+      name: memberName,
+      role: LOCAL_PROFILE_ROLE,
+    };
 
-    setNewOwnerId(newMemberId);
+    if (canUseDirectTargetPersistence()) {
+      const savedMember = await runDirectTargetMutation(
+        "Creating local profile...",
+        (supabase, user, workspaceId) =>
+          createCloudMember(supabase, user, workspaceId, {
+            name: memberName,
+            role: LOCAL_PROFILE_ROLE,
+          })
+      );
+
+      if (!savedMember) return;
+
+      const nextMembers = [...members, savedMember];
+
+      setMembers(nextMembers);
+      setNewOwnerId(savedMember.id);
+      setNewMemberName("");
+      finishDirectTargetMutation(`Created local profile "${savedMember.name}".`, targets, logs);
+      return;
+    }
+
+    if (currentUser) {
+      blockProtectedTargetChange("Local profile was not saved to protected storage.");
+      return;
+    }
+
+    setMembers((currentMembers) => [...currentMembers, localMember]);
+    setNewOwnerId(localMember.id);
     setNewMemberName("");
   }
 
