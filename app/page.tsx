@@ -3473,6 +3473,20 @@ export default function Home() {
     setNewMemberName("");
   }
 
+  function confirmDangerousAction(message: string, requiredPhrase: string) {
+    const typedPhrase = window.prompt(
+      [
+        message,
+        "",
+        "This is a destructive action.",
+        "",
+        "To confirm, type exactly:",
+        requiredPhrase,
+      ].join("\n")
+    );
+
+    return typedPhrase === requiredPhrase;
+  }
   async function deleteTarget(targetId: string) {
     if (!authorityCapabilities.canAssignTargets) {
       window.alert("Only permission presets with target-management access can delete targets.");
@@ -3483,8 +3497,17 @@ export default function Home() {
 
     const removedLogCount = logs.filter((log) => log.targetId === targetId).length;
 
-    const shouldDelete = window.confirm(
-      `Delete target "${target.title}"?\n\nThis will also delete all progress logs for this target.\n\nUse Archive instead if you want to keep history.\n\nThis cannot be undone.`
+    const shouldDelete = confirmDangerousAction(
+      [
+        `Delete target "${target.title}"?`,
+        "",
+        `This will permanently remove ${removedLogCount} progress log${removedLogCount === 1 ? "" : "s"} for this target.`,
+        "",
+        "Use Archive instead if you want to keep history.",
+        "",
+        "This cannot be undone.",
+      ].join("\n"),
+      target.title
     );
 
     if (!shouldDelete) return;
@@ -3549,17 +3572,24 @@ export default function Home() {
     const memberTargets = targets.filter(
       (target) => target.ownerId === memberId
     );
-
-    const shouldDelete = window.confirm(
-      `Delete local profile "${member.name}"?\n\nThis will also delete ${memberTargets.length} assigned targets and their related progress logs.\n\nThis cannot be undone.`
-    );
-
-    if (!shouldDelete) return;
-
     const memberTargetIds = memberTargets.map((target) => target.id);
     const removedLogCount = logs.filter((log) =>
       memberTargetIds.includes(log.targetId)
     ).length;
+
+    const shouldDelete = confirmDangerousAction(
+      [
+        `Delete local profile "${member.name}"?`,
+        "",
+        `This will permanently remove ${memberTargets.length} assigned target${memberTargets.length === 1 ? "" : "s"}.`,
+        `This will permanently remove ${removedLogCount} related progress log${removedLogCount === 1 ? "" : "s"}.`,
+        "",
+        "This cannot be undone.",
+      ].join("\n"),
+      member.name
+    );
+
+    if (!shouldDelete) return;
 
     setMembers((currentMembers) =>
       currentMembers.filter((item) => item.id !== memberId)
@@ -3606,22 +3636,30 @@ export default function Home() {
       window.alert("Only the owner can clear all progress logs.");
       return;
     }
-    const shouldClear = window.confirm(
+    const clearedLogCount = logs.length;
+
+    if (clearedLogCount === 0) {
+      window.alert("There are no progress logs to clear.");
+      return;
+    }
+
+    const shouldClear = confirmDangerousAction(
       [
-      "Clear all progress logs?",
-      "",
-      "Targets and local profiles will stay.",
-      "All achieved progress values will reset to zero.",
-      "",
-      "Export a backup first if this team data matters.",
-      "",
-      "Continue?"
-    ].join("\n")
+        "Clear all progress logs?",
+        "",
+        `This will permanently remove ${clearedLogCount} progress log${clearedLogCount === 1 ? "" : "s"}.`,
+        "",
+        "Targets and local profiles will stay.",
+        "All achieved progress values will reset to zero.",
+        "",
+        "Export a backup first if this team data matters.",
+        "",
+        "This cannot be undone.",
+      ].join("\n"),
+      "CLEAR PROGRESS"
     );
 
     if (!shouldClear) return;
-
-    const clearedLogCount = logs.length;
 
     setLogs([]);
     addActivityEvent(
