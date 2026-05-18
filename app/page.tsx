@@ -2339,14 +2339,12 @@ export default function Home() {
     if (members.length === 0) return;
 
     const validMemberIds = new Set(members.map((member) => member.id));
-    const fallbackMemberId = members[0].id;
-
     if (selectedMemberId !== "all" && !validMemberIds.has(selectedMemberId)) {
       setSelectedMemberId("all");
     }
 
-    if (!validMemberIds.has(activeWorkerId)) {
-      setActiveWorkerId(fallbackMemberId);
+    if (activeWorkerId && !validMemberIds.has(activeWorkerId)) {
+      setActiveWorkerId("");
     }
 
     if (
@@ -3324,14 +3322,7 @@ export default function Home() {
       return activeWorkerId;
     }
 
-    if (
-      selectedMemberId !== "all" &&
-      members.some((member) => member.id === selectedMemberId)
-    ) {
-      return selectedMemberId;
-    }
-
-    return members[0]?.id ?? "";
+    return "";
   }
 
   function getClaimedMemberName(memberId?: string) {
@@ -5342,6 +5333,10 @@ setIsCloudSyncing(true);
               onChange={(event) => setActiveWorkerId(event.target.value)}
               className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
             >
+              <option value="" disabled>
+                Select work profile
+              </option>
+
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
                   {member.name}
