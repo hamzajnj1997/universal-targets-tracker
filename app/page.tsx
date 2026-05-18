@@ -5368,21 +5368,27 @@ setIsCloudSyncing(true);
               </p>
             </div>
 
-            <select
-              value={activeWorkerId}
-              onChange={(event) => setActiveWorkerId(event.target.value)}
-              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
-            >
-              <option value="" disabled>
-                Select work profile
-              </option>
-
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name}
+            {authorityCapabilities.canEditSettings || !getActiveWorkerId() ? (
+              <select
+                value={activeWorkerId}
+                onChange={(event) => setActiveWorkerId(event.target.value)}
+                className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
+              >
+                <option value="" disabled>
+                  Select work profile
                 </option>
-              ))}
-            </select>
+
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white">
+                {getClaimedMemberName(getActiveWorkerId()) || "My work"}
+              </div>
+            )}
           </div>
 
           <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
