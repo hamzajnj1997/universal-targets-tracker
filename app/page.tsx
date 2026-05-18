@@ -3083,11 +3083,12 @@ export default function Home() {
     cancelEditingTarget();
   }
 
-  function toggleTargetArchive(targetId: string) {
+  async function toggleTargetArchive(targetId: string) {
     if (!authorityCapabilities.canAssignTargets) {
       window.alert("Only permission presets with target-management access can archive or restore targets.");
       return;
     }
+
     const target = targets.find((item) => item.id === targetId);
     if (!target) return;
 
@@ -3099,16 +3100,39 @@ export default function Home() {
 
     if (!shouldToggle) return;
 
-    setTargets((currentTargets) =>
-      currentTargets.map((item) =>
-        item.id === targetId
-          ? {
-              ...item,
-              isArchived: !item.isArchived,
-            }
-          : item
-      )
-    );
+    const updatedTarget = {
+      ...target,
+      isArchived: !target.isArchived,
+    };
+
+    if (canUseDirectTargetPersistence()) {
+      const savedTarget = await runDirectTargetMutation(
+        updatedTarget.isArchived ? "Archiving target..." : "Restoring target...",
+        (supabase, user, workspaceId) =>
+          updateCloudTarget(supabase, user, workspaceId, updatedTarget)
+      );
+
+      if (!savedTarget) return;
+
+      const nextTargets = targets.map((item) =>
+        item.id === targetId ? savedTarget : item
+      );
+
+      setTargets(nextTargets);
+      finishDirectTargetMutation(
+        `${savedTarget.isArchived ? "Archived" : "Restored"} target "${savedTarget.title}".`,
+        nextTargets
+      );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Target archive change was not saved to protected storage.");
+      return;
+    } else {
+      setTargets((currentTargets) =>
+        currentTargets.map((item) =>
+          item.id === targetId ? updatedTarget : item
+        )
+      );
+    }
 
     if (editingTargetId === targetId) cancelEditingTarget();
   }
