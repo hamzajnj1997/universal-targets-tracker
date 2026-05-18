@@ -18,6 +18,7 @@ import {
   listAccessibleCloudWorkspaces,
   loadCloudDataFromCloud,
   saveLocalDataToCloud,
+  updateCloudMember,
   updateCloudProgressLog,
   updateCloudTarget,
   updateCloudTargetClaim,
@@ -3256,23 +3257,61 @@ export default function Home() {
     setEditMemberName("");
   }
 
-  function saveEditedMember() {
+  async function saveEditedMember() {
     if (!authorityCapabilities.canManageMembers) {
       window.alert("Only permission presets with profile-management access can edit local profiles.");
       return;
     }
+
     if (!editingMemberId) return;
 
-    if (!editMemberName.trim()) {
+    const memberName = editMemberName.trim();
+
+    if (!memberName) {
       window.alert("Local profile name cannot be empty.");
+      return;
+    }
+
+    const existingMember = members.find((member) => member.id === editingMemberId);
+
+    if (!existingMember) {
+      cancelEditingMember();
+      return;
+    }
+
+    const updatedMember: Member = {
+      ...existingMember,
+      name: memberName,
+      role: existingMember.role || LOCAL_PROFILE_ROLE,
+    };
+
+    if (canUseDirectTargetPersistence()) {
+      const savedMember = await runDirectTargetMutation(
+        "Saving local profile...",
+        (supabase, user, workspaceId) =>
+          updateCloudMember(supabase, user, workspaceId, updatedMember)
+      );
+
+      if (!savedMember) return;
+
+      const nextMembers = members.map((member) =>
+        member.id === editingMemberId ? savedMember : member
+      );
+
+      setMembers(nextMembers);
+      cancelEditingMember();
+      finishDirectTargetMutation(`Saved local profile "${savedMember.name}".`, targets, logs);
+      return;
+    }
+
+    if (currentUser) {
+      blockProtectedTargetChange("Local profile edit was not saved to protected storage.");
       return;
     }
 
     setMembers((currentMembers) =>
       currentMembers.map((member) =>
-        member.id === editingMemberId
-          ? { ...member, name: editMemberName.trim(), role: LOCAL_PROFILE_ROLE }
-          : member
+        member.id === editingMemberId ? updatedMember : member
       )
     );
 
