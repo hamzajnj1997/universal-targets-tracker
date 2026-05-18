@@ -9,6 +9,7 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, getSupabaseConfigStatus } from "../lib/supabaseClient";
 import {
   addCloudWorkspaceMemberByEmail,
+  createCloudProgressLog,
   createCloudTarget,
   createCloudWorkspace,
   deleteCloudTarget,
@@ -2864,12 +2865,48 @@ export default function Home() {
     setSelectedMemberId("all");
   }
 
-  function logProgress(targetId: string, amount: number) {
+  async function logProgress(targetId: string, amount: number) {
     if (!authorityCapabilities.canSubmitWork) {
       window.alert("View-only permission cannot submit progress.");
-      return;
+      return false;
     }
-    if (!isPositiveFiniteNumber(amount) || !isValidDateISO(selectedDate)) return;
+
+    if (!isPositiveFiniteNumber(amount) || !isValidDateISO(selectedDate)) {
+      return false;
+    }
+
+    const createdAt = new Date().toISOString();
+
+    if (canUseDirectTargetPersistence()) {
+      const savedLog = await runDirectTargetMutation(
+        "Saving progress...",
+        (supabase, user, workspaceId) =>
+          createCloudProgressLog(supabase, user, workspaceId, {
+            targetId,
+            date: selectedDate,
+            achievedAmount: amount,
+            createdAt,
+          })
+      );
+
+      if (!savedLog) return false;
+
+      const nextLog: ProgressLog = {
+        ...savedLog,
+        status: normalizeProgressLogStatus("approved"),
+      };
+
+      const nextLogs = [...logs, nextLog];
+
+      setLogs(nextLogs);
+      finishDirectTargetMutation("Progress saved.", targets, nextLogs);
+      return true;
+    }
+
+    if (currentUser) {
+      blockProtectedTargetChange("Progress log was not saved to protected storage.");
+      return false;
+    }
 
     setLogs((currentLogs) => [
       ...currentLogs,
@@ -2878,13 +2915,15 @@ export default function Home() {
         targetId,
         date: selectedDate,
         achievedAmount: amount,
-        createdAt: new Date().toISOString(),
+        createdAt,
         status: normalizeProgressLogStatus("approved"),
       },
     ]);
+
+    return true;
   }
 
-  function logManualProgress(targetId: string) {
+  async function logManualProgress(targetId: string) {
     const rawAmount = manualAmounts[targetId];
     const amount = Number(rawAmount);
 
@@ -2893,7 +2932,9 @@ export default function Home() {
       return;
     }
 
-    logProgress(targetId, amount);
+    const wasLogged = await logProgress(targetId, amount);
+
+    if (!wasLogged) return;
 
     setManualAmounts((currentAmounts) => ({
       ...currentAmounts,
