@@ -13,6 +13,7 @@ import {
   createCloudProgressLog,
   createCloudTarget,
   createCloudWorkspace,
+  deleteCloudMember,
   deleteCloudProgressLog,
   deleteCloudTarget,
   listAccessibleCloudWorkspaces,
@@ -3732,11 +3733,12 @@ export default function Home() {
     if (editingTargetId === targetId) cancelEditingTarget();
   }
 
-  function deleteMember(memberId: string) {
+  async function deleteMember(memberId: string) {
     if (!authorityCapabilities.canManageMembers) {
       window.alert("Only permission presets with profile-management access can delete local profiles.");
       return;
     }
+
     const member = members.find((item) => item.id === memberId);
     if (!member) return;
 
@@ -3767,17 +3769,37 @@ export default function Home() {
 
     if (!shouldDelete) return;
 
-    setMembers((currentMembers) =>
-      currentMembers.filter((item) => item.id !== memberId)
-    );
+    const nextMembers = members.filter((item) => item.id !== memberId);
+    const nextTargets = targets.filter((target) => target.ownerId !== memberId);
+    const nextLogs = logs.filter((log) => !memberTargetIds.includes(log.targetId));
 
-    setTargets((currentTargets) =>
-      currentTargets.filter((target) => target.ownerId !== memberId)
-    );
+    if (canUseDirectTargetPersistence()) {
+      const deletedMember = await runDirectTargetMutation(
+        "Deleting local profile...",
+        async (supabase, user, workspaceId) => {
+          await deleteCloudMember(supabase, user, workspaceId, memberId);
+          return true;
+        }
+      );
 
-    setLogs((currentLogs) =>
-      currentLogs.filter((log) => !memberTargetIds.includes(log.targetId))
-    );
+      if (!deletedMember) return;
+
+      setMembers(nextMembers);
+      setTargets(nextTargets);
+      setLogs(nextLogs);
+      finishDirectTargetMutation(
+        `Deleted local profile "${member.name}".`,
+        nextTargets,
+        nextLogs
+      );
+    } else if (currentUser) {
+      blockProtectedTargetChange("Local profile delete was not saved to protected storage.");
+      return;
+    } else {
+      setMembers(nextMembers);
+      setTargets(nextTargets);
+      setLogs(nextLogs);
+    }
 
     addActivityEvent(
       "member_deleted",
