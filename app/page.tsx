@@ -3415,8 +3415,8 @@ export default function Home() {
 
     const isOwnClaim = target.claimedByMemberId === workerId;
 
-    if (!isOwnClaim && !authorityCapabilities.canAssignTargets) {
-      window.alert("Only the person working on it or someone with assign-target permission can release this claim.");
+    if (!isOwnClaim && !authorityCapabilities.canEditSettings) {
+      window.alert("Only the person working on it or an owner/admin can release this claim.");
       return;
     }
 
@@ -5445,7 +5445,7 @@ setIsCloudSyncing(true);
                             {getClaimedMemberName(row.target.claimedByMemberId)}
                           </p>
 
-                          {authorityCapabilities.canAssignTargets && (
+                          {authorityCapabilities.canEditSettings && (
                             <button
                               type="button"
                               onClick={() => releaseTargetClaim(row.target.id)}
