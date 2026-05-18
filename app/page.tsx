@@ -5224,22 +5224,7 @@ setIsCloudSyncing(true);
               />
             </FieldLabel>
 
-            <FieldLabel label="View profile">
-              <select
-                value={selectedMemberId}
-                onChange={(event) => setSelectedMemberId(event.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"
-              >
-                {authorityCapabilities.canEditSettings && (
-                  <option value="all">All profiles</option>
-                )}
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
-            </FieldLabel>
+            {authorityCapabilities.canEditSettings ? (\r\n              <FieldLabel label="View profile">\r\n                <select\r\n                  value={selectedMemberId}\r\n                  onChange={(event) => setSelectedMemberId(event.target.value)}\r\n                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"\r\n                >\r\n                  <option value="all">All profiles</option>\r\n                  {members.map((member) => (\r\n                    <option key={member.id} value={member.id}>\r\n                      {member.name}\r\n                    </option>\r\n                  ))}\r\n                </select>\r\n              </FieldLabel>\r\n            ) : (\r\n              <FieldLabel label="View">\r\n                <div className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white">\r\n                  My work\r\n                </div>\r\n              </FieldLabel>\r\n            )}
           </div>
         </header>
 
