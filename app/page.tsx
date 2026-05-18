@@ -5170,7 +5170,6 @@ setIsCloudSyncing(true);
                       <option value="Member">Member</option>
                       <option value="Leader">Leader</option>
                       <option value="Admin">Admin</option>
-                      <option value="Viewer">Viewer</option>
                     </select>
 
                     <button
@@ -5371,9 +5370,19 @@ setIsCloudSyncing(true);
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50">
-            {visibleDashboard.length > 0 ? (
+            {visibleDashboard.some((row) =>
+                !row.target.claimedByMemberId ||
+                row.target.claimedByMemberId === getActiveWorkerId() ||
+                authorityCapabilities.canEditSettings
+              ) ? (
               <div className="divide-y divide-white/10">
-                {visibleDashboard.map((row) => (
+                {visibleDashboard
+                .filter((row) =>
+                  !row.target.claimedByMemberId ||
+                  row.target.claimedByMemberId === getActiveWorkerId() ||
+                  authorityCapabilities.canEditSettings
+                )
+                .map((row) => (
                   <div
                     key={row.target.id}
                     className="grid gap-3 p-4 hover:bg-white/5 lg:grid-cols-[auto_1fr_auto] lg:items-center"
