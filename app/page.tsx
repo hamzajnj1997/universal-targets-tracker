@@ -16,6 +16,7 @@ import {
   listAccessibleCloudWorkspaces,
   loadCloudDataFromCloud,
   saveLocalDataToCloud,
+  updateCloudProgressLog,
   updateCloudTarget,
   updateCloudTargetClaim,
   type CloudWorkspaceSummary,
@@ -2954,7 +2955,7 @@ export default function Home() {
     setEditLogAmount(1);
   }
 
-  function saveEditedProgressLog() {
+  async function saveEditedProgressLog() {
     if (!authorityCapabilities.canSubmitWork) {
       window.alert("View-only permission cannot edit progress logs.");
       return;
@@ -2971,11 +2972,56 @@ export default function Home() {
       return;
     }
 
+    const existingLog = logs.find((log) => log.id === editingLogId);
+
+    if (!existingLog) {
+      cancelEditingProgressLog();
+      return;
+    }
+
+    const updatedLog: ProgressLog = {
+      ...existingLog,
+      date: editLogDate,
+      achievedAmount: editLogAmount,
+    };
+
+    if (canUseDirectTargetPersistence()) {
+      const savedLog = await runDirectTargetMutation(
+        "Saving progress log...",
+        (supabase, user, workspaceId) =>
+          updateCloudProgressLog(supabase, user, workspaceId, {
+            id: editingLogId,
+            date: editLogDate,
+            achievedAmount: editLogAmount,
+          })
+      );
+
+      if (!savedLog) return;
+
+      const nextLog: ProgressLog = {
+        ...updatedLog,
+        ...savedLog,
+        status: updatedLog.status,
+      };
+
+      const nextLogs = logs.map((log) =>
+        log.id === editingLogId ? nextLog : log
+      );
+
+      setLogs(nextLogs);
+      finishDirectTargetMutation("Progress log saved.", targets, nextLogs);
+      cancelEditingProgressLog();
+      return;
+    }
+
+    if (currentUser) {
+      blockProtectedTargetChange("Progress log edit was not saved to protected storage.");
+      return;
+    }
+
     setLogs((currentLogs) =>
       currentLogs.map((log) =>
-        log.id === editingLogId
-          ? { ...log, date: editLogDate, achievedAmount: editLogAmount }
-          : log
+        log.id === editingLogId ? updatedLog : log
       )
     );
 
