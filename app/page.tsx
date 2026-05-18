@@ -2865,6 +2865,10 @@ export default function Home() {
   }
 
   function logProgress(targetId: string, amount: number) {
+    if (!authorityCapabilities.canSubmitWork) {
+      window.alert("View-only permission cannot submit progress.");
+      return;
+    }
     if (!isPositiveFiniteNumber(amount) || !isValidDateISO(selectedDate)) return;
 
     setLogs((currentLogs) => [
@@ -2910,6 +2914,10 @@ export default function Home() {
   }
 
   function saveEditedProgressLog() {
+    if (!authorityCapabilities.canSubmitWork) {
+      window.alert("View-only permission cannot edit progress logs.");
+      return;
+    }
     if (!editingLogId) return;
 
     if (!isValidDateISO(editLogDate)) {
@@ -2934,6 +2942,10 @@ export default function Home() {
   }
 
   function deleteProgressLog(logId: string) {
+    if (!authorityCapabilities.canApproveWork) {
+      window.alert("Only permission presets with progress-review access can delete progress logs.");
+      return;
+    }
     const log = logs.find((item) => item.id === logId);
     if (!log) return;
 
@@ -2989,6 +3001,10 @@ export default function Home() {
   }
 
   async function saveEditedTarget() {
+    if (!authorityCapabilities.canAssignTargets) {
+      window.alert("Only permission presets with target-management access can edit targets.");
+      return;
+    }
     if (!editingTargetId) return;
 
     if (!editTitle.trim()) {
@@ -3068,6 +3084,10 @@ export default function Home() {
   }
 
   function toggleTargetArchive(targetId: string) {
+    if (!authorityCapabilities.canAssignTargets) {
+      window.alert("Only permission presets with target-management access can archive or restore targets.");
+      return;
+    }
     const target = targets.find((item) => item.id === targetId);
     if (!target) return;
 
@@ -3104,6 +3124,10 @@ export default function Home() {
   }
 
   function saveEditedMember() {
+    if (!authorityCapabilities.canManageMembers) {
+      window.alert("Only permission presets with profile-management access can edit local profiles.");
+      return;
+    }
     if (!editingMemberId) return;
 
     if (!editMemberName.trim()) {
@@ -3321,6 +3345,10 @@ export default function Home() {
   }
 
   async function addTarget() {
+    if (!authorityCapabilities.canAssignTargets) {
+      window.alert("Only permission presets with target-management access can create targets.");
+      return;
+    }
     if (!newTitle.trim()) return;
 
     if (!isValidDateISO(newStartDate)) {
@@ -3422,6 +3450,10 @@ export default function Home() {
   }
 
   async function deleteTarget(targetId: string) {
+    if (!authorityCapabilities.canAssignTargets) {
+      window.alert("Only permission presets with target-management access can delete targets.");
+      return;
+    }
     const target = targets.find((item) => item.id === targetId);
     if (!target) return;
 
@@ -3478,6 +3510,10 @@ export default function Home() {
   }
 
   function deleteMember(memberId: string) {
+    if (!authorityCapabilities.canManageMembers) {
+      window.alert("Only permission presets with profile-management access can delete local profiles.");
+      return;
+    }
     const member = members.find((item) => item.id === memberId);
     if (!member) return;
 
@@ -3542,6 +3578,10 @@ export default function Home() {
   }
 
   function clearProgressLogs() {
+    if (!authorityCapabilities.canManageEverything) {
+      window.alert("Only the owner can clear all progress logs.");
+      return;
+    }
     const shouldClear = window.confirm(
       [
       "Clear all progress logs?",
