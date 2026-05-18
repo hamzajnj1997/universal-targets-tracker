@@ -12,6 +12,7 @@ import {
   createCloudProgressLog,
   createCloudTarget,
   createCloudWorkspace,
+  deleteCloudProgressLog,
   deleteCloudTarget,
   listAccessibleCloudWorkspaces,
   loadCloudDataFromCloud,
@@ -3028,7 +3029,7 @@ export default function Home() {
     cancelEditingProgressLog();
   }
 
-  function deleteProgressLog(logId: string) {
+  async function deleteProgressLog(logId: string) {
     if (!authorityCapabilities.canApproveWork) {
       window.alert("Only permission presets with progress-review access can delete progress logs.");
       return;
@@ -3044,7 +3045,27 @@ export default function Home() {
 
     if (!shouldDelete) return;
 
-    setLogs((currentLogs) => currentLogs.filter((item) => item.id !== logId));
+    const nextLogs = logs.filter((item) => item.id !== logId);
+
+    if (canUseDirectTargetPersistence()) {
+      const deletedLog = await runDirectTargetMutation(
+        "Deleting progress log...",
+        async (supabase, user, workspaceId) => {
+          await deleteCloudProgressLog(supabase, user, workspaceId, logId);
+          return true;
+        }
+      );
+
+      if (!deletedLog) return;
+
+      setLogs(nextLogs);
+      finishDirectTargetMutation("Progress log deleted.", targets, nextLogs);
+    } else if (currentUser) {
+      blockProtectedTargetChange("Progress log delete was not saved to protected storage.");
+      return;
+    } else {
+      setLogs(nextLogs);
+    }
 
     addActivityEvent(
       "progress_log_deleted",
