@@ -5361,11 +5361,6 @@ setIsCloudSyncing(true);
           </div>
 
             ) : (
-              <div className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white">
-                {getClaimedMemberName(getActiveWorkerId()) || "My work"}
-              </div>
-            )}
-          </div>
 
           <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
             <input
