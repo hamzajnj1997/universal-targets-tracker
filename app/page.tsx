@@ -5340,28 +5340,9 @@ setIsCloudSyncing(true);
           className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5"
           style={{ display: activeAppView === "dashboard" || activeAppView === "targets" ? undefined : "none" }}
         >
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
-                Clean work list
-              </p>
-              <h2 className="mt-2 text-2xl font-bold">
-                {activeAppView === "dashboard" ? "Today's work" : "Targets"}
-              </h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-                A focused list view for daily use. Advanced editing, logs,
-                archive, backup, and reports are still available from details,
-                settings, and reports.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
-              {visibleDashboard.length} visible
-            </div>
+          <div className="mb-4">
+            <h2 className="text-3xl font-bold text-white">Tasks</h2>
           </div>
-
-            ) : (
-
           <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
             <input
               value={quickTaskTitle}
