@@ -5360,30 +5360,6 @@ setIsCloudSyncing(true);
             </div>
           </div>
 
-          <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/50 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold">Logging as local profile</p>
-              <p className="mt-1 text-xs text-slate-500">
-                Claims and quick deadlines will use this local profile.
-              </p>
-            </div>
-
-            {authorityCapabilities.canEditSettings || !getActiveWorkerId() ? (
-              <select
-                value={activeWorkerId}
-                onChange={(event) => setActiveWorkerId(event.target.value)}
-                className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white"
-              >
-                <option value="" disabled>
-                  Select work profile
-                </option>
-
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
             ) : (
               <div className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-white">
                 {getClaimedMemberName(getActiveWorkerId()) || "My work"}
