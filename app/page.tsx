@@ -5361,91 +5361,37 @@ setIsCloudSyncing(true);
                     key={row.target.id}
                     className="grid gap-3 p-4 hover:bg-white/5 lg:grid-cols-[auto_1fr_auto] lg:items-center"
                   >
-                    <button
-                      onClick={() =>
-                        logProgress(
-                          row.target.id,
-                          row.pending || row.target.targetAmount
-                        )
-                      }
-                      disabled={row.target.isArchived}
+                    <div
                       className={
                         row.pending === 0
-                          ? "h-7 w-7 rounded-full border border-emerald-400 bg-emerald-400/20 text-emerald-200"
-                          : "h-7 w-7 rounded-full border border-slate-500 hover:border-cyan-300"
+                          ? "mt-1 h-5 w-5 shrink-0 rounded-full border border-emerald-400 bg-emerald-400/20"
+                          : "mt-1 h-5 w-5 shrink-0 rounded-full border border-slate-500"
                       }
-                      title="Mark done"
-                    >
-                      {row.pending === 0 ? "?" : ""}
-                    </button>
+                      aria-hidden="true"
+                    />
 
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate text-base font-semibold">
-                          {row.target.title}
-                        </h3>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-base font-medium text-white">
+                        {row.target.title}
+                      </h3>
 
-                        {row.target.isArchived && (
-                          <span className="rounded-full border border-slate-400/30 bg-slate-500/20 px-2 py-0.5 text-xs text-slate-200">
-                            Archived
-                          </span>
-                        )}
-
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-xs ${priorityClass(
-                            row.target.priority
-                          )}`}
-                        >
-                          {priorityLabel(row.target.priority)}
-                        </span>
-
-                        <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs text-cyan-300">
-                          {row.target.frequency === "once"
-                            ? "deadline"
-                            : row.target.frequency}
-                        </span>
-
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs ${statusClass(
-                            row.status
-                          )}`}
-                        >
-                          {row.status === "Done" ? "Complete" : row.status}
-                        </span>
-                      </div>
-
-                      <p className="mt-1 text-sm text-slate-400">
-                        {row.owner?.name ?? "Unknown"} -{" "}
-                        {row.target.category || "General"} -{" "}
-                        {row.target.frequency === "once" ? "Due" : "Starts"}{" "}
-                        {row.target.startDate}
+                      <p className="mt-1 truncate text-sm text-slate-400">
+                        {row.target.claimedByMemberId
+                          ? "In progress: " + getClaimedMemberName(row.target.claimedByMemberId)
+                          : "Open"}
+                        {" · "}
+                        {row.target.frequency === "once" ? "Due" : "Starts"} {row.target.startDate}
+                        {" · "}
+                        Need {formatQuantity(row.pending, row.target.unit)} / {formatQuantity(row.required, row.target.unit)}
                       </p>
-
-                      {row.target.claimedByMemberId ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <p className="inline-flex rounded-full bg-fuchsia-500/20 px-3 py-1 text-xs font-semibold text-fuchsia-200">
-                            In progress:{" "}
-                            {getClaimedMemberName(row.target.claimedByMemberId)}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="mt-2 inline-flex rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
-                          Open
-                        </p>
-                      )}
                     </div>
 
-                    <div className="grid gap-2 sm:flex sm:items-center sm:justify-end">
-                      <div className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-300">
-                        Need {formatQuantity(row.pending, row.target.unit)} / {formatQuantity(row.required, row.target.unit)}
-                      </div>
-
-                      {(!row.target.claimedByMemberId ||
-                        row.target.claimedByMemberId === getActiveWorkerId()) && (
+                    <div className="flex shrink-0 items-center gap-2">
+                      {row.target.claimedByMemberId === getActiveWorkerId() && (
                         <button
                           onClick={() => logProgress(row.target.id, 1)}
-                          disabled={row.target.isArchived}
-                          className="rounded-xl border border-white/10 px-3 py-2 text-sm hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={row.target.isArchived || row.pending <= 0}
+                          className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           +1
                         </button>
@@ -5455,7 +5401,7 @@ setIsCloudSyncing(true);
                         row.target.claimedByMemberId === getActiveWorkerId() ? (
                           <button
                             onClick={() => releaseTargetClaim(row.target.id)}
-                            className="rounded-xl border border-fuchsia-400/30 px-3 py-2 text-sm text-fuchsia-200 hover:bg-fuchsia-400/10"
+                            className="rounded-lg border border-fuchsia-400/30 px-3 py-1.5 text-sm text-fuchsia-200 hover:bg-fuchsia-400/10"
                           >
                             Stop working
                           </button>
@@ -5464,8 +5410,10 @@ setIsCloudSyncing(true);
                         <button
                           onClick={() => claimTarget(row.target.id)}
                           disabled={row.target.isArchived}
-                          className="rounded-xl border border-emerald-400/30 px-3 py-2 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-50"
-                        >Start work</button>
+                          className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-sm text-cyan-200 hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Start work
+                        </button>
                       )}
                     </div>
                   </div>
