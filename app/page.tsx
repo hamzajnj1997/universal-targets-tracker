@@ -5343,25 +5343,6 @@ setIsCloudSyncing(true);
           <div className="mb-4">
             <h2 className="text-3xl font-bold text-white">Tasks</h2>
           </div>
-          <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
-            <input
-              value={quickTaskTitle}
-              onChange={(event) => setQuickTaskTitle(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") addQuickTaskFromList();
-              }}
-              placeholder="Add a deadline for the selected date..."
-              className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-500"
-            />
-
-            <button
-              onClick={addQuickTaskFromList}
-              className="rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 hover:bg-cyan-300"
-            >
-              Add deadline
-            </button>
-          </div>
-
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50">
             {visibleDashboard.some((row) =>
                 !row.target.claimedByMemberId ||
