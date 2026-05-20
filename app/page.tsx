@@ -4816,6 +4816,14 @@ setIsCloudSyncing(true);
   }
 
   const authorityCapabilities = getAuthorityCapabilities(currentAuthorityRole);
+  const signedInWorkspaceRole =
+    getSignedInTeamMember()?.role.trim().toLowerCase() ?? "";
+  const signedInCanViewAllClaimedWork =
+    signedInWorkspaceRole === "owner" ||
+    signedInWorkspaceRole === "admin" ||
+    signedInWorkspaceRole === "leader";
+  const canViewAllClaimedWork =
+    authorityCapabilities.canEditSettings || signedInCanViewAllClaimedWork;
   const currentAuthorityLabel =
     authorityRoleOptions.find((role) => role.value === currentAuthorityRole)
       ?.label ?? "Full access";
@@ -5347,14 +5355,14 @@ setIsCloudSyncing(true);
             {visibleDashboard.some((row) =>
                 !row.target.claimedByMemberId ||
                 row.target.claimedByMemberId === getActiveWorkerId() ||
-                authorityCapabilities.canEditSettings
+                canViewAllClaimedWork
               ) ? (
               <div className="divide-y divide-white/10">
                 {visibleDashboard
                 .filter((row) =>
                   !row.target.claimedByMemberId ||
                   row.target.claimedByMemberId === getActiveWorkerId() ||
-                  authorityCapabilities.canEditSettings
+                  canViewAllClaimedWork
                 )
                 .map((row) => (
                   <div
