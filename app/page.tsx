@@ -5038,6 +5038,9 @@ setIsCloudSyncing(true);
   }
 
   const authorityCapabilities = getAuthorityCapabilities(currentAuthorityRole);
+  const visibleAppViewOptions = authorityCapabilities.canEditSettings
+    ? appViewOptions
+    : appViewOptions.filter((v) => v.key === "dashboard" || v.key === "targets");
   const signedInWorkspaceRole =
     getSignedInTeamMember()?.role.trim().toLowerCase() ?? "";
   const signedInCanViewAllClaimedWork =
@@ -5678,7 +5681,7 @@ setIsCloudSyncing(true);
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:flex-wrap">
-                {appViewOptions.map((view) => (
+                {visibleAppViewOptions.map((view) => (
                   <button
                     key={view.key}
                     onClick={() => openAppView(view.key)}
