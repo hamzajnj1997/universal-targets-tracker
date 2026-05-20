@@ -1195,6 +1195,7 @@ export default function Home() {
     useState<WorkspaceAuthorityRole>("member");
   const [activeAppView, setActiveAppView] = useState<AppView>("dashboard");
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const [isWalkthroughOpen, setIsWalkthroughOpen] = useState(false);
   const [walkthroughStepIndex, setWalkthroughStepIndex] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
@@ -5536,223 +5537,249 @@ setIsCloudSyncing(true);
           </div>
         )}
 
-        <header className="mb-6 flex flex-col gap-4 xl:mb-8 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-400 sm:text-sm sm:tracking-[0.3em]">
-              Universal Targets Tracker
-            </p>
-
-            <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
-              Team targets, backlog, and progress
-            </h1>
-
-            <div className="mt-4 flex max-w-5xl flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-3 text-sm text-slate-200 sm:flex-row sm:flex-wrap sm:items-center">
-              <div className="inline-flex max-w-full items-center gap-2 px-1">
-                <span className="text-slate-400">Team:</span>
-                <span className="truncate font-semibold text-white">{workspaceName || DEFAULT_WORKSPACE_NAME}</span>
-              </div>
-
-              {currentUser && (
-                <>
-                  <select
-                    value={activeCloudWorkspaceId}
-                    onChange={(event) => handleSwitchCloudTeam(event.target.value)}
-                    disabled={isTeamAutoLoading || isTeamListLoading || accessibleCloudTeams.length === 0}
-                    className="min-w-56 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    aria-label="Switch team"
-                  >
-                    {accessibleCloudTeams.length === 0 ? (
-                      <option value="">Loading teams...</option>
-                    ) : (
-                      accessibleCloudTeams.map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))
-                    )}
-                  </select>
-
-                  <input
-                    value={newCloudTeamName}
-                    onChange={(event) => setNewCloudTeamName(event.target.value)}
-                    placeholder="New team name"
-                    className="min-w-48 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
-                    disabled={isTeamAutoLoading || isTeamListLoading}
-                  />
-
-                  <button
-                    onClick={handleCreateCloudTeam}
-                    disabled={isTeamAutoLoading || isTeamListLoading}
-                    className="rounded-xl border border-emerald-400/40 px-3 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isTeamListLoading ? "Working..." : "Create team"}
-                  </button>
-
-                  <div className="flex min-w-full flex-wrap items-center gap-2 border-t border-white/10 pt-3">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Team members: {members.length}
-                    </span>
-
-                    <input
-                      value={teamMemberEmail}
-                      onChange={(event) => setTeamMemberEmail(event.target.value)}
-                      placeholder="teammate@email.com"
-                      className="min-w-56 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
-                      disabled={isTeamAutoLoading || isAddingTeamMember}
-                    />
-
-                    <select
-                      value={teamMemberRole}
-                      onChange={(event) => setTeamMemberRole(event.target.value)}
-                      className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white"
-                      disabled={isTeamAutoLoading || isAddingTeamMember}
-                      aria-label="Teammate role"
-                    >
-                      <option value="Member">Member</option>
-                      <option value="Leader">Leader</option>
-                      <option value="Admin">Admin</option>
-                    </select>
-
-                    <button
-                      onClick={handleAddTeamMemberByEmail}
-                      disabled={isTeamAutoLoading || isAddingTeamMember}
-                      className="rounded-xl border border-cyan-400/40 px-3 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isAddingTeamMember ? "Adding..." : "Add teammate"}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 sm:text-base">
-              Track daily, weekly, and monthly targets for individuals,
-              families, teams, businesses, and classrooms. Missed work carries
-              forward. Extra work gives future credit.
-            </p>
-          </div>
-
-          <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 sm:grid-cols-2">
-            <FieldLabel label="Selected date">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(event) => selectCalendarDate(event.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"
-              />
-            </FieldLabel>
-
-            {authorityCapabilities.canEditSettings ? (
-              <FieldLabel label="View profile">
-                <select
-                  value={selectedMemberId}
-                  onChange={(event) => setSelectedMemberId(event.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white"
-                >
-                  <option value="all">All profiles</option>
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name}
-                    </option>
-                  ))}
-                </select>
-              </FieldLabel>
-            ) : (
-              <FieldLabel label="View">
-                <div className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-white">
-                  My work
-                </div>
-              </FieldLabel>
-            )}
-          </div>
-        </header>
-
-        <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-3 sm:mb-8 sm:p-4">
+        <header className="mb-6 flex flex-col gap-4 xl:mb-8">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
-                Main navigation
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-400 sm:text-sm sm:tracking-[0.3em]">
+                Tasks
               </p>
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                Choose what you want to do first. The app now shows focused
-                sections instead of forcing every tool onto one screen.
-              </p>
+
+              <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
+                Tasks
+              </h1>
             </div>
 
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:flex-wrap">
-                {visibleAppViewOptions.map((view) => (
-                  <button
-                    key={view.key}
-                    onClick={() => openAppView(view.key)}
-                    className={
-                      activeAppView === view.key
-                        ? "rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950"
-                        : "rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10"
-                    }
-                    title={view.description}
-                  >
-                    {view.label}
-                  </button>
-                ))}
-              </nav>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="min-w-[220px] rounded-2xl border border-white/10 bg-slate-950 px-3 py-3">
+                <label htmlFor="task-date" className="sr-only">
+                  Selected date
+                </label>
+                <input
+                  id="task-date"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => selectCalendarDate(event.target.value)}
+                  className="w-full bg-transparent text-white outline-none"
+                />
+              </div>
 
               <div className="relative">
                 <button
-                  onClick={() => setIsActionMenuOpen((isOpen) => !isOpen)}
-                  className="w-full rounded-xl bg-emerald-400 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-300 lg:w-auto"
+                  onClick={() => setIsWorkspaceMenuOpen((isOpen) => !isOpen)}
+                  className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10"
                 >
-                  + Add / Actions
+                  Workspace / Menu
                 </button>
 
-                {isActionMenuOpen && (
-                  <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-white/10 bg-slate-950 p-2 shadow-2xl">
-                    <button
-                      onClick={() => openAction("addTarget")}
-                      className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
-                    >
-                      Add target
-                    </button>
-                    <button
-                      onClick={() => openAction("addMember")}
-                      className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
-                    >
-                      Add local profile
-                    </button>
-                    <button
-                      onClick={() => openAction("logProgress")}
-                      className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
-                    >
-                      Log progress
-                    </button>
-                    <button
-                      onClick={() => openAction("backup")}
-                      className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
-                    >
-                      Backup / export
-                    </button>
-                    <button
-                      onClick={() => openAction("customize")}
-                      className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
-                    >
-                      Customize screen
-                    </button>
-                    <button
-                      aria-label="Start fresh this device"
-                      onClick={() => {
-                        setIsActionMenuOpen(false);
-                        startFreshWorkspace();
-                      }}
-                      className="block w-full rounded-xl px-3 py-2 text-left text-sm text-amber-200 hover:bg-amber-400/10"
-                    >
-                      Start fresh
-                    </button>
+                {isWorkspaceMenuOpen && (
+                  <div className="absolute right-0 z-20 mt-2 w-screen max-w-xs rounded-3xl border border-white/10 bg-slate-950 p-4 shadow-2xl shadow-black/40">
+                    <div className="space-y-4">
+                      <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                              Workspace
+                            </p>
+                            <p className="mt-1 text-sm text-slate-300">
+                              Manage your team and workspace from one place.
+                            </p>
+                          </div>
+                          <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-300">
+                            {workspaceName || DEFAULT_WORKSPACE_NAME}
+                          </span>
+                        </div>
+
+                        {currentUser && (
+                          <div className="mt-4 space-y-3">
+                            <select
+                              value={activeCloudWorkspaceId}
+                              onChange={(event) => handleSwitchCloudTeam(event.target.value)}
+                              disabled={isTeamAutoLoading || isTeamListLoading || accessibleCloudTeams.length === 0}
+                              className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
+                              aria-label="Switch team"
+                            >
+                              {accessibleCloudTeams.length === 0 ? (
+                                <option value="">Loading teams...</option>
+                              ) : (
+                                accessibleCloudTeams.map((team) => (
+                                  <option key={team.id} value={team.id}>
+                                    {team.name}
+                                  </option>
+                                ))
+                              )}
+                            </select>
+
+                            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                              <input
+                                value={newCloudTeamName}
+                                onChange={(event) => setNewCloudTeamName(event.target.value)}
+                                placeholder="New team name"
+                                className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                                disabled={isTeamAutoLoading || isTeamListLoading}
+                              />
+                              <button
+                                onClick={handleCreateCloudTeam}
+                                disabled={isTeamAutoLoading || isTeamListLoading}
+                                className="rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isTeamListLoading ? "Working..." : "Create team"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {authorityCapabilities.canEditSettings && (
+                        <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                            Quick links
+                          </p>
+                          <div className="mt-3 grid gap-2">
+                            <button
+                              onClick={() => {
+                                openAppView("workspace");
+                                setIsWorkspaceMenuOpen(false);
+                              }}
+                              className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-left text-sm text-white hover:bg-white/10"
+                            >
+                              Team
+                            </button>
+                            <button
+                              onClick={() => {
+                                openAppView("reports");
+                                setIsWorkspaceMenuOpen(false);
+                              }}
+                              className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-left text-sm text-white hover:bg-white/10"
+                            >
+                              Reports
+                            </button>
+                            <button
+                              onClick={() => {
+                                openAppView("settings");
+                                setIsWorkspaceMenuOpen(false);
+                              }}
+                              className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-left text-sm text-white hover:bg-white/10"
+                            >
+                              Settings
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {authorityCapabilities.canManageMembers && currentUser && (
+                        <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                            Team invite
+                          </p>
+                          <div className="mt-3 grid gap-2">
+                            <input
+                              value={teamMemberEmail}
+                              onChange={(event) => setTeamMemberEmail(event.target.value)}
+                              placeholder="Invite teammate"
+                              className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                              disabled={isTeamAutoLoading || isAddingTeamMember}
+                            />
+                            <select
+                              value={teamMemberRole}
+                              onChange={(event) => setTeamMemberRole(event.target.value)}
+                              className="rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white"
+                              disabled={isTeamAutoLoading || isAddingTeamMember}
+                              aria-label="Teammate role"
+                            >
+                              <option value="Member">Member</option>
+                              <option value="Leader">Leader</option>
+                              <option value="Admin">Admin</option>
+                            </select>
+                            <button
+                              onClick={handleAddTeamMemberByEmail}
+                              disabled={isTeamAutoLoading || isAddingTeamMember}
+                              className="rounded-2xl border border-cyan-400/40 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isAddingTeamMember ? "Adding..." : "Invite teammate"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           </div>
-        </section>
+
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:flex-wrap">
+              {visibleAppViewOptions.map((view) => (
+                <button
+                  key={view.key}
+                  onClick={() => openAppView(view.key)}
+                  className={
+                    activeAppView === view.key
+                      ? "rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950"
+                      : "rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10"
+                  }
+                  title={view.description}
+                >
+                  {view.label}
+                </button>
+              ))}
+            </nav>
+
+            <div className="relative">
+              <button
+                onClick={() => setIsActionMenuOpen((isOpen) => !isOpen)}
+                className="w-full rounded-xl bg-emerald-400 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-300 lg:w-auto"
+              >
+                + Add / Actions
+              </button>
+
+              {isActionMenuOpen && (
+                <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-white/10 bg-slate-950 p-2 shadow-2xl">
+                  <button
+                    onClick={() => openAction("addTarget")}
+                    className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
+                  >
+                    Add target
+                  </button>
+                  <button
+                    onClick={() => openAction("addMember")}
+                    className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
+                  >
+                    Add local profile
+                  </button>
+                  <button
+                    onClick={() => openAction("logProgress")}
+                    className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
+                  >
+                    Log progress
+                  </button>
+                  <button
+                    onClick={() => openAction("backup")}
+                    className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
+                  >
+                    Backup / export
+                  </button>
+                  <button
+                    onClick={() => openAction("customize")}
+                    className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/10"
+                  >
+                    Customize screen
+                  </button>
+                  <button
+                    aria-label="Start fresh this device"
+                    onClick={() => {
+                      setIsActionMenuOpen(false);
+                      startFreshWorkspace();
+                    }}
+                    className="block w-full rounded-xl px-3 py-2 text-left text-sm text-amber-200 hover:bg-amber-400/10"
+                  >
+                    Start fresh
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
 
         <section
           className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:mb-8 sm:p-5"
