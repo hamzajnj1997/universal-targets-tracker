@@ -2911,6 +2911,7 @@ export default function Home() {
     }
 
     const createdAt = new Date().toISOString();
+    const submittedByMemberId = getActiveWorkerId() || undefined;
 
     if (canUseDirectTargetPersistence()) {
       const savedLog = await runDirectTargetMutation(
@@ -2921,6 +2922,7 @@ export default function Home() {
             date: selectedDate,
             achievedAmount: amount,
             createdAt,
+            submittedByMemberId,
           })
       );
 
@@ -2952,6 +2954,7 @@ export default function Home() {
         achievedAmount: amount,
         createdAt,
         status: normalizeProgressLogStatus("approved"),
+        submittedByMemberId,
       },
     ]);
 

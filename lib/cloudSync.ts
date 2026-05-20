@@ -602,6 +602,7 @@ type DirectCloudProgressLogRow = {
   progress_date: string;
   achieved_amount: number | null;
   created_at: string;
+  submitted_by_member_id: string | null;
 };
 
 type DirectCloudMemberRow = {
@@ -649,6 +650,7 @@ function toDirectCloudProgressLog(row: DirectCloudProgressLogRow): CloudProgress
     date: row.progress_date,
     achievedAmount: Number(row.achieved_amount) || 1,
     createdAt: row.created_at,
+    submittedByMemberId: row.submitted_by_member_id ?? undefined,
   };
 }
 
@@ -665,7 +667,7 @@ const DIRECT_TARGET_SELECT =
   "id,owner_member_id,title,description,category,priority,frequency,target_amount,unit,start_date,is_archived,claimed_by_member_id,claimed_at";
 
 const DIRECT_PROGRESS_LOG_SELECT =
-  "id,target_id,progress_date,achieved_amount,created_at";
+  "id,target_id,progress_date,achieved_amount,created_at,submitted_by_member_id";
 
 const DIRECT_MEMBER_SELECT = "id,user_id,display_name,role,app_role";
 
@@ -821,6 +823,7 @@ export async function createCloudProgressLog(
       progress_date: log.date,
       achieved_amount: log.achievedAmount || 1,
       created_at: log.createdAt || new Date().toISOString(),
+      submitted_by_member_id: log.submittedByMemberId ?? null,
     })
     .select(DIRECT_PROGRESS_LOG_SELECT)
     .single();
