@@ -5384,9 +5384,11 @@ setIsCloudSyncing(true);
                       </h3>
 
                       <p className="mt-1 truncate text-sm text-slate-400">
-                        {row.target.claimedByMemberId
-                          ? "In progress: " + getClaimedMemberName(row.target.claimedByMemberId)
-                          : "Open"}
+                        {row.pending === 0
+                          ? "Complete"
+                          : row.target.claimedByMemberId
+                            ? "In progress: " + getClaimedMemberName(row.target.claimedByMemberId)
+                            : "Open"}
                         {" · "}
                         {row.target.frequency === "once" ? "Due" : "Starts"} {row.target.startDate}
                       </p>
