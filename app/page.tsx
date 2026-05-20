@@ -5396,6 +5396,18 @@ setIsCloudSyncing(true);
 
                     <div className="flex shrink-0 items-center gap-2">
 
+                      {row.target.claimedByMemberId === getActiveWorkerId() &&
+                        row.pending > 0 && (
+                          <button
+                            onClick={() => logProgress(row.target.id, row.pending)}
+                            disabled={row.target.isArchived}
+                            className="rounded-lg border border-emerald-400/30 px-3 py-1.5 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Complete
+                          </button>
+                        )}
+
+
                       {row.target.claimedByMemberId ? (
                         row.target.claimedByMemberId === getActiveWorkerId() ? (
                           <button
