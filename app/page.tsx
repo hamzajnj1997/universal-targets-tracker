@@ -5922,15 +5922,6 @@ setIsCloudSyncing(true);
           </section>
         )}
 
-        <section className="mb-6 grid grid-cols-2 gap-3 sm:mb-8 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6" style={{ display: activeAppView === "dashboard" ? undefined : "none" }}>
-          <StatCard label="Pending" value={totalPending} />
-          <StatCard label="Achieved" value={totalAchieved} />
-          <StatCard label="Required" value={totalRequired} />
-          <StatCard label="Profiles" value={members.length} />
-          <StatCard label="Logs" value={totalLogs} />
-          <StatCard label="Archived" value={archivedCount} />
-        </section>
-
         <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-white/5 p-4 sm:mb-8 sm:p-5" style={{ display: activeAppView === "settings" ? undefined : "none" }}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -6040,7 +6031,7 @@ setIsCloudSyncing(true);
           )}
         </section>
 
-        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.quickStart && (activeAppView === "dashboard" || activeAppView === "settings") ? undefined : "none" }}>
+        <section className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-4 sm:mb-8 sm:p-5" style={{ display: screenSettings.quickStart && activeAppView === "settings" ? undefined : "none" }}>
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 sm:text-sm sm:tracking-[0.25em]">
