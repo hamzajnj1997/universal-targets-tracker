@@ -152,9 +152,21 @@ type BackupFile = Partial<SavedAppState> & {
   calendarMonth?: string;
 };
 
+type RecentTargetClaimOverride = {
+  workspaceId: string;
+  userId: string;
+  targetId: string;
+  claimedByMemberId: string | null;
+  claimedAt: string | null;
+  savedAt: string;
+};
+
 const STORAGE_KEY = "universal-targets-tracker-demo-v4";
 const ACTIVE_CLOUD_TEAM_STORAGE_KEY =
   "universal-targets-tracker-active-cloud-team-id";
+const RECENT_TARGET_CLAIM_STORAGE_KEY =
+  "universal-targets-tracker-recent-target-claims-v1";
+const RECENT_TARGET_CLAIM_TTL_MS = 60 * 1000;
 
 function getActiveCloudTeamStorageKey(userId: string) {
   return `${ACTIVE_CLOUD_TEAM_STORAGE_KEY}:${userId}`;
@@ -1688,11 +1700,16 @@ export default function Home() {
 
         const loadedMembers =
           result.members.length > 0 ? result.members : initialMembers;
+        const loadedTargets = applyRecentTargetClaimOverrides(
+          result.targets,
+          activeUser.id,
+          result.workspace.id
+        );
         const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
         const loadedActivityEvents = normalizeActivityEvents(result.activityEvents);
 
         setMembers(loadedMembers);
-        setTargets(result.targets);
+        setTargets(loadedTargets);
         setLogs(result.logs);
         setActivityEvents(loadedActivityEvents);
 
@@ -1837,10 +1854,15 @@ export default function Home() {
 
       const loadedCloudMembers =
         result.members.length > 0 ? result.members : initialMembers;
+      const loadedCloudTargets = applyRecentTargetClaimOverrides(
+        result.targets,
+        currentUser.id,
+        result.workspace.id
+      );
       const loadedWorkspaceName = normalizeWorkspaceName(result.workspace.name);
 
       setMembers(loadedCloudMembers);
-      setTargets(result.targets);
+      setTargets(loadedCloudTargets);
       setLogs(result.logs);
       setActivityEvents(normalizeActivityEvents(result.activityEvents));
 
@@ -2080,6 +2102,128 @@ export default function Home() {
     }
   }
 
+  function saveRecentTargetClaimOverrides(
+    overrides: RecentTargetClaimOverride[]
+  ) {
+    if (overrides.length === 0) {
+      window.localStorage.removeItem(RECENT_TARGET_CLAIM_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(
+      RECENT_TARGET_CLAIM_STORAGE_KEY,
+      JSON.stringify(overrides)
+    );
+  }
+
+  function getRecentTargetClaimOverrides() {
+    const rawOverrides = window.localStorage.getItem(
+      RECENT_TARGET_CLAIM_STORAGE_KEY
+    );
+
+    if (!rawOverrides) return [];
+
+    try {
+      const parsedOverrides = JSON.parse(rawOverrides);
+      const now = Date.now();
+
+      if (!Array.isArray(parsedOverrides)) return [];
+
+      const freshOverrides = parsedOverrides.filter(
+        (item): item is RecentTargetClaimOverride => {
+          const override = item as Partial<RecentTargetClaimOverride>;
+          const savedAtMs = Date.parse(String(override.savedAt ?? ""));
+
+          return (
+            typeof override.workspaceId === "string" &&
+            typeof override.userId === "string" &&
+            typeof override.targetId === "string" &&
+            (typeof override.claimedByMemberId === "string" ||
+              override.claimedByMemberId === null) &&
+            (typeof override.claimedAt === "string" ||
+              override.claimedAt === null) &&
+            Number.isFinite(savedAtMs) &&
+            now - savedAtMs <= RECENT_TARGET_CLAIM_TTL_MS
+          );
+        }
+      );
+
+      if (freshOverrides.length !== parsedOverrides.length) {
+        saveRecentTargetClaimOverrides(freshOverrides);
+      }
+
+      return freshOverrides;
+    } catch {
+      window.localStorage.removeItem(RECENT_TARGET_CLAIM_STORAGE_KEY);
+      return [];
+    }
+  }
+
+  function rememberRecentTargetClaim(target: Target) {
+    if (!currentUser || !activeCloudWorkspaceId) return;
+
+    const nextOverride: RecentTargetClaimOverride = {
+      workspaceId: activeCloudWorkspaceId,
+      userId: currentUser.id,
+      targetId: target.id,
+      claimedByMemberId: target.claimedByMemberId ?? null,
+      claimedAt: target.claimedAt ?? null,
+      savedAt: new Date().toISOString(),
+    };
+    const nextOverrides = getRecentTargetClaimOverrides().filter(
+      (override) =>
+        override.workspaceId !== nextOverride.workspaceId ||
+        override.userId !== nextOverride.userId ||
+        override.targetId !== nextOverride.targetId
+    );
+
+    saveRecentTargetClaimOverrides([...nextOverrides, nextOverride]);
+  }
+
+  function shouldApplyRecentTargetClaimOverride(
+    target: Target,
+    override: RecentTargetClaimOverride
+  ) {
+    const overrideTime = Date.parse(override.savedAt);
+    const targetClaimTime = target.claimedAt ? Date.parse(target.claimedAt) : 0;
+
+    if (!Number.isFinite(overrideTime)) return false;
+    if (!Number.isFinite(targetClaimTime)) return true;
+
+    return targetClaimTime <= overrideTime;
+  }
+
+  function applyRecentTargetClaimOverrides(
+    nextTargets: Target[],
+    userId: string,
+    workspaceId: string
+  ) {
+    const overrides = getRecentTargetClaimOverrides().filter(
+      (override) =>
+        override.userId === userId && override.workspaceId === workspaceId
+    );
+
+    if (overrides.length === 0) return nextTargets;
+
+    const overridesByTargetId = new Map(
+      overrides.map((override) => [override.targetId, override])
+    );
+
+    return nextTargets.map((target) => {
+      const override = overridesByTargetId.get(target.id);
+
+      if (!override || !shouldApplyRecentTargetClaimOverride(target, override)) {
+        return target;
+      }
+
+      return {
+        ...target,
+        claimedByMemberId: override.claimedByMemberId ?? undefined,
+        claimedAt: override.claimedAt ?? undefined,
+      };
+    });
+  }
+
   function persistBrowserSnapshot({
     nextWorkspaceName = workspaceName,
     nextMembers = members,
@@ -2258,7 +2402,11 @@ export default function Home() {
 
           if (!targetId) return;
 
-          const liveTarget = liveTargetRowToTarget(payload.new as LiveTargetRow);
+          const liveTarget = applyRecentTargetClaimOverrides(
+            [liveTargetRowToTarget(payload.new as LiveTargetRow)],
+            currentUser.id,
+            activeCloudWorkspaceId
+          )[0];
 
           setTargets((currentTargets) => {
             const targetExists = currentTargets.some(
@@ -3320,6 +3468,8 @@ export default function Home() {
 
       if (!savedTarget) return;
 
+      rememberRecentTargetClaim(savedTarget);
+
       const nextTargets = targets.map((item) =>
         item.id === targetId ? savedTarget : item
       );
@@ -3467,6 +3617,8 @@ export default function Home() {
       );
 
       if (!savedTarget) return;
+
+      rememberRecentTargetClaim(savedTarget);
 
       const nextTargets = targets.map((item) =>
         item.id === targetId ? savedTarget : item
@@ -4828,9 +4980,14 @@ setIsCloudSyncing(true);
 
       const loadedCloudMembers =
         result.members.length > 0 ? result.members : initialMembers;
+      const loadedCloudTargets = applyRecentTargetClaimOverrides(
+        result.targets,
+        currentUser.id,
+        result.workspace.id
+      );
 
       setMembers(loadedCloudMembers);
-      setTargets(result.targets);
+      setTargets(loadedCloudTargets);
       setLogs(result.logs);
       setActivityEvents(normalizeActivityEvents(result.activityEvents));
 
