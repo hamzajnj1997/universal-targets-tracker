@@ -5381,21 +5381,10 @@ setIsCloudSyncing(true);
                           : "Open"}
                         {" · "}
                         {row.target.frequency === "once" ? "Due" : "Starts"} {row.target.startDate}
-                        {" · "}
-                        Need {formatQuantity(row.pending, row.target.unit)} / {formatQuantity(row.required, row.target.unit)}
                       </p>
                     </div>
 
                     <div className="flex shrink-0 items-center gap-2">
-                      {row.target.claimedByMemberId === getActiveWorkerId() && (
-                        <button
-                          onClick={() => logProgress(row.target.id, 1)}
-                          disabled={row.target.isArchived || row.pending <= 0}
-                          className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          +1
-                        </button>
-                      )}
 
                       {row.target.claimedByMemberId ? (
                         row.target.claimedByMemberId === getActiveWorkerId() ? (
