@@ -1219,6 +1219,12 @@ export default function Home() {
   const [isTeamAutoLoading, setIsTeamAutoLoading] = useState(false);
   const [lastCloudSyncAt, setLastCloudSyncAt] = useState<string | null>(null);
   const [, setHasDismissedSampleBanner] = useState(false);
+  const isCloudAutoLoadPending = Boolean(
+    currentUser &&
+      (supabaseConnectionStatus === "checking" ||
+        (supabaseConnectionStatus === "connected" &&
+          autoLoadedCloudUserId !== currentUser.id))
+  );
 
   useEffect(() => {
     const config = getSupabaseConfigStatus();
@@ -1594,7 +1600,9 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!hasLoadedSavedData) return;
+    if (!hasLoadedSavedData || isTeamAutoLoading || isCloudAutoLoadPending) {
+      return;
+    }
 
     const savedAt = new Date().toISOString();
     setLastSavedAt(savedAt);
@@ -1611,7 +1619,17 @@ export default function Home() {
         lastSavedAt: savedAt,
       })
     );
-  }, [workspaceName, members, targets, logs, activityEvents, screenSettings, hasLoadedSavedData]);
+  }, [
+    workspaceName,
+    members,
+    targets,
+    logs,
+    activityEvents,
+    screenSettings,
+    hasLoadedSavedData,
+    isTeamAutoLoading,
+    isCloudAutoLoadPending,
+  ]);
 
 
   
@@ -5133,7 +5151,12 @@ setIsCloudSyncing(true);
   function goToPreviousWalkthroughStep() {
     setWalkthroughStepIndex((currentIndex) => Math.max(currentIndex - 1, 0));
   }
-  if (!hasLoadedSavedData || !hasCheckedAuth || isTeamAutoLoading) {
+  if (
+    !hasLoadedSavedData ||
+    !hasCheckedAuth ||
+    isTeamAutoLoading ||
+    isCloudAutoLoadPending
+  ) {
     return (
       <main className="min-h-screen bg-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
         <div className="mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center">
@@ -5142,7 +5165,9 @@ setIsCloudSyncing(true);
               Universal Targets Tracker
             </p>
             <h1 className="mt-4 text-2xl font-bold sm:text-3xl">
-              {isTeamAutoLoading ? "Loading your saved team" : "Loading your team"}
+              {isTeamAutoLoading || isCloudAutoLoadPending
+                ? "Loading your saved team"
+                : "Loading your team"}
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-300">
               Preparing the correct date, team data, and browser storage
