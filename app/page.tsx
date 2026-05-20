@@ -177,19 +177,6 @@ const LOCAL_PROFILE_ROLE = "Local assignment profile";
 
 
 
-const suggestedCategories = [
-  "General",
-  "School",
-  "Business",
-  "Content",
-  "Health",
-  "Family",
-  "Sales",
-  "Admin",
-  "Personal",
-  "Finance",
-];
-
 const priorityOptions: { value: Priority; label: string }[] = [
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
@@ -647,10 +634,6 @@ function periodsDue(target: Target, dateISO: string) {
     return 0;
   }
 
-  if (dateISO > today) {
-    return 1;
-  }
-
   if (target.frequency === "daily") {
     return daysBetween(target.startDate, dateISO) + 1;
   }
@@ -660,6 +643,25 @@ function periodsDue(target: Target, dateISO: string) {
   }
 
   return monthsBetween(target.startDate, dateISO) + 1;
+}
+
+function isTargetDueOnDate(target: Target, dateISO: string) {
+  if (dateISO < target.startDate) return false;
+
+  if (target.frequency === "once") {
+    return dateISO === target.startDate;
+  }
+
+  if (target.frequency === "daily") return true;
+
+  if (target.frequency === "weekly") {
+    return daysBetween(target.startDate, dateISO) % 7 === 0;
+  }
+
+  return addMonths(
+    target.startDate,
+    monthsBetween(target.startDate, dateISO)
+  ) === dateISO;
 }
 
 function getDueStatusLabel(frequency?: Frequency) {
@@ -1143,7 +1145,7 @@ export default function Home() {
   const [newTitle, setNewTitle] = useState("");
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
-  const [newCategory, setNewCategory] = useState("General");
+  const [newCategory, setNewCategory] = useState("");
   const [newPriority, setNewPriority] = useState<Priority>("medium");
   const [newAmount, setNewAmount] = useState(1);
   const [newUnit, setNewUnit] = useState("tasks");
@@ -1158,7 +1160,7 @@ export default function Home() {
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [editCategory, setEditCategory] = useState("General");
+  const [editCategory, setEditCategory] = useState("");
   const [editPriority, setEditPriority] = useState<Priority>("medium");
   const [editOwnerId, setEditOwnerId] = useState(OPEN_TEAM_OWNER_ID);
   const [editFrequency, setEditFrequency] = useState<Frequency>("daily");
@@ -1362,12 +1364,12 @@ export default function Home() {
 
   const categoryOptions = useMemo(() => {
     const currentCategories = targets
-      .map((target) => target.category || "General")
+      .map((target) => target.category.trim())
       .filter(Boolean);
 
-    return Array.from(
-      new Set([...suggestedCategories, ...currentCategories])
-    ).sort((a, b) => a.localeCompare(b));
+    return Array.from(new Set(currentCategories)).sort((a, b) =>
+      a.localeCompare(b)
+    );
   }, [targets]);
 
   function normalizeMembers(rawMembers: unknown[]): Member[] {
@@ -1422,7 +1424,7 @@ export default function Home() {
         category:
           typeof target.category === "string" && target.category.trim()
             ? target.category.trim()
-            : "General",
+            : "",
         priority: isPriority(target.priority) ? target.priority : "medium",
         ownerId:
           typeof target.ownerId === "string" && target.ownerId.trim()
@@ -2165,7 +2167,7 @@ export default function Home() {
       id: getLiveString(row.id),
       title: getLiveString(row.title, "Untitled target"),
       description: getLiveString(row.description),
-      category: getLiveString(row.category, "General"),
+      category: getLiveString(row.category),
       priority: normalizeLivePriority(row.priority),
       ownerId: getLiveString(row.owner_member_id) || OPEN_TEAM_OWNER_ID,
       frequency: normalizeLiveFrequency(row.frequency),
@@ -2422,7 +2424,6 @@ export default function Home() {
       .reduce((sum, log) => sum + log.achievedAmount, 0);
 
     const pending = Math.max(0, required - achieved);
-    const surplus = Math.max(0, achieved - required);
     const progress =
           required === 0
             ? 0
@@ -2442,9 +2443,49 @@ export default function Home() {
       required,
       achieved,
       pending,
-      surplus,
       progress,
       recentLogs,
+      status: getStatus(pending, progress, dateISO, target.frequency),
+    };
+  }
+
+  function calculateTargetOccurrenceSnapshot(target: Target, dateISO: string) {
+    const owner = members.find((member) => member.id === target.ownerId);
+    const required = target.targetAmount;
+    const previousRequired =
+      Math.max(0, periodsDue(target, dateISO) - 1) * target.targetAmount;
+
+    const totalAchieved = logs
+      .filter((log) => log.targetId === target.id && log.date <= dateISO)
+      .reduce((sum, log) => sum + log.achievedAmount, 0);
+
+    const achieved = Math.max(
+      0,
+      Math.min(required, totalAchieved - previousRequired)
+    );
+    const pending = Math.max(0, required - achieved);
+    const progress =
+          required === 0
+            ? 0
+            : Math.min(100, Math.round((achieved / required) * 100));
+
+    const recentLogs = logs
+      .filter((log) => log.targetId === target.id)
+      .slice()
+      .sort((a, b) =>
+        (b.createdAt || b.date).localeCompare(a.createdAt || a.date)
+      )
+      .slice(0, 4);
+
+    return {
+      target,
+      owner,
+      required,
+      achieved,
+      pending,
+      progress,
+      recentLogs,
+      dueDate: dateISO,
       status: getStatus(pending, progress, dateISO, target.frequency),
     };
   }
@@ -2627,7 +2668,10 @@ export default function Home() {
     >();
 
     for (const row of visibleDashboard) {
-      const category = row.target.category || "General";
+      const category = row.target.category.trim();
+
+      if (!category) continue;
+
       const existing =
         groups.get(category) ??
         {
@@ -2900,13 +2944,13 @@ export default function Home() {
     setSelectedMemberId("all");
   }
 
-  async function logProgress(targetId: string, amount: number) {
+  async function logProgress(targetId: string, amount: number, dateISO = selectedDate) {
     if (!authorityCapabilities.canSubmitWork) {
       window.alert("View-only permission cannot submit progress.");
       return false;
     }
 
-    if (!isPositiveFiniteNumber(amount) || !isValidDateISO(selectedDate)) {
+    if (!isPositiveFiniteNumber(amount) || !isValidDateISO(dateISO)) {
       return false;
     }
 
@@ -2919,7 +2963,7 @@ export default function Home() {
         (supabase, user, workspaceId) =>
           createCloudProgressLog(supabase, user, workspaceId, {
             targetId,
-            date: selectedDate,
+            date: dateISO,
             achievedAmount: amount,
             createdAt,
             submittedByMemberId,
@@ -2950,7 +2994,7 @@ export default function Home() {
       {
         id: createId("log"),
         targetId,
-        date: selectedDate,
+        date: dateISO,
         achievedAmount: amount,
         createdAt,
         status: normalizeProgressLogStatus("approved"),
@@ -3122,7 +3166,7 @@ export default function Home() {
     setEditingTargetId(target.id);
     setEditTitle(target.title);
     setEditDescription(target.description ?? "");
-    setEditCategory(target.category || "General");
+    setEditCategory(target.category);
     setEditPriority(target.priority ?? "medium");
     setEditOwnerId(target.ownerId);
     setEditFrequency(target.frequency);
@@ -3135,7 +3179,7 @@ export default function Home() {
     setEditingTargetId(null);
     setEditTitle("");
     setEditDescription("");
-    setEditCategory("General");
+    setEditCategory("");
     setEditPriority("medium");
     setEditOwnerId(OPEN_TEAM_OWNER_ID);
     setEditFrequency("daily");
@@ -3186,7 +3230,7 @@ export default function Home() {
       ...currentTarget,
       title: editTitle.trim(),
       description: editDescription.trim(),
-      category: editCategory.trim() || "General",
+      category: editCategory.trim(),
       priority: editPriority,
       ownerId: editOwnerId,
       frequency: editFrequency,
@@ -3501,7 +3545,7 @@ export default function Home() {
     const targetPayload = {
       title,
       description: "",
-      category: "General",
+      category: "",
       priority: "medium" as Priority,
       ownerId,
       frequency: "once" as Frequency,
@@ -3580,7 +3624,7 @@ export default function Home() {
     const targetPayload = {
       title: newTitle.trim(),
       description: newDescription.trim(),
-      category: newCategory.trim() || "General",
+      category: newCategory.trim(),
       priority: newPriority,
       ownerId,
       frequency: newFrequency,
@@ -3621,7 +3665,7 @@ export default function Home() {
 
     setNewTitle("");
     setNewDescription("");
-    setNewCategory("General");
+    setNewCategory("");
     setNewPriority("medium");
     setNewAmount(1);
     setNewUnit("tasks");
@@ -4132,7 +4176,7 @@ export default function Home() {
     setCategoryFilter("all");
     setArchiveFilter("active");
     setNewOwnerId(OPEN_TEAM_OWNER_ID);
-    setNewCategory("General");
+    setNewCategory("");
     setScreenSettings(defaultScreenSettings);
     setCurrentAuthorityRole("owner");
     setIsCustomizeOpen(false);
@@ -4831,6 +4875,184 @@ setIsCloudSyncing(true);
     authorityRoleOptions.find((role) => role.value === currentAuthorityRole)
       ?.label ?? "Full access";
 
+  type TaskSummaryRow = ReturnType<typeof calculateTargetSnapshot> & {
+    dueDate?: string;
+  };
+
+  function canShowClaimedTarget(target: Target) {
+    return (
+      !target.claimedByMemberId ||
+      target.claimedByMemberId === getActiveWorkerId() ||
+      canViewAllClaimedWork
+    );
+  }
+
+  const dashboardTaskSections = useMemo(() => {
+    const today = todayISO();
+    const sections = [
+      {
+        key: "today",
+        title: "Today",
+        startDate: today,
+        endDate: today,
+      },
+      {
+        key: "tomorrow",
+        title: "Tomorrow",
+        startDate: addDays(today, 1),
+        endDate: addDays(today, 1),
+      },
+      {
+        key: "next-7",
+        title: "Next 7 days",
+        startDate: addDays(today, 2),
+        endDate: addDays(today, 7),
+      },
+      {
+        key: "next-14",
+        title: "Next 14 days",
+        startDate: addDays(today, 8),
+        endDate: addDays(today, 14),
+      },
+    ];
+    const scheduledTargetIds = new Set<string>();
+
+    return sections.map((section) => {
+      const rows: TaskSummaryRow[] = [];
+
+      for (const target of targets) {
+        if (scheduledTargetIds.has(target.id)) continue;
+        if (!canShowClaimedTarget(target)) continue;
+
+        for (
+          let dateISO = section.startDate;
+          dateISO <= section.endDate;
+          dateISO = addDays(dateISO, 1)
+        ) {
+          if (!isTargetDueOnDate(target, dateISO)) continue;
+
+          const row = calculateTargetOccurrenceSnapshot(target, dateISO);
+
+          if (row.pending > 0 && rowMatchesFilters(row)) {
+            rows.push(row);
+            scheduledTargetIds.add(target.id);
+            break;
+          }
+        }
+      }
+
+      rows.sort((a, b) => {
+        const dueDateDifference = (a.dueDate ?? "").localeCompare(
+          b.dueDate ?? ""
+        );
+
+        if (dueDateDifference !== 0) return dueDateDifference;
+
+        const priorityDifference =
+          priorityRank(b.target.priority) - priorityRank(a.target.priority);
+
+        if (priorityDifference !== 0) return priorityDifference;
+
+        return a.target.title.localeCompare(b.target.title);
+      });
+
+      return {
+        ...section,
+        rows,
+      };
+    });
+  }, [
+    targets,
+    logs,
+    members,
+    selectedMemberId,
+    searchQuery,
+    priorityFilter,
+    statusFilter,
+    categoryFilter,
+    archiveFilter,
+    activeWorkerId,
+    currentAuthorityRole,
+    currentUser,
+    canViewAllClaimedWork,
+  ]);
+
+  function getTaskSummaryDueDate(row: TaskSummaryRow) {
+    return row.dueDate ?? (row.target.frequency === "once" ? row.target.startDate : selectedDate);
+  }
+
+  function renderTaskSummaryRow(row: TaskSummaryRow) {
+    const dueDate = getTaskSummaryDueDate(row);
+
+    return (
+      <div
+        key={`${row.target.id}-${dueDate}`}
+        className="grid gap-3 p-4 hover:bg-white/5 lg:grid-cols-[auto_1fr_auto] lg:items-center"
+      >
+        <div
+          className={
+            row.pending === 0
+              ? "mt-1 h-5 w-5 shrink-0 rounded-full border border-emerald-400 bg-emerald-400/20"
+              : "mt-1 h-5 w-5 shrink-0 rounded-full border border-slate-500"
+          }
+          aria-hidden="true"
+        />
+
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-base font-medium text-white">
+            {row.target.title}
+          </h3>
+
+          <p className="mt-1 truncate text-sm text-slate-400">
+            {row.pending === 0
+              ? "Complete"
+              : row.target.claimedByMemberId
+                ? "In progress: " + getClaimedMemberName(row.target.claimedByMemberId)
+                : "Open"}
+            {" - "}
+            Due {dueDate}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {row.target.claimedByMemberId === getActiveWorkerId() &&
+            row.pending > 0 && (
+              <button
+                onClick={() => logProgress(row.target.id, row.pending, dueDate)}
+                disabled={row.target.isArchived}
+                className="rounded-lg border border-emerald-400/30 px-3 py-1.5 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Complete
+              </button>
+            )}
+
+          {row.target.claimedByMemberId ? (
+            row.target.claimedByMemberId === getActiveWorkerId() ? (
+              <button
+                onClick={() => releaseTargetClaim(row.target.id)}
+                className="rounded-lg border border-fuchsia-400/30 px-3 py-1.5 text-sm text-fuchsia-200 hover:bg-fuchsia-400/10"
+              >
+                Stop working
+              </button>
+            ) : null
+          ) : (
+            <button
+              onClick={() => claimTarget(row.target.id)}
+              disabled={row.target.isArchived}
+              className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-sm text-cyan-200 hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Start work
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const targetTaskRows = visibleDashboard.filter((row) =>
+    canShowClaimedTarget(row.target)
+  );
+
   const walkthroughSteps: {
     title: string;
     body: string;
@@ -5354,94 +5576,52 @@ setIsCloudSyncing(true);
           <div className="mb-4">
             <h2 className="text-3xl font-bold text-white">Tasks</h2>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50">
-            {visibleDashboard.some((row) =>
-                !row.target.claimedByMemberId ||
-                row.target.claimedByMemberId === getActiveWorkerId() ||
-                canViewAllClaimedWork
-              ) ? (
-              <div className="divide-y divide-white/10">
-                {visibleDashboard
-                .filter((row) =>
-                  !row.target.claimedByMemberId ||
-                  row.target.claimedByMemberId === getActiveWorkerId() ||
-                  canViewAllClaimedWork
-                )
-                .map((row) => (
-                  <div
-                    key={row.target.id}
-                    className="grid gap-3 p-4 hover:bg-white/5 lg:grid-cols-[auto_1fr_auto] lg:items-center"
-                  >
-                    <div
-                      className={
-                        row.pending === 0
-                          ? "mt-1 h-5 w-5 shrink-0 rounded-full border border-emerald-400 bg-emerald-400/20"
-                          : "mt-1 h-5 w-5 shrink-0 rounded-full border border-slate-500"
-                      }
-                      aria-hidden="true"
-                    />
-
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-base font-medium text-white">
-                        {row.target.title}
-                      </h3>
-
-                      <p className="mt-1 truncate text-sm text-slate-400">
-                        {row.pending === 0
-                          ? "Complete"
-                          : row.target.claimedByMemberId
-                            ? "In progress: " + getClaimedMemberName(row.target.claimedByMemberId)
-                            : "Open"}
-                        {" · "}
-                        {row.target.frequency === "once" ? "Due" : "Starts"} {row.target.startDate}
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-2">
-
-                      {row.target.claimedByMemberId === getActiveWorkerId() &&
-                        row.pending > 0 && (
-                          <button
-                            onClick={() => logProgress(row.target.id, row.pending)}
-                            disabled={row.target.isArchived}
-                            className="rounded-lg border border-emerald-400/30 px-3 py-1.5 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Complete
-                          </button>
-                        )}
-
-
-                      {row.target.claimedByMemberId ? (
-                        row.target.claimedByMemberId === getActiveWorkerId() ? (
-                          <button
-                            onClick={() => releaseTargetClaim(row.target.id)}
-                            className="rounded-lg border border-fuchsia-400/30 px-3 py-1.5 text-sm text-fuchsia-200 hover:bg-fuchsia-400/10"
-                          >
-                            Stop working
-                          </button>
-                        ) : null
-                      ) : (
-                        <button
-                          onClick={() => claimTarget(row.target.id)}
-                          disabled={row.target.isArchived}
-                          className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-sm text-cyan-200 hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Start work
-                        </button>
-                      )}
-                    </div>
+          {activeAppView === "dashboard" ? (
+            <div className="grid gap-4">
+              {dashboardTaskSections.map((section) => (
+                <div
+                  key={section.key}
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50"
+                >
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <h3 className="text-lg font-semibold text-white">
+                      {section.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {section.startDate === section.endDate
+                        ? section.startDate
+                        : `${section.startDate} to ${section.endDate}`}
+                    </p>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 text-center">
-                <p className="text-lg font-bold">{targetEmptyState.title}</p>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  {targetEmptyState.body}
-                </p>
-              </div>
-            )}
-          </div>
+
+                  {section.rows.length > 0 ? (
+                    <div className="divide-y divide-white/10">
+                      {section.rows.map((row) => renderTaskSummaryRow(row))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-sm text-slate-400">
+                      No tasks due.
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50">
+              {targetTaskRows.length > 0 ? (
+                <div className="divide-y divide-white/10">
+                  {targetTaskRows.map((row) => renderTaskSummaryRow(row))}
+                </div>
+              ) : (
+                <div className="p-6 text-center">
+                  <p className="text-lg font-bold">{targetEmptyState.title}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    {targetEmptyState.body}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <section
@@ -6885,9 +7065,11 @@ setIsCloudSyncing(true);
                                 </span>
                               )}
 
-                              <span className="rounded-full border border-violet-400/30 bg-violet-500/20 px-3 py-1 text-xs font-medium text-violet-200">
-                                {row.target.category || "General"}
-                              </span>
+                              {row.target.category.trim() && (
+                                <span className="rounded-full border border-violet-400/30 bg-violet-500/20 px-3 py-1 text-xs font-medium text-violet-200">
+                                  {row.target.category.trim()}
+                                </span>
+                              )}
 
                               <span
                                 className={`rounded-full border px-3 py-1 text-xs font-medium ${priorityClass(
@@ -6913,7 +7095,8 @@ setIsCloudSyncing(true);
                             <p className="mt-2 text-sm leading-6 text-slate-400">
                               Assigned to: {row.owner?.name ?? "Unknown"} - Target:{" "}
                               {formatQuantity(row.target.targetAmount, row.target.unit)} /{" "}
-                              {row.target.frequency === "once" ? "deadline" : row.target.frequency}
+                              {row.target.frequency === "once" ? "deadline" : row.target.frequency} - Due:{" "}
+                              {row.target.frequency === "once" ? row.target.startDate : selectedDate}
                             </p>
 
                             {row.target.description && (
@@ -6935,12 +7118,6 @@ setIsCloudSyncing(true);
                             <p className="text-3xl font-bold">
                               {formatQuantity(row.pending, row.target.unit)}
                             </p>
-
-                            {row.surplus > 0 && (
-                              <p className="mt-1 text-sm text-emerald-300">
-                                Surplus credit: {row.surplus}
-                              </p>
-                            )}
                           </div>
                         </div>
 
