@@ -4,21 +4,21 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Universal Targets Tracker",
-    template: "%s | Universal Targets Tracker",
+    default: "Real-Time Work Ownership Tracker",
+    template: "%s | Real-Time Work Ownership Tracker",
   },
   description:
-    "A customizable target-debt tracker for recurring goals, backlog, progress, members, and catch-up planning.",
-  applicationName: "Universal Targets Tracker",
+    "A focused live board for team target ownership, claims, blockers, completion, notes, and audit history.",
+  applicationName: "Real-Time Work Ownership Tracker",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/app-icon.svg",
     shortcut: "/app-icon.svg",
   },
   openGraph: {
-    title: "Universal Targets Tracker",
+    title: "Real-Time Work Ownership Tracker",
     description:
-      "Track recurring targets, missed work, backlog, progress, members, and catch-up status.",
+      "Track available, claimed, blocked, and completed team targets with a clear audit trail.",
     type: "website",
   },
 };

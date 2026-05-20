@@ -1,18 +1,14 @@
 {
-  "name": "Universal Targets Tracker",
-  "short_name": "Targets",
-  "description": "Track recurring targets, missed work, backlog, progress, members, and catch-up status.",
-  "start_url": "/",
+  "name": "Real-Time Work Ownership Tracker",
+  "short_name": "Work Tracker",
+  "description": "Live board for target ownership, blockers, completion, notes, and audit history.",
+  "start_url": "/app/board",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#020617",
   "theme_color": "#020617",
-  "categories": [
-    "productivity",
-    "business",
-    "education"
-  ],
+  "categories": ["productivity", "business"],
   "icons": [
     {
       "src": "/app-icon.svg",
@@ -23,10 +19,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Open Targets",
-      "short_name": "Targets",
-      "description": "Open your target dashboard",
-      "url": "/",
+      "name": "Open Live Board",
+      "short_name": "Board",
+      "description": "Open the live ownership board",
+      "url": "/app/board",
       "icons": [
         {
           "src": "/app-icon.svg",

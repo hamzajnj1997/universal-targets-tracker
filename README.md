@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Real-Time Work Ownership Tracker
 
-## Getting Started
+Focused live-board app for small teams that need to know what work is available,
+who owns it right now, what is blocked, and what was completed today.
 
-First, run the development server:
+## Product Scope
+
+Core workflow:
+
+1. Create target
+2. Claim target
+3. Release, block, or complete target
+4. Record audit activity and notes
+5. Review board and dashboard
+
+This app intentionally does not include CRM, HR, payroll, accounting, inventory,
+chat, AI, or general business-management modules.
+
+## Routes
+
+- `/login`
+- `/signup`
+- `/forgot-password`
+- `/onboarding`
+- `/app/board`
+- `/app/my-work`
+- `/app/completed`
+- `/app/dashboard`
+- `/app/settings`
+- `/app/settings/members`
+- `/app/settings/team`
+- `/app/settings/profile`
+
+## Environment
+
+Create `.env.local` with:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+## Database
+
+Apply the migration before deploying app code that uses the new workflow:
+
+```bash
+supabase/migrations/20260521_work_ownership_tracker.sql
+```
+
+The migration preserves the existing workspace/member/target foundation and adds
+work ownership status, blocker/completion fields, target activity, target notes,
+and protected RPC actions.
+
+## Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000/app/board`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Validation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run before deployment:
 
-## Learn More
+```bash
+npm run lint
+npm run build
+```
 
-To learn more about Next.js, take a look at the following resources:
+Manual checks:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Signup and login
+- Create or join a team
+- Create a target
+- Claim, release, block, complete, reopen, and archive through allowed roles
+- Audit log entries for target actions and notes
+- Member permissions enforced by Supabase RPC/RLS
+- Clean desktop and mobile board layouts
