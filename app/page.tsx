@@ -4856,8 +4856,8 @@ setIsCloudSyncing(true);
       view: "targets",
     },
     {
-      title: "4. Log progress",
-      body: "Pick the correct date first. Then use Tick done, +1, +3, or a custom amount. Progress logs drive totals, reports, and calendar status.",
+      title: "4. Review progress",
+      body: "Pick the correct date first. The selected-day totals show what is required, achieved, and still pending.",
       actionLabel: "Open Targets",
       view: "targets",
     },
@@ -6139,8 +6139,8 @@ setIsCloudSyncing(true);
             />
             <OnboardingStep
               number="4"
-              title="Log progress"
-              body="Pick the correct date, then use Tick done, +1, +3, or a custom amount. Logs update totals immediately."
+              title="Review progress"
+              body="Pick the correct date, then review required, achieved, and pending totals for the work shown."
             />
             <OnboardingStep
               number="5"
@@ -6578,8 +6578,7 @@ setIsCloudSyncing(true);
                 {getDateLabel(selectedDate)}
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Any Tick done, +1, +3, or custom log you enter now will be saved
-                for {selectedDate}.
+                Review what is required, achieved, and still pending for {selectedDate}.
               </p>
             </div>
 
@@ -6954,36 +6953,6 @@ setIsCloudSyncing(true);
 
                         <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
                           <div className="grid gap-2 sm:flex sm:flex-wrap">
-                            {!row.target.isArchived && (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    logProgress(
-                                      row.target.id,
-                                      row.pending || row.target.targetAmount
-                                    )
-                                  }
-                                  className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300"
-                                >
-                                  Tick done
-                                </button>
-
-                                <button
-                                  onClick={() => logProgress(row.target.id, 1)}
-                                  className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
-                                >
-                                  +1 actual
-                                </button>
-
-                                <button
-                                  onClick={() => logProgress(row.target.id, 3)}
-                                  className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10"
-                                >
-                                  +3 actual
-                                </button>
-                              </>
-                            )}
-
                             <button
                               onClick={() => startEditingTarget(row.target)}
                               className="rounded-xl border border-cyan-400/30 px-4 py-2 text-cyan-200 hover:bg-cyan-400/10"
@@ -7005,132 +6974,6 @@ setIsCloudSyncing(true);
                               Delete target
                             </button>
                           </div>
-
-                          {!row.target.isArchived && (
-                            <div className="grid gap-2 sm:flex">
-                              <input
-                                type="number"
-                                min="0"
-                                value={manualAmounts[row.target.id] ?? ""}
-                                onChange={(event) =>
-                                  setManualAmounts((currentAmounts) => ({
-                                    ...currentAmounts,
-                                    [row.target.id]: event.target.value,
-                                  }))
-                                }
-                                placeholder="Amount"
-                                className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-white sm:w-28"
-                              />
-
-                              <button
-                                onClick={() => logManualProgress(row.target.id)}
-                                className="rounded-xl bg-white px-4 py-2 font-semibold text-slate-950 hover:bg-slate-200"
-                              >
-                                Log custom
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
-                          <p className="mb-3 text-sm font-semibold text-slate-300">
-                            Recent progress logs
-                          </p>
-
-                          {row.recentLogs.length > 0 ? (
-                            <div className="space-y-2">
-                              {row.recentLogs.map((log) => {
-                                const isEditingLog = editingLogId === log.id;
-
-                                return (
-                                  <div
-                                    key={log.id}
-                                    className="rounded-xl bg-slate-950 px-3 py-2 text-sm"
-                                  >
-                                    {isEditingLog ? (
-                                      <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto] md:items-end">
-                                        <FieldLabel label="Log date">
-                                          <input
-                                            type="date"
-                                            value={editLogDate}
-                                            onChange={(event) =>
-                                              setEditLogDate(event.target.value)
-                                            }
-                                            className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white"
-                                          />
-                                        </FieldLabel>
-
-                                        <FieldLabel label="Amount">
-                                          <input
-                                            type="number"
-                                            min="1"
-                                            value={editLogAmount}
-                                            onChange={(event) =>
-                                              setEditLogAmount(
-                                                parseNumberInput(
-                                                  event.target.value
-                                                )
-                                              )
-                                            }
-                                            className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white"
-                                          />
-                                        </FieldLabel>
-
-                                        <button
-                                          onClick={saveEditedProgressLog}
-                                          className="rounded-lg bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-300"
-                                        >
-                                          Save log
-                                        </button>
-
-                                        <button
-                                          onClick={cancelEditingProgressLog}
-                                          className="rounded-lg border border-white/10 px-3 py-2 text-xs hover:bg-white/10"
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                        <div>
-                                          <span className="text-slate-300">
-                                            {log.date}
-                                          </span>
-                                          <span className="ml-3 font-semibold text-cyan-300">
-                                            +{formatQuantity(log.achievedAmount, row.target.unit)}
-                                          </span>
-                                        </div>
-
-                                        <div className="grid gap-2 sm:flex">
-                                          <button
-                                            onClick={() =>
-                                              startEditingProgressLog(log)
-                                            }
-                                            className="rounded-lg border border-cyan-400/30 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-400/10"
-                                          >
-                                            Edit log
-                                          </button>
-
-                                          <button
-                                            onClick={() =>
-                                              deleteProgressLog(log.id)
-                                            }
-                                            className="rounded-lg border border-red-400/30 px-3 py-1 text-xs text-red-200 hover:bg-red-400/10"
-                                          >
-                                            Delete log
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-slate-500">
-                              No progress logged yet.
-                            </p>
-                          )}
                         </div>
                       </>
                     )}
