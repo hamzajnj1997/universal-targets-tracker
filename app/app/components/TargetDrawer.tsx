@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type {
+  BoardCapabilities,
   TargetActivity,
   TargetNote,
   TeamMember,
@@ -34,6 +35,7 @@ type TargetDrawerProps = {
   members: TeamMember[];
   activities: TargetActivity[];
   notes: TargetNote[];
+  capabilities: BoardCapabilities;
   currentMember: TeamMember | null;
   busy: boolean;
   onClose: () => void;
@@ -46,6 +48,7 @@ export function TargetDrawer({
   members,
   activities,
   notes,
+  capabilities,
   currentMember,
   busy,
   onClose,
@@ -61,7 +64,7 @@ export function TargetDrawer({
   const targetNotes = notes.filter((note) => note.targetId === target.id);
   const canRelease = canReleaseTarget(currentMember, target);
   const canForceRelease = canForceReleaseTarget(currentMember, target);
-  const canBlock = canBlockTarget(currentMember, target);
+  const canBlock = capabilities.supportsBlockers && canBlockTarget(currentMember, target);
   const canComplete = canCompleteTarget(currentMember, target);
   const canReopen = target.status === "completed" && canReopenTarget(currentMember);
   const canArchive = target.status !== "archived" && canArchiveTarget(currentMember);
@@ -239,6 +242,13 @@ export function TargetDrawer({
             </div>
           ) : null}
 
+          {!capabilities.supportsBlockers && target.status === "claimed" ? (
+            <p className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-sm leading-6 text-slate-400">
+              Blocking requires the upgraded work ownership database. Claim,
+              release, and complete still work in legacy mode.
+            </p>
+          ) : null}
+
           {canForceRelease ? (
             <div className="rounded-lg border border-rose-400/30 bg-rose-400/10 p-3">
               <label className="text-xs font-semibold text-rose-100" htmlFor="force-reason">
@@ -266,23 +276,29 @@ export function TargetDrawer({
 
         <section className="mt-6">
           <h3 className="text-sm font-semibold text-white">Notes</h3>
-          <div className="mt-3 grid gap-2">
-            <textarea
-              value={noteBody}
-              onChange={(event) => setNoteBody(event.target.value)}
-              rows={3}
-              className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300"
-              placeholder="Add a note"
-            />
-            <button
-              type="button"
-              onClick={submitNote}
-              disabled={busy || !noteBody.trim()}
-              className="rounded-md border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Add note
-            </button>
-          </div>
+          {capabilities.supportsNotes ? (
+            <div className="mt-3 grid gap-2">
+              <textarea
+                value={noteBody}
+                onChange={(event) => setNoteBody(event.target.value)}
+                rows={3}
+                className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300"
+                placeholder="Add a note"
+              />
+              <button
+                type="button"
+                onClick={submitNote}
+                disabled={busy || !noteBody.trim()}
+                className="rounded-md border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Add note
+              </button>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-sm leading-6 text-slate-400">
+              Notes require the upgraded work ownership database.
+            </p>
+          )}
 
           <div className="mt-4 space-y-3">
             {targetNotes.length === 0 ? (
@@ -310,6 +326,13 @@ export function TargetDrawer({
 
         <section className="mt-6">
           <h3 className="text-sm font-semibold text-white">Audit history</h3>
+          {!capabilities.supportsActivityLog ? (
+            <p className="mt-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-sm leading-6 text-slate-400">
+              Legacy mode shows completion history from progress logs. Full
+              claim, release, block, and note audit records require the database
+              upgrade.
+            </p>
+          ) : null}
           <div className="mt-3 space-y-3">
             {targetActivities.length === 0 ? (
               <p className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-sm text-slate-400">

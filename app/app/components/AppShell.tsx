@@ -25,6 +25,7 @@ import type {
   BoardData,
   TargetPriority,
   Team,
+  TeamMember,
   TeamRole,
   WorkTarget,
 } from "../../../lib/workOwnershipTypes";
@@ -49,6 +50,12 @@ const emptyBoardData: BoardData = {
   targets: [],
   activities: [],
   notes: [],
+  capabilities: {
+    schemaMode: "legacy",
+    supportsBlockers: false,
+    supportsNotes: false,
+    supportsActivityLog: false,
+  },
 };
 
 type AppShellProps = {
@@ -97,14 +104,26 @@ export function AppShell({ children }: AppShellProps) {
   const [inviteRole, setInviteRole] = useState<TeamRole>("member");
 
   const activeTeam = teams.find((team) => team.id === activeTeamId) ?? null;
-  const currentMember = useMemo(() => {
+  const currentMember: TeamMember | null = useMemo(() => {
     if (!user) return null;
-    return (
+    const member =
       boardData.members.find(
-        (member) => member.userId === user.id && member.status === "active"
-      ) ?? null
-    );
-  }, [boardData.members, user]);
+        (teamMember) => teamMember.userId === user.id && teamMember.status === "active"
+      ) ?? null;
+
+    if (member) return member;
+    if (!activeTeam || activeTeam.ownerId !== user.id) return null;
+
+    return {
+      id: `owner-${activeTeam.id}`,
+      teamId: activeTeam.id,
+      userId: user.id,
+      name: user.email ?? "Team owner",
+      email: user.email ?? undefined,
+      role: "owner",
+      status: "active",
+    };
+  }, [activeTeam, boardData.members, user]);
   const selectedTarget =
     boardData.targets.find((target) => target.id === selectedTargetId) ?? null;
   const metrics = useMemo(() => calculateDashboardMetrics(boardData), [boardData]);
@@ -339,6 +358,12 @@ export function AppShell({ children }: AppShellProps) {
 
   async function copyInviteLink() {
     if (!activeTeam || typeof window === "undefined") return;
+    if (!activeTeam.inviteCode) {
+      setMessage(
+        "Invite links require the work ownership database upgrade. Use Members -> Invite by email for now."
+      );
+      return;
+    }
 
     const link = `${window.location.origin}/onboarding?invite=${activeTeam.inviteCode}`;
     try {
@@ -485,7 +510,7 @@ export function AppShell({ children }: AppShellProps) {
             <div className="flex justify-between gap-3">
               <dt className="text-slate-500">Invite code</dt>
               <dd className="font-mono font-semibold text-white">
-                {activeTeam?.inviteCode || "Unavailable"}
+                {activeTeam?.inviteCode || "Database upgrade required"}
               </dd>
             </div>
             <div className="flex justify-between gap-3">
@@ -856,6 +881,7 @@ export function AppShell({ children }: AppShellProps) {
           members={boardData.members}
           activities={boardData.activities}
           notes={boardData.notes}
+          capabilities={boardData.capabilities}
           currentMember={currentMember}
           busy={busyTargetId === selectedTarget.id}
           onClose={() => setSelectedTargetId(null)}

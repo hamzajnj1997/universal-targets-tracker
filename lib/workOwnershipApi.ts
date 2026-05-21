@@ -316,7 +316,12 @@ async function fetchTargets(supabase: SupabaseClient, teamId: string) {
     .eq("workspace_id", teamId)
     .order("updated_at", { ascending: false });
 
-  if (!modern.error) return rows(modern.data).map(toTarget);
+  if (!modern.error) {
+    return {
+      targets: rows(modern.data).map(toTarget),
+      supportsBlockers: true,
+    };
+  }
   if (!isSchemaGap(modern.error)) throwSupabaseError(modern.error);
 
   const legacy = await supabase
@@ -328,7 +333,10 @@ async function fetchTargets(supabase: SupabaseClient, teamId: string) {
     .order("created_at", { ascending: false });
 
   throwSupabaseError(legacy.error);
-  return rows(legacy.data).map(toTarget);
+  return {
+    targets: rows(legacy.data).map(toTarget),
+    supportsBlockers: false,
+  };
 }
 
 async function fetchActivities(supabase: SupabaseClient, teamId: string) {
@@ -341,10 +349,23 @@ async function fetchActivities(supabase: SupabaseClient, teamId: string) {
     .order("created_at", { ascending: false })
     .limit(200);
 
-  if (!result.error) return rows(result.data).map(toActivity);
-  if (isSchemaGap(result.error)) return [];
+  if (!result.error) {
+    return {
+      activities: rows(result.data).map(toActivity),
+      supportsActivityLog: true,
+    };
+  }
+  if (isSchemaGap(result.error)) {
+    return {
+      activities: [],
+      supportsActivityLog: false,
+    };
+  }
   throwSupabaseError(result.error);
-  return [];
+  return {
+    activities: [],
+    supportsActivityLog: false,
+  };
 }
 
 async function fetchNotes(supabase: SupabaseClient, teamId: string) {
@@ -355,10 +376,23 @@ async function fetchNotes(supabase: SupabaseClient, teamId: string) {
     .order("created_at", { ascending: false })
     .limit(200);
 
-  if (!result.error) return rows(result.data).map(toNote);
-  if (isSchemaGap(result.error)) return [];
+  if (!result.error) {
+    return {
+      notes: rows(result.data).map(toNote),
+      supportsNotes: true,
+    };
+  }
+  if (isSchemaGap(result.error)) {
+    return {
+      notes: [],
+      supportsNotes: false,
+    };
+  }
   throwSupabaseError(result.error);
-  return [];
+  return {
+    notes: [],
+    supportsNotes: false,
+  };
 }
 
 async function fetchProgressLogs(supabase: SupabaseClient, teamId: string) {
@@ -621,22 +655,32 @@ export async function inviteMemberByEmail(input: TeamInviteInput): Promise<TeamM
 export async function loadBoardData(teamId: string): Promise<BoardData> {
   const supabase = requireSupabaseClient();
 
-  const [members, rawTargets, activities, notes, progressLogs] = await Promise.all([
+  const [members, targetResult, activityResult, noteResult, progressLogs] = await Promise.all([
     fetchMembers(supabase, teamId),
     fetchTargets(supabase, teamId),
     fetchActivities(supabase, teamId),
     fetchNotes(supabase, teamId),
     fetchProgressLogs(supabase, teamId),
   ]);
+  const isWorkOwnershipSchema =
+    targetResult.supportsBlockers &&
+    activityResult.supportsActivityLog &&
+    noteResult.supportsNotes;
 
   return {
     members,
-    targets: applyLegacyCompletionState(rawTargets, progressLogs),
+    targets: applyLegacyCompletionState(targetResult.targets, progressLogs),
     activities:
-      activities.length > 0
-        ? activities
+      activityResult.activities.length > 0
+        ? activityResult.activities
         : synthesizeLegacyActivities(progressLogs),
-    notes,
+    notes: noteResult.notes,
+    capabilities: {
+      schemaMode: isWorkOwnershipSchema ? "workOwnership" : "legacy",
+      supportsBlockers: targetResult.supportsBlockers,
+      supportsNotes: noteResult.supportsNotes,
+      supportsActivityLog: activityResult.supportsActivityLog,
+    },
   };
 }
 

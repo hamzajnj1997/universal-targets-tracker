@@ -88,11 +88,19 @@ export type TargetNote = {
   updatedAt?: string;
 };
 
+export type BoardCapabilities = {
+  schemaMode: "workOwnership" | "legacy";
+  supportsBlockers: boolean;
+  supportsNotes: boolean;
+  supportsActivityLog: boolean;
+};
+
 export type BoardData = {
   members: TeamMember[];
   targets: WorkTarget[];
   activities: TargetActivity[];
   notes: TargetNote[];
+  capabilities: BoardCapabilities;
 };
 
 export type DashboardMetrics = {
