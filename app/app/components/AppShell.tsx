@@ -83,6 +83,26 @@ const navItems = [
   { href: "/app/dashboard", label: "Dashboard" },
 ];
 
+function DatabaseModeBanner({
+  mode,
+}: {
+  mode: BoardData["capabilities"];
+}) {
+  if (mode.schemaMode === "workOwnership") {
+    return (
+      <div className="mb-5 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm leading-6 text-emerald-50">
+        Work ownership database is active. Blockers, notes, audit log, and protected actions are available.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm leading-6 text-amber-50">
+      Legacy database mode is active. Claim, release, complete, create, and archive use the existing tracker tables. Block reasons, notes, invite links, and full audit history need the Supabase migration in <span className="font-mono">supabase/migrations/20260521_work_ownership_tracker.sql</span>.
+    </div>
+  );
+}
+
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -508,9 +528,17 @@ export function AppShell({ children }: AppShellProps) {
               <dd className="font-semibold text-white">{activeTeam?.name ?? "No team"}</dd>
             </div>
             <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Database mode</dt>
+              <dd className="font-semibold capitalize text-white">
+                {boardData.capabilities.schemaMode === "workOwnership"
+                  ? "Work ownership"
+                  : "Legacy tracker"}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
               <dt className="text-slate-500">Invite code</dt>
-              <dd className="font-mono font-semibold text-white">
-                {activeTeam?.inviteCode || "Database upgrade required"}
+              <dd className="text-right font-mono font-semibold text-white">
+                {activeTeam?.inviteCode || "Migration required"}
               </dd>
             </div>
             <div className="flex justify-between gap-3">
@@ -520,6 +548,35 @@ export function AppShell({ children }: AppShellProps) {
               </dd>
             </div>
           </dl>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {[
+              ["Blockers", boardData.capabilities.supportsBlockers],
+              ["Notes", boardData.capabilities.supportsNotes],
+              ["Audit log", boardData.capabilities.supportsActivityLog],
+            ].map(([label, active]) => (
+              <div
+                key={String(label)}
+                className={
+                  active
+                    ? "rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3"
+                    : "rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+                }
+              >
+                <p className="text-sm font-semibold text-white">{label}</p>
+                <p className={active ? "mt-1 text-xs text-emerald-100" : "mt-1 text-xs text-slate-400"}>
+                  {active ? "Available" : "Needs migration"}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {boardData.capabilities.schemaMode === "legacy" ? (
+            <p className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 p-3 text-sm leading-6 text-amber-50">
+              Apply <span className="font-mono">supabase/migrations/20260521_work_ownership_tracker.sql</span> with Supabase admin access to enable the full production database.
+            </p>
+          ) : null}
+
           <button
             type="button"
             onClick={copyInviteLink}
@@ -791,6 +848,8 @@ export function AppShell({ children }: AppShellProps) {
               {message}
             </p>
           ) : null}
+
+          <DatabaseModeBanner mode={boardData.capabilities} />
 
           {isRefreshing ? (
             <p className="mb-5 text-sm text-slate-500">Refreshing board...</p>
