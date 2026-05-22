@@ -693,7 +693,7 @@ async function runTargetRpc(name: string, args: RpcArgs): Promise<WorkTarget> {
   return toTarget(row);
 }
 
-export async function createTarget(input: CreateTargetInput) {
+export async function createTarget(input: CreateTargetInput): Promise<WorkTarget> {
   try {
     return await runTargetRpc("create_target", {
       team_id: input.teamId,
@@ -733,11 +733,14 @@ export async function createTarget(input: CreateTargetInput) {
   }
 }
 
-export async function claimTarget(targetId: string) {
+export async function claimTarget(targetId: string): Promise<WorkTarget> {
   return runTargetRpc("claim_target", { target_id: targetId });
 }
 
-export async function releaseTarget(targetId: string, reason: string) {
+export async function releaseTarget(
+  targetId: string,
+  reason: string
+): Promise<WorkTarget> {
   try {
     return await runTargetRpc("release_target", {
       target_id: targetId,
@@ -749,7 +752,10 @@ export async function releaseTarget(targetId: string, reason: string) {
   }
 }
 
-export async function forceReleaseTarget(targetId: string, reason: string) {
+export async function forceReleaseTarget(
+  targetId: string,
+  reason: string
+): Promise<WorkTarget> {
   try {
     return await runTargetRpc("force_release_target", {
       target_id: targetId,
@@ -761,7 +767,10 @@ export async function forceReleaseTarget(targetId: string, reason: string) {
   }
 }
 
-export async function blockTarget(targetId: string, reason: string) {
+export async function blockTarget(
+  targetId: string,
+  reason: string
+): Promise<WorkTarget> {
   try {
     return await runTargetRpc("block_target", {
       target_id: targetId,
@@ -815,11 +824,11 @@ export async function completeTarget(targetId: string): Promise<WorkTarget> {
   }
 }
 
-export async function reopenTarget(targetId: string) {
+export async function reopenTarget(targetId: string): Promise<WorkTarget> {
   return runTargetRpc("reopen_target", { target_id: targetId });
 }
 
-export async function archiveTarget(targetId: string) {
+export async function archiveTarget(targetId: string): Promise<WorkTarget> {
   try {
     return await runTargetRpc("archive_target", { target_id: targetId });
   } catch (error) {

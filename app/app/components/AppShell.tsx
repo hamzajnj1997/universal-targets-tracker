@@ -234,7 +234,7 @@ export function AppShell({ children }: AppShellProps) {
     const refresh = () => {
       void refreshBoard(activeTeamId);
     };
-    const channel = supabase
+    let channel = supabase
       .channel(`work-ownership-${activeTeamId}`)
       .on(
         "postgres_changes",
@@ -246,12 +246,27 @@ export function AppShell({ children }: AppShellProps) {
         {
           event: "*",
           schema: "public",
+          table: "workspace_members",
+          filter: `workspace_id=eq.${activeTeamId}`,
+        },
+        refresh
+      );
+
+    if (boardData.capabilities.supportsActivityLog) {
+      channel = channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
           table: "target_activity",
           filter: `workspace_id=eq.${activeTeamId}`,
         },
         refresh
-      )
-      .on(
+      );
+    }
+
+    if (boardData.capabilities.supportsNotes) {
+      channel = channel.on(
         "postgres_changes",
         {
           event: "*",
@@ -260,18 +275,23 @@ export function AppShell({ children }: AppShellProps) {
           filter: `workspace_id=eq.${activeTeamId}`,
         },
         refresh
-      )
-      .on(
+      );
+    }
+
+    if (boardData.capabilities.schemaMode === "legacy") {
+      channel = channel.on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "workspace_members",
+          table: "progress_logs",
           filter: `workspace_id=eq.${activeTeamId}`,
         },
         refresh
-      )
-      .subscribe();
+      );
+    }
+
+    channel.subscribe();
 
     const fallbackRefresh = window.setInterval(refresh, 45000);
 
@@ -279,7 +299,13 @@ export function AppShell({ children }: AppShellProps) {
       window.clearInterval(fallbackRefresh);
       void supabase.removeChannel(channel);
     };
-  }, [activeTeamId, refreshBoard]);
+  }, [
+    activeTeamId,
+    boardData.capabilities.schemaMode,
+    boardData.capabilities.supportsActivityLog,
+    boardData.capabilities.supportsNotes,
+    refreshBoard,
+  ]);
 
   async function switchTeam(teamId: string) {
     setActiveTeamId(teamId);
@@ -316,16 +342,18 @@ export function AppShell({ children }: AppShellProps) {
     setMessage("");
 
     try {
-      await createTarget({
+      const createdTarget = await createTarget({
         teamId: activeTeam.id,
         title: targetForm.title,
         description: targetForm.description,
         priority: targetForm.priority,
         dueDate: targetForm.dueDate || undefined,
       });
+      mergeTargetIntoBoard(createdTarget);
       setTargetForm(defaultTargetForm);
       setIsCreateOpen(false);
       await refreshBoard(activeTeam.id);
+      mergeTargetIntoBoard(createdTarget);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Target creation failed.");
     } finally {
