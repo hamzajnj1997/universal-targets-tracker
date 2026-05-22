@@ -336,6 +336,14 @@ export function AppShell({ children }: AppShellProps) {
     router.replace("/login");
   }
 
+  function toggleCreateTargetForm() {
+    setIsCreateOpen((value) => {
+      const nextValue = !value;
+      if (nextValue) setTargetForm(createDefaultTargetForm());
+      return nextValue;
+    });
+  }
+
   async function submitTarget(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeTeam || !canCreateTarget(currentMember)) return;
@@ -891,7 +899,7 @@ export function AppShell({ children }: AppShellProps) {
               />
               <button
                 type="button"
-                onClick={() => setIsCreateOpen((value) => !value)}
+                onClick={toggleCreateTargetForm}
                 disabled={!canCreateTarget(currentMember)}
                 className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               >

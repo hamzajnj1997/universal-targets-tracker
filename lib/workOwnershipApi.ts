@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { getSupabaseClient } from "./supabaseClient";
+import { todayISO } from "./workOwnershipRules";
 import type {
   BoardData,
   TargetActivity,
@@ -512,8 +513,9 @@ async function insertLegacyProgressLog(
   target: WorkTarget,
   member: TeamMember | null
 ) {
-  const now = new Date().toISOString();
-  const progressDate = now.slice(0, 10);
+  const now = new Date();
+  const createdAt = now.toISOString();
+  const progressDate = todayISO(now);
   const modern = await supabase
     .from("progress_logs")
     .insert({
@@ -521,7 +523,7 @@ async function insertLegacyProgressLog(
       target_id: target.id,
       progress_date: progressDate,
       achieved_amount: 1,
-      created_at: now,
+      created_at: createdAt,
       submitted_by_member_id: member?.id ?? null,
     })
     .select(
@@ -539,7 +541,7 @@ async function insertLegacyProgressLog(
       target_id: target.id,
       progress_date: progressDate,
       achieved_amount: 1,
-      created_at: now,
+      created_at: createdAt,
     })
     .select("id,workspace_id,target_id,progress_date,achieved_amount,created_at")
     .single();
@@ -718,7 +720,7 @@ export async function createTarget(input: CreateTargetInput): Promise<WorkTarget
         frequency: "once",
         target_amount: 1,
         unit: "task",
-        start_date: input.dueDate || new Date().toISOString().slice(0, 10),
+        start_date: input.dueDate || todayISO(),
         is_archived: false,
         claimed_by_member_id: null,
         claimed_at: null,

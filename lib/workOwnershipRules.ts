@@ -87,6 +87,15 @@ export function todayISO(now = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+export function dateTimeToLocalISO(value: string | Date | undefined) {
+  if (!value) return "";
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return todayISO(date);
+}
+
 export function statusLabel(status: TargetStatus) {
   const labels: Record<TargetStatus, string> = {
     available: "Available",
@@ -183,7 +192,7 @@ export function splitBoardTargets(
       (target) =>
         target.status === "completed" &&
         Boolean(target.completedAt) &&
-        target.completedAt?.slice(0, 10) === today
+        dateTimeToLocalISO(target.completedAt) === today
     ),
   };
 }
@@ -231,7 +240,7 @@ export function calculateDashboardMetrics(
     claimedTargets: activeTargets.filter((target) => target.status === "claimed").length,
     blockedTargets: activeTargets.filter((target) => target.status === "blocked").length,
     completedToday: completedTargets.filter(
-      (target) => target.completedAt?.slice(0, 10) === today
+      (target) => dateTimeToLocalISO(target.completedAt) === today
     ).length,
     completedThisWeek: completedTargets.filter((target) => {
       if (!target.completedAt) return false;
