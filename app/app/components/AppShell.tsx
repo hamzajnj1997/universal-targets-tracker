@@ -69,12 +69,14 @@ type TargetForm = {
   dueDate: string;
 };
 
-const defaultTargetForm: TargetForm = {
-  title: "",
-  description: "",
-  priority: "medium",
-  dueDate: todayISO(),
-};
+function createDefaultTargetForm(): TargetForm {
+  return {
+    title: "",
+    description: "",
+    priority: "medium",
+    dueDate: todayISO(),
+  };
+}
 
 const navItems = [
   { href: "/app/board", label: "Live Board" },
@@ -119,7 +121,7 @@ export function AppShell({ children }: AppShellProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [busyTargetId, setBusyTargetId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
-  const [targetForm, setTargetForm] = useState<TargetForm>(defaultTargetForm);
+  const [targetForm, setTargetForm] = useState<TargetForm>(createDefaultTargetForm);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamRole>("member");
 
@@ -338,6 +340,11 @@ export function AppShell({ children }: AppShellProps) {
     event.preventDefault();
     if (!activeTeam || !canCreateTarget(currentMember)) return;
 
+    if (!targetForm.title.trim()) {
+      setMessage("Target title is required.");
+      return;
+    }
+
     setIsCreatingTarget(true);
     setMessage("");
 
@@ -350,7 +357,7 @@ export function AppShell({ children }: AppShellProps) {
         dueDate: targetForm.dueDate || undefined,
       });
       mergeTargetIntoBoard(createdTarget);
-      setTargetForm(defaultTargetForm);
+      setTargetForm(createDefaultTargetForm());
       setIsCreateOpen(false);
       await refreshBoard(activeTeam.id);
       mergeTargetIntoBoard(createdTarget);
@@ -917,7 +924,6 @@ export function AppShell({ children }: AppShellProps) {
                   onChange={(event) =>
                     setTargetForm((form) => ({ ...form, title: event.target.value }))
                   }
-                  required
                   className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300"
                   placeholder="Prepare weekly report"
                 />
@@ -953,7 +959,7 @@ export function AppShell({ children }: AppShellProps) {
               </label>
               <button
                 type="submit"
-                disabled={isCreatingTarget}
+                disabled={isCreatingTarget || !targetForm.title.trim()}
                 className="self-end rounded-md bg-emerald-300 px-4 py-2 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCreatingTarget ? "Creating..." : "Create"}
