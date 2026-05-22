@@ -40,6 +40,7 @@ export function TargetCard({
   const canClaim = canClaimTarget(currentMember, target);
   const canComplete = canCompleteTarget(currentMember, target);
   const primaryLabel = canClaim ? "Claim" : canComplete ? "Complete" : "Details";
+  const hasSecondaryDetailsAction = canClaim || canComplete;
   const primaryAction = () => {
     if (canClaim) {
       onClaim(target);
@@ -106,7 +107,13 @@ export function TargetCard({
         ) : null}
       </div>
 
-      <div className="mt-5 grid grid-cols-[1fr_auto] gap-2">
+      <div
+        className={
+          hasSecondaryDetailsAction
+            ? "mt-5 grid grid-cols-[1fr_auto] gap-2"
+            : "mt-5 grid gap-2"
+        }
+      >
         <button
           type="button"
           onClick={primaryAction}
@@ -115,13 +122,15 @@ export function TargetCard({
         >
           {busy ? "Working..." : primaryLabel}
         </button>
-        <button
-          type="button"
-          onClick={() => onOpen(target)}
-          className="rounded-md border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-900"
-        >
-          More
-        </button>
+        {hasSecondaryDetailsAction ? (
+          <button
+            type="button"
+            onClick={() => onOpen(target)}
+            className="rounded-md border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-900"
+          >
+            Details
+          </button>
+        ) : null}
       </div>
     </article>
   );
