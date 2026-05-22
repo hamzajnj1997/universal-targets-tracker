@@ -173,6 +173,14 @@ export function splitBoardTargets(
 ) {
   const today = todayISO(now);
   const activeTargets = targets.filter((target) => target.status !== "archived");
+  const completedTargets = activeTargets
+    .filter((target) => target.status === "completed")
+    .sort((a, b) => {
+      const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+      const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+
+      return bTime - aTime;
+    });
 
   return {
     available: activeTargets.filter((target) => target.status === "available"),
@@ -188,9 +196,9 @@ export function splitBoardTargets(
         target.claimedById !== currentMember?.id
     ),
     blocked: activeTargets.filter((target) => target.status === "blocked"),
-    completedToday: activeTargets.filter(
+    completed: completedTargets,
+    completedToday: completedTargets.filter(
       (target) =>
-        target.status === "completed" &&
         Boolean(target.completedAt) &&
         dateTimeToLocalISO(target.completedAt) === today
     ),

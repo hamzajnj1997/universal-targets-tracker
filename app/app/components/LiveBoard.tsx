@@ -56,9 +56,9 @@ export function LiveBoard({
         ? [
             {
               key: "completed",
-              title: "Completed Today",
-              description: "Targets completed today by the team.",
-              targets: split.completedToday,
+              title: "Completed",
+              description: "Finished targets, newest first.",
+              targets: split.completed,
             },
           ]
         : [
