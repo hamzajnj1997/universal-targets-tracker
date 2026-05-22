@@ -288,6 +288,21 @@ export function AppShell({ children }: AppShellProps) {
     setIsMenuOpen(false);
   }
 
+  function mergeTargetIntoBoard(updatedTarget: WorkTarget) {
+    setBoardData((data) => {
+      const hasTarget = data.targets.some((target) => target.id === updatedTarget.id);
+
+      return {
+        ...data,
+        targets: hasTarget
+          ? data.targets.map((target) =>
+              target.id === updatedTarget.id ? updatedTarget : target
+            )
+          : [updatedTarget, ...data.targets],
+      };
+    });
+  }
+
   async function logout() {
     await signOut();
     router.replace("/login");
@@ -327,14 +342,21 @@ export function AppShell({ children }: AppShellProps) {
     setMessage("");
 
     try {
-      if (action === "claim") await claimTarget(target.id);
-      if (action === "release") await releaseTarget(target.id, reason);
-      if (action === "forceRelease") await forceReleaseTarget(target.id, reason);
-      if (action === "block") await blockTarget(target.id, reason);
-      if (action === "complete") await completeTarget(target.id);
-      if (action === "reopen") await reopenTarget(target.id);
-      if (action === "archive") await archiveTarget(target.id);
+      let updatedTarget: WorkTarget | null = null;
+
+      if (action === "claim") updatedTarget = await claimTarget(target.id);
+      if (action === "release") updatedTarget = await releaseTarget(target.id, reason);
+      if (action === "forceRelease") {
+        updatedTarget = await forceReleaseTarget(target.id, reason);
+      }
+      if (action === "block") updatedTarget = await blockTarget(target.id, reason);
+      if (action === "complete") updatedTarget = await completeTarget(target.id);
+      if (action === "reopen") updatedTarget = await reopenTarget(target.id);
+      if (action === "archive") updatedTarget = await archiveTarget(target.id);
+
+      if (updatedTarget) mergeTargetIntoBoard(updatedTarget);
       await refreshBoard(target.teamId);
+      if (updatedTarget) mergeTargetIntoBoard(updatedTarget);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Target action failed.");
     } finally {

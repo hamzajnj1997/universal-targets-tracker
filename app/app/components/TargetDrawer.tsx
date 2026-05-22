@@ -66,7 +66,10 @@ export function TargetDrawer({
   const canForceRelease = canForceReleaseTarget(currentMember, target);
   const canBlock = capabilities.supportsBlockers && canBlockTarget(currentMember, target);
   const canComplete = canCompleteTarget(currentMember, target);
-  const canReopen = target.status === "completed" && canReopenTarget(currentMember);
+  const canReopen =
+    capabilities.schemaMode === "workOwnership" &&
+    target.status === "completed" &&
+    canReopenTarget(currentMember);
   const canArchive = target.status !== "archived" && canArchiveTarget(currentMember);
 
   function submitNote() {

@@ -794,7 +794,7 @@ export async function blockTarget(targetId: string, reason: string) {
   }
 }
 
-export async function completeTarget(targetId: string) {
+export async function completeTarget(targetId: string): Promise<WorkTarget> {
   try {
     return await runTargetRpc("complete_target", { target_id: targetId });
   } catch (error) {
