@@ -9,6 +9,7 @@ import type {
 } from "./workOwnershipTypes";
 
 export const STALE_CLAIM_HOURS = 24;
+export type TargetDueState = "overdue" | "today" | "soon" | "later" | "none";
 
 export function isManagerRole(role: TeamRole | null | undefined) {
   return role === "owner" || role === "admin";
@@ -139,6 +140,53 @@ function dayOffsetFrom(date: string | undefined, now: Date) {
   return Math.round((parsed.getTime() - today.getTime()) / 86400000);
 }
 
+export function getTargetDueState(
+  target: WorkTarget,
+  now = new Date()
+): TargetDueState {
+  if (target.status === "completed" || target.status === "archived") return "none";
+
+  const offset = dayOffsetFrom(target.dueDate, now);
+  if (offset === null) return "none";
+  if (offset < 0) return "overdue";
+  if (offset === 0) return "today";
+  if (offset <= 7) return "soon";
+  return "later";
+}
+
+function priorityRank(priority: TargetPriority) {
+  const ranks: Record<TargetPriority, number> = {
+    urgent: 0,
+    high: 1,
+    medium: 2,
+    low: 3,
+  };
+
+  return ranks[priority];
+}
+
+function targetDateTime(value: string | undefined, fallback = 0) {
+  if (!value) return fallback;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function sortTargetsByUrgency(targets: WorkTarget[], now: Date) {
+  return [...targets].sort((a, b) => {
+    const aOffset = dayOffsetFrom(a.dueDate, now);
+    const bOffset = dayOffsetFrom(b.dueDate, now);
+    const aDueRank = aOffset === null ? Number.MAX_SAFE_INTEGER : aOffset;
+    const bDueRank = bOffset === null ? Number.MAX_SAFE_INTEGER : bOffset;
+
+    return (
+      aDueRank - bDueRank ||
+      priorityRank(a.priority) - priorityRank(b.priority) ||
+      targetDateTime(b.updatedAt ?? b.createdAt) -
+        targetDateTime(a.updatedAt ?? a.createdAt)
+    );
+  });
+}
+
 export function formatRelativeTime(value: string | undefined) {
   if (!value) return "Not claimed";
 
@@ -201,19 +249,31 @@ export function splitBoardTargets(
     });
 
   return {
-    available: activeTargets.filter((target) => target.status === "available"),
-    myWork: activeTargets.filter(
-      (target) =>
-        (target.status === "claimed" || target.status === "blocked") &&
-        target.claimedById === currentMember?.id
+    available: sortTargetsByUrgency(
+      activeTargets.filter((target) => target.status === "available"),
+      now
     ),
-    claimedByOthers: activeTargets.filter(
-      (target) =>
-        target.status === "claimed" &&
-        Boolean(target.claimedById) &&
-        target.claimedById !== currentMember?.id
+    myWork: sortTargetsByUrgency(
+      activeTargets.filter(
+        (target) =>
+          (target.status === "claimed" || target.status === "blocked") &&
+          target.claimedById === currentMember?.id
+      ),
+      now
     ),
-    blocked: activeTargets.filter((target) => target.status === "blocked"),
+    claimedByOthers: sortTargetsByUrgency(
+      activeTargets.filter(
+        (target) =>
+          target.status === "claimed" &&
+          Boolean(target.claimedById) &&
+          target.claimedById !== currentMember?.id
+      ),
+      now
+    ),
+    blocked: sortTargetsByUrgency(
+      activeTargets.filter((target) => target.status === "blocked"),
+      now
+    ),
     completed: completedTargets,
     completedToday: completedTargets.filter(
       (target) =>

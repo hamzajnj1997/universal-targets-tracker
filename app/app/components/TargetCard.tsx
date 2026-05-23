@@ -6,6 +6,7 @@ import {
   canCompleteTarget,
   formatDateLabel,
   formatRelativeTime,
+  getTargetDueState,
   memberName,
   statusLabel,
 } from "../../../lib/workOwnershipRules";
@@ -27,6 +28,22 @@ const priorityClasses: Record<WorkTarget["priority"], string> = {
   urgent: "border-rose-400/40 bg-rose-400/10 text-rose-100",
 };
 
+const dueStateLabels = {
+  overdue: "Overdue",
+  today: "Due today",
+  soon: "Due soon",
+  later: "Scheduled",
+  none: "",
+};
+
+const dueStateClasses = {
+  overdue: "border-rose-400/40 bg-rose-400/10 text-rose-100",
+  today: "border-amber-400/40 bg-amber-400/10 text-amber-100",
+  soon: "border-sky-400/30 bg-sky-400/10 text-sky-100",
+  later: "border-slate-700 bg-slate-900/70 text-slate-200",
+  none: "",
+};
+
 export function TargetCard({
   target,
   members,
@@ -39,6 +56,7 @@ export function TargetCard({
   const claimant = memberName(target.claimedById, members);
   const canClaim = canClaimTarget(currentMember, target);
   const canComplete = canCompleteTarget(currentMember, target);
+  const dueState = getTargetDueState(target);
   const primaryLabel = canClaim ? "Claim" : canComplete ? "Complete" : "Details";
   const hasSecondaryDetailsAction = canClaim || canComplete;
   const primaryAction = () => {
@@ -76,6 +94,14 @@ export function TargetCard({
             {target.priority}
           </span>
         </div>
+
+        {dueState !== "none" ? (
+          <span
+            className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-semibold ${dueStateClasses[dueState]}`}
+          >
+            {dueStateLabels[dueState]}
+          </span>
+        ) : null}
 
         <dl className="grid gap-2 text-sm text-slate-300">
           <div className="flex items-center justify-between gap-3">

@@ -17,6 +17,7 @@ import {
   canReopenTarget,
   formatDateLabel,
   formatRelativeTime,
+  getTargetDueState,
   memberName,
   statusLabel,
 } from "../../../lib/workOwnershipRules";
@@ -62,6 +63,7 @@ export function TargetDrawer({
 
   const targetActivities = activities.filter((activity) => activity.targetId === target.id);
   const targetNotes = notes.filter((note) => note.targetId === target.id);
+  const dueState = getTargetDueState(target);
   const canRelease = canReleaseTarget(currentMember, target);
   const canForceRelease = canForceReleaseTarget(currentMember, target);
   const canBlock = capabilities.supportsBlockers && canBlockTarget(currentMember, target);
@@ -141,6 +143,29 @@ export function TargetDrawer({
             <h3 className="text-sm font-semibold text-white">Details</h3>
             <p className="mt-2 whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-900/60 p-4 text-sm leading-6 text-slate-300">
               {target.description}
+            </p>
+          </section>
+        ) : null}
+
+        {dueState === "overdue" || dueState === "today" ? (
+          <section
+            className={
+              dueState === "overdue"
+                ? "mt-5 rounded-lg border border-rose-400/30 bg-rose-400/10 p-4"
+                : "mt-5 rounded-lg border border-amber-400/30 bg-amber-400/10 p-4"
+            }
+          >
+            <h3
+              className={
+                dueState === "overdue"
+                  ? "text-sm font-semibold text-rose-100"
+                  : "text-sm font-semibold text-amber-100"
+              }
+            >
+              {dueState === "overdue" ? "Overdue target" : "Due today"}
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-100">
+              Due date: {formatDateLabel(target.dueDate)}
             </p>
           </section>
         ) : null}
