@@ -253,6 +253,15 @@ function isSchemaGap(error: SupabaseLikeError) {
   );
 }
 
+function isMissingAuthSession(error: SupabaseLikeError) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return (
+    message.includes("auth session missing") ||
+    message.includes("missing auth session") ||
+    error?.code === "session_not_found"
+  );
+}
+
 function isSchemaGapThrown(error: unknown) {
   if (!(error instanceof Error)) return false;
   const message = error.message.toLowerCase();
@@ -557,6 +566,7 @@ export function getClientForRealtime() {
 export async function getCurrentUser(): Promise<User | null> {
   const supabase = requireSupabaseClient();
   const { data, error } = await supabase.auth.getUser();
+  if (isMissingAuthSession(error)) return null;
   throwSupabaseError(error);
   return data.user ?? null;
 }

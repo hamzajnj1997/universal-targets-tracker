@@ -107,11 +107,25 @@ export type DashboardMetrics = {
   availableTargets: number;
   claimedTargets: number;
   blockedTargets: number;
+  openTargets: number;
+  overdueTargets: number;
+  dueTodayTargets: number;
+  dueNext7Days: number;
+  dueNext14Days: number;
+  highPriorityOpenTargets: number;
   completedToday: number;
   completedThisWeek: number;
   staleClaimedTargets: number;
   averageCompletionHours: number | null;
+  completionRate: number | null;
   mostActiveMembers: { member: TeamMember; actions: number }[];
+  memberWorkload: {
+    member: TeamMember;
+    activeTargets: number;
+    blockedTargets: number;
+    completedThisWeek: number;
+  }[];
+  priorityBreakdown: { priority: TargetPriority; openTargets: number }[];
 };
 
 export type AuthenticatedUser = User;

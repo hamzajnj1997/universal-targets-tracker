@@ -85,6 +85,22 @@ const navItems = [
   { href: "/app/dashboard", label: "Dashboard" },
 ];
 
+const dashboardCardToneClasses = {
+  neutral: "border-slate-800 bg-slate-950/80",
+  good: "border-emerald-400/30 bg-emerald-400/10",
+  warning: "border-amber-400/30 bg-amber-400/10",
+  danger: "border-rose-400/30 bg-rose-400/10",
+};
+
+const priorityBarClasses: Record<TargetPriority, string> = {
+  urgent: "bg-rose-300",
+  high: "bg-amber-300",
+  medium: "bg-sky-300",
+  low: "bg-slate-400",
+};
+
+type DashboardCardTone = keyof typeof dashboardCardToneClasses;
+
 function DatabaseModeBanner({
   mode,
 }: {
@@ -460,37 +476,150 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   function renderDashboard() {
-    const metricCards = [
-      ["Available targets", metrics.availableTargets],
-      ["Currently claimed", metrics.claimedTargets],
-      ["Blocked targets", metrics.blockedTargets],
-      ["Completed today", metrics.completedToday],
-      ["Completed this week", metrics.completedThisWeek],
-      ["Stale claimed", metrics.staleClaimedTargets],
-      [
-        "Avg completion time",
-        metrics.averageCompletionHours === null
-          ? "n/a"
-          : `${metrics.averageCompletionHours.toFixed(1)}h`,
-      ],
+    const metricCards: {
+      label: string;
+      value: number | string;
+      detail: string;
+      tone: DashboardCardTone;
+    }[] = [
+      {
+        label: "Open targets",
+        value: metrics.openTargets,
+        detail: `${metrics.availableTargets} available`,
+        tone: "neutral" as const,
+      },
+      {
+        label: "Claimed now",
+        value: metrics.claimedTargets,
+        detail: `${metrics.staleClaimedTargets} stale`,
+        tone: metrics.staleClaimedTargets > 0 ? "warning" : "neutral",
+      },
+      {
+        label: "Blocked",
+        value: metrics.blockedTargets,
+        detail: "Needs owner attention",
+        tone: metrics.blockedTargets > 0 ? "danger" : "neutral",
+      },
+      {
+        label: "Overdue",
+        value: metrics.overdueTargets,
+        detail: `${metrics.dueTodayTargets} due today`,
+        tone: metrics.overdueTargets > 0 ? "danger" : "good",
+      },
+      {
+        label: "Due next 7 days",
+        value: metrics.dueNext7Days,
+        detail: `${metrics.dueNext14Days} due next 14`,
+        tone: metrics.dueNext7Days > 0 ? "warning" : "neutral",
+      },
+      {
+        label: "High priority open",
+        value: metrics.highPriorityOpenTargets,
+        detail: "High and urgent",
+        tone: metrics.highPriorityOpenTargets > 0 ? "warning" : "neutral",
+      },
+      {
+        label: "Completed today",
+        value: metrics.completedToday,
+        detail: `${metrics.completedThisWeek} this week`,
+        tone: "good" as const,
+      },
+      {
+        label: "Completion rate",
+        value:
+          metrics.completionRate === null
+            ? "n/a"
+            : `${Math.round(metrics.completionRate)}%`,
+        detail:
+          metrics.averageCompletionHours === null
+            ? "No cycle time yet"
+            : `${metrics.averageCompletionHours.toFixed(1)}h avg`,
+        tone: "neutral" as const,
+      },
     ];
+    const largestPriorityCount = Math.max(
+      1,
+      ...metrics.priorityBreakdown.map((entry) => entry.openTargets)
+    );
 
     return (
       <div className="space-y-6">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {metricCards.map(([label, value]) => (
+          {metricCards.map((card) => (
             <div
-              key={label}
-              className="rounded-lg border border-slate-800 bg-slate-950/80 p-4"
+              key={card.label}
+              className={`rounded-lg border p-4 ${dashboardCardToneClasses[card.tone]}`}
             >
-              <p className="text-sm text-slate-400">{label}</p>
-              <p className="mt-2 text-3xl font-bold text-white">{value}</p>
+              <p className="text-sm text-slate-300">{card.label}</p>
+              <p className="mt-2 text-3xl font-bold text-white">{card.value}</p>
+              <p className="mt-2 text-xs font-medium text-slate-400">{card.detail}</p>
             </div>
           ))}
         </div>
 
+        <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+          <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
+            <h2 className="text-xl font-bold text-white">Member workload</h2>
+            <div className="mt-4 grid gap-3">
+              {metrics.memberWorkload.length === 0 ? (
+                <p className="text-sm text-slate-400">No owned work yet.</p>
+              ) : (
+                metrics.memberWorkload.map((entry) => (
+                  <div
+                    key={entry.member.id}
+                    className="grid gap-3 rounded-md border border-slate-800 bg-slate-900/60 px-3 py-3 sm:grid-cols-[1fr_auto_auto_auto]"
+                  >
+                    <span className="font-semibold text-white">{entry.member.name}</span>
+                    <span className="text-sm text-slate-300">
+                      {entry.activeTargets} active
+                    </span>
+                    <span className="text-sm text-amber-100">
+                      {entry.blockedTargets} blocked
+                    </span>
+                    <span className="text-sm text-emerald-100">
+                      {entry.completedThisWeek} done
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
+            <h2 className="text-xl font-bold text-white">Priority load</h2>
+            <div className="mt-4 grid gap-4">
+              {metrics.priorityBreakdown.map((entry) => (
+                <div
+                  key={entry.priority}
+                  className="grid gap-2"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold capitalize text-slate-100">
+                      {entry.priority}
+                    </span>
+                    <span className="text-sm text-slate-400">
+                      {entry.openTargets}
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className={`h-full rounded-full ${priorityBarClasses[entry.priority]}`}
+                      style={{
+                        width: `${Math.max(
+                          4,
+                          (entry.openTargets / largestPriorityCount) * 100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
         <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
-          <h2 className="text-xl font-bold text-white">Most active members</h2>
+          <h2 className="text-xl font-bold text-white">Audit activity</h2>
           <div className="mt-4 grid gap-3">
             {metrics.mostActiveMembers.length === 0 ? (
               <p className="text-sm text-slate-400">No activity yet.</p>
@@ -923,6 +1052,7 @@ export function AppShell({ children }: AppShellProps) {
           {isCreateOpen ? (
             <form
               onSubmit={submitTarget}
+              noValidate
               className="mb-6 grid gap-3 rounded-lg border border-slate-800 bg-slate-950/80 p-4 xl:grid-cols-[1fr_180px_170px_auto]"
             >
               <label className="block text-sm font-semibold text-slate-200">

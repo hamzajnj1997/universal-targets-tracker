@@ -1,6 +1,7 @@
 import type {
   BoardData,
   DashboardMetrics,
+  TargetPriority,
   TargetStatus,
   TeamMember,
   TeamRole,
@@ -111,7 +112,7 @@ export function statusLabel(status: TargetStatus) {
 export function formatDateLabel(date: string | undefined) {
   if (!date) return "No due date";
 
-  const parsed = new Date(`${date}T00:00:00`);
+  const parsed = parseLocalDate(date);
   if (Number.isNaN(parsed.getTime())) return date;
 
   return new Intl.DateTimeFormat(undefined, {
@@ -119,6 +120,23 @@ export function formatDateLabel(date: string | undefined) {
     month: "short",
     year: "numeric",
   }).format(parsed);
+}
+
+function parseLocalDate(date: string | undefined) {
+  if (!date) return new Date(Number.NaN);
+
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return new Date(Number.NaN);
+
+  return new Date(year, month - 1, day);
+}
+
+function dayOffsetFrom(date: string | undefined, now: Date) {
+  const parsed = parseLocalDate(date);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const today = parseLocalDate(todayISO(now));
+  return Math.round((parsed.getTime() - today.getTime()) / 86400000);
 }
 
 export function formatRelativeTime(value: string | undefined) {
@@ -218,6 +236,9 @@ export function calculateDashboardMetrics(
   const completedTargets = activeTargets.filter(
     (target) => target.status === "completed" && target.completedAt
   );
+  const openTargets = activeTargets.filter(
+    (target) => target.status !== "completed" && target.status !== "archived"
+  );
   const staleThreshold = now.getTime() - STALE_CLAIM_HOURS * 60 * 60 * 1000;
   const durations = completedTargets
     .map((target) => {
@@ -242,18 +263,70 @@ export function calculateDashboardMetrics(
     .filter((entry) => entry.actions > 0)
     .sort((a, b) => b.actions - a.actions)
     .slice(0, 5);
+  const completedThisWeekTargets = completedTargets.filter((target) => {
+    if (!target.completedAt) return false;
+    return new Date(target.completedAt).getTime() >= weekStart.getTime();
+  });
+  const priorityOrder: TargetPriority[] = ["urgent", "high", "medium", "low"];
+  const priorityBreakdown = priorityOrder.map((priority) => ({
+    priority,
+    openTargets: openTargets.filter((target) => target.priority === priority).length,
+  }));
+  const memberWorkload = data.members
+    .map((member) => ({
+      member,
+      activeTargets: activeTargets.filter(
+        (target) =>
+          target.claimedById === member.id &&
+          (target.status === "claimed" || target.status === "blocked")
+      ).length,
+      blockedTargets: activeTargets.filter(
+        (target) => target.claimedById === member.id && target.status === "blocked"
+      ).length,
+      completedThisWeek: completedThisWeekTargets.filter(
+        (target) => target.completedById === member.id || target.claimedById === member.id
+      ).length,
+    }))
+    .filter(
+      (entry) =>
+        entry.activeTargets > 0 ||
+        entry.blockedTargets > 0 ||
+        entry.completedThisWeek > 0
+    )
+    .sort(
+      (a, b) =>
+        b.activeTargets - a.activeTargets ||
+        b.blockedTargets - a.blockedTargets ||
+        b.completedThisWeek - a.completedThisWeek
+    )
+    .slice(0, 8);
 
   return {
     availableTargets: activeTargets.filter((target) => target.status === "available").length,
     claimedTargets: activeTargets.filter((target) => target.status === "claimed").length,
     blockedTargets: activeTargets.filter((target) => target.status === "blocked").length,
+    openTargets: openTargets.length,
+    overdueTargets: openTargets.filter((target) => {
+      const offset = dayOffsetFrom(target.dueDate, now);
+      return offset !== null && offset < 0;
+    }).length,
+    dueTodayTargets: openTargets.filter((target) => dayOffsetFrom(target.dueDate, now) === 0)
+      .length,
+    dueNext7Days: openTargets.filter((target) => {
+      const offset = dayOffsetFrom(target.dueDate, now);
+      return offset !== null && offset >= 0 && offset <= 7;
+    }).length,
+    dueNext14Days: openTargets.filter((target) => {
+      const offset = dayOffsetFrom(target.dueDate, now);
+      return offset !== null && offset >= 0 && offset <= 14;
+    }).length,
+    highPriorityOpenTargets: openTargets.filter(
+      (target) => target.priority === "high" || target.priority === "urgent"
+    ).length,
     completedToday: completedTargets.filter(
       (target) => dateTimeToLocalISO(target.completedAt) === today
     ).length,
-    completedThisWeek: completedTargets.filter((target) => {
-      if (!target.completedAt) return false;
-      return new Date(target.completedAt).getTime() >= weekStart.getTime();
-    }).length,
+    completedThisWeek: completedThisWeekTargets.length,
     staleClaimedTargets: activeTargets.filter((target) => {
       if (target.status !== "claimed" || !target.claimedAt) return false;
       const claimedAt = new Date(target.claimedAt).getTime();
@@ -263,6 +336,12 @@ export function calculateDashboardMetrics(
       durations.length > 0
         ? durations.reduce((sum, duration) => sum + duration, 0) / durations.length
         : null,
+    completionRate:
+      activeTargets.length > 0
+        ? (completedTargets.length / activeTargets.length) * 100
+        : null,
     mostActiveMembers,
+    memberWorkload,
+    priorityBreakdown,
   };
 }
