@@ -289,6 +289,7 @@ begin
 end;
 $$;
 
+drop function if exists public.get_accessible_workspaces();
 create or replace function public.get_accessible_workspaces()
 returns table (id uuid, name text, owner_id uuid, invite_code text)
 language sql
@@ -304,6 +305,7 @@ as $$
   order by w.name asc;
 $$;
 
+drop function if exists public.create_team(text);
 create or replace function public.create_team(team_name text)
 returns public.workspaces
 language plpgsql
@@ -376,6 +378,7 @@ begin
 end;
 $$;
 
+drop function if exists public.join_team_by_invite_code(text);
 create or replace function public.join_team_by_invite_code(invite_code_input text)
 returns public.workspaces
 language plpgsql
@@ -465,6 +468,7 @@ begin
 end;
 $$;
 
+drop function if exists public.add_workspace_member_by_email(uuid, text, text);
 create or replace function public.add_workspace_member_by_email(
   target_workspace_id uuid,
   teammate_email text,
@@ -552,6 +556,7 @@ begin
 end;
 $$;
 
+drop function if exists public.create_target(uuid, text, text, text, date);
 create or replace function public.create_target(
   team_id uuid,
   target_title text,
@@ -622,6 +627,7 @@ begin
 end;
 $$;
 
+drop function if exists public.claim_target(uuid);
 create or replace function public.claim_target(target_id uuid)
 returns public.targets
 language plpgsql
@@ -672,6 +678,8 @@ begin
 end;
 $$;
 
+drop function if exists public.release_target_claim(uuid);
+drop function if exists public.release_target(uuid, text);
 create or replace function public.release_target(target_id uuid, release_reason text default null)
 returns public.targets
 language plpgsql
@@ -730,6 +738,7 @@ as $$
   select * from public.release_target(target_id, null);
 $$;
 
+drop function if exists public.force_release_target(uuid, text);
 create or replace function public.force_release_target(target_id uuid, release_reason text)
 returns public.targets
 language plpgsql
@@ -786,6 +795,7 @@ begin
 end;
 $$;
 
+drop function if exists public.block_target(uuid, text);
 create or replace function public.block_target(target_id uuid, block_reason text)
 returns public.targets
 language plpgsql
@@ -837,6 +847,7 @@ begin
 end;
 $$;
 
+drop function if exists public.complete_target(uuid);
 create or replace function public.complete_target(target_id uuid)
 returns public.targets
 language plpgsql
@@ -890,6 +901,7 @@ begin
 end;
 $$;
 
+drop function if exists public.reopen_target(uuid);
 create or replace function public.reopen_target(target_id uuid)
 returns public.targets
 language plpgsql
@@ -941,6 +953,7 @@ begin
 end;
 $$;
 
+drop function if exists public.archive_target(uuid);
 create or replace function public.archive_target(target_id uuid)
 returns public.targets
 language plpgsql
@@ -986,6 +999,7 @@ begin
 end;
 $$;
 
+drop function if exists public.add_target_note(uuid, text);
 create or replace function public.add_target_note(target_id uuid, note_body text)
 returns public.target_notes
 language plpgsql
