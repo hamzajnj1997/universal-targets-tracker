@@ -43,11 +43,17 @@ export function OnboardingScreen() {
 
   async function createNewTeam(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedTeamName = teamName.trim();
+    if (normalizedTeamName.length < 2) {
+      setMessage("Team name must be at least 2 characters.");
+      return;
+    }
+
     setIsWorking(true);
     setMessage("");
 
     try {
-      const team = await createTeam(teamName);
+      const team = await createTeam(normalizedTeamName);
       window.localStorage.setItem("work-ownership-active-team", team.id);
       router.replace("/app/board");
     } catch (error) {
@@ -59,11 +65,18 @@ export function OnboardingScreen() {
 
   async function joinTeam(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedInviteCode = inviteCode.trim().toUpperCase();
+    if (normalizedInviteCode.length < 6) {
+      setMessage("Enter a valid invite code.");
+      return;
+    }
+
     setIsWorking(true);
     setMessage("");
+    setInviteCode(normalizedInviteCode);
 
     try {
-      const team = await joinTeamByInviteCode(inviteCode);
+      const team = await joinTeamByInviteCode(normalizedInviteCode);
       window.localStorage.setItem("work-ownership-active-team", team.id);
       router.replace("/app/board");
     } catch (error) {
@@ -103,6 +116,7 @@ export function OnboardingScreen() {
         <div className="grid gap-4">
           <form
             onSubmit={createNewTeam}
+            noValidate
             className="rounded-lg border border-slate-800 bg-slate-900/60 p-5"
           >
             <h2 className="text-xl font-bold">Create team</h2>
@@ -111,14 +125,14 @@ export function OnboardingScreen() {
               <input
                 value={teamName}
                 onChange={(event) => setTeamName(event.target.value)}
-                required
+                autoComplete="organization"
                 className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-cyan-300"
                 placeholder="Operations team"
               />
             </label>
             <button
               type="submit"
-              disabled={isWorking}
+              disabled={isWorking || teamName.trim().length < 2}
               className="mt-4 w-full rounded-md bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Create team
@@ -127,6 +141,7 @@ export function OnboardingScreen() {
 
           <form
             onSubmit={joinTeam}
+            noValidate
             className="rounded-lg border border-slate-800 bg-slate-900/60 p-5"
           >
             <h2 className="text-xl font-bold">Join team</h2>
@@ -135,14 +150,16 @@ export function OnboardingScreen() {
               <input
                 value={inviteCode}
                 onChange={(event) => setInviteCode(event.target.value)}
-                required
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
                 className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 uppercase text-white outline-none focus:border-cyan-300"
                 placeholder="ABC123XYZ"
               />
             </label>
             <button
               type="submit"
-              disabled={isWorking}
+              disabled={isWorking || inviteCode.trim().length < 6}
               className="mt-4 w-full rounded-md border border-slate-700 px-4 py-3 text-sm font-bold text-slate-100 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Join team

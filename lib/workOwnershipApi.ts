@@ -44,6 +44,24 @@ export type TeamInviteInput = {
 
 export type AuthMode = "login" | "signup" | "forgot";
 
+export function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export function isValidEmailAddress(email: string) {
+  const normalized = normalizeEmail(email);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) && normalized.length <= 254;
+}
+
+function assertValidEmailAddress(email: string) {
+  const normalized = normalizeEmail(email);
+  if (!isValidEmailAddress(normalized)) {
+    throw new Error("Enter a valid email address.");
+  }
+
+  return normalized;
+}
+
 function requireSupabaseClient(): SupabaseClient {
   const supabase = getSupabaseClient();
 
@@ -559,6 +577,14 @@ async function insertLegacyProgressLog(
   return toProgressLog(legacy.data as RowRecord);
 }
 
+async function claimPendingEmailInvites(supabase: SupabaseClient) {
+  const { data, error } = await supabase.rpc("claim_workspace_invites_for_current_user");
+
+  if (isSchemaGap(error)) return [];
+  throwSupabaseError(error);
+  return rows(data).map(toMember);
+}
+
 export function getClientForRealtime() {
   return getSupabaseClient();
 }
@@ -573,7 +599,11 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function signInWithPassword(email: string, password: string) {
   const supabase = requireSupabaseClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const normalizedEmail = assertValidEmailAddress(email);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  });
   throwSupabaseError(error);
   return data.user ?? null;
 }
@@ -584,18 +614,20 @@ export async function signUpWithPassword(
   displayName: string
 ) {
   const supabase = requireSupabaseClient();
+  const normalizedEmail = assertValidEmailAddress(email);
+  const normalizedDisplayName = displayName.trim() || normalizedEmail;
   const redirectTo =
     typeof window === "undefined"
       ? undefined
       : `${window.location.origin}/login?authVerified=true`;
 
   const { data, error } = await supabase.auth.signUp({
-    email,
+    email: normalizedEmail,
     password,
     options: {
       emailRedirectTo: redirectTo,
       data: {
-        display_name: displayName || email,
+        display_name: normalizedDisplayName,
       },
     },
   });
@@ -606,12 +638,30 @@ export async function signUpWithPassword(
 
 export async function sendPasswordReset(email: string) {
   const supabase = requireSupabaseClient();
+  const normalizedEmail = assertValidEmailAddress(email);
   const redirectTo =
     typeof window === "undefined"
       ? undefined
       : `${window.location.origin}/login`;
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
     redirectTo,
+  });
+  throwSupabaseError(error);
+}
+
+export async function resendSignupConfirmation(email: string) {
+  const supabase = requireSupabaseClient();
+  const normalizedEmail = assertValidEmailAddress(email);
+  const redirectTo =
+    typeof window === "undefined"
+      ? undefined
+      : `${window.location.origin}/login?authVerified=true`;
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: normalizedEmail,
+    options: {
+      emailRedirectTo: redirectTo,
+    },
   });
   throwSupabaseError(error);
 }
@@ -622,8 +672,14 @@ export async function signOut() {
   throwSupabaseError(error);
 }
 
+export async function syncSignedInMemberInvites(): Promise<TeamMember[]> {
+  const supabase = requireSupabaseClient();
+  return claimPendingEmailInvites(supabase);
+}
+
 export async function listTeams(): Promise<Team[]> {
   const supabase = requireSupabaseClient();
+  await claimPendingEmailInvites(supabase);
   const { data, error } = await supabase.rpc("get_accessible_workspaces");
   throwSupabaseError(error);
   return rows(data).map(toTeam).filter((team) => Boolean(team.id));
@@ -653,9 +709,10 @@ export async function joinTeamByInviteCode(inviteCode: string): Promise<Team> {
 
 export async function inviteMemberByEmail(input: TeamInviteInput): Promise<TeamMember> {
   const supabase = requireSupabaseClient();
+  const normalizedEmail = assertValidEmailAddress(input.email);
   const { data, error } = await supabase.rpc("add_workspace_member_by_email", {
     target_workspace_id: input.teamId,
-    teammate_email: input.email.trim().toLowerCase(),
+    teammate_email: normalizedEmail,
     member_role: input.role,
   });
   throwSupabaseError(error);

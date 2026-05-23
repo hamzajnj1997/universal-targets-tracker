@@ -15,8 +15,10 @@ import {
   getClientForRealtime,
   getCurrentUser,
   inviteMemberByEmail,
+  isValidEmailAddress,
   listTeams,
   loadBoardData,
+  normalizeEmail,
   releaseTarget,
   reopenTarget,
   signOut,
@@ -442,16 +444,24 @@ export function AppShell({ children }: AppShellProps) {
     if (!activeTeam || !isManagerRole(currentMember?.role)) return;
 
     setMessage("");
+    const normalizedEmail = normalizeEmail(inviteEmail);
+    if (!isValidEmailAddress(normalizedEmail)) {
+      setMessage("Enter a valid member email address.");
+      return;
+    }
+    setInviteEmail(normalizedEmail);
 
     try {
       await inviteMemberByEmail({
         teamId: activeTeam.id,
-        email: inviteEmail,
+        email: normalizedEmail,
         role: inviteRole,
       });
       setInviteEmail("");
       await refreshBoard(activeTeam.id);
-      setMessage("Invite prepared. Share the invite code if the member is not signed up yet.");
+      setMessage(
+        "Invite prepared. If they already have an account, their team access will activate on next sign-in. Otherwise share the invite link too."
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Invite failed.");
     }
@@ -662,12 +672,18 @@ export function AppShell({ children }: AppShellProps) {
             </div>
 
             {isManagerRole(currentMember?.role) ? (
-              <form onSubmit={inviteMember} className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+              <form
+                onSubmit={inviteMember}
+                noValidate
+                className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto_auto]"
+              >
                 <input
                   value={inviteEmail}
                   onChange={(event) => setInviteEmail(event.target.value)}
                   type="email"
-                  required
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  spellCheck={false}
                   placeholder="member@example.com"
                   className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-cyan-300"
                 />
@@ -681,7 +697,8 @@ export function AppShell({ children }: AppShellProps) {
                 </select>
                 <button
                   type="submit"
-                  className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950"
+                  disabled={!isValidEmailAddress(inviteEmail)}
+                  className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Invite
                 </button>

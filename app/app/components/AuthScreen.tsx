@@ -7,6 +7,9 @@ import type { User } from "@supabase/supabase-js";
 import {
   type AuthMode,
   getCurrentUser,
+  isValidEmailAddress,
+  normalizeEmail,
+  resendSignupConfirmation,
   sendPasswordReset,
   signInWithPassword,
   signUpWithPassword,
@@ -50,7 +53,9 @@ export function AuthScreen({ mode }: AuthScreenProps) {
       ? "Email verified. Sign in to continue."
       : ""
   );
+  const [verificationEmail, setVerificationEmail] = useState("");
   const [isWorking, setIsWorking] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -71,20 +76,45 @@ export function AuthScreen({ mode }: AuthScreenProps) {
 
   async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedDisplayName = displayName.trim();
+
+    if (!isValidEmailAddress(normalizedEmail)) {
+      setMessage("Enter a valid email address.");
+      return;
+    }
+
+    if (mode === "signup" && normalizedDisplayName.length < 2) {
+      setMessage("Enter your name so teammates know who owns work.");
+      return;
+    }
+
+    if (mode !== "forgot" && password.length < 6) {
+      setMessage("Password must be at least 6 characters.");
+      return;
+    }
+
     setIsWorking(true);
     setMessage("");
+    setVerificationEmail("");
+    setEmail(normalizedEmail);
 
     try {
       if (mode === "forgot") {
-        await sendPasswordReset(email);
+        await sendPasswordReset(normalizedEmail);
         setMessage("Password reset email sent.");
         return;
       }
 
       if (mode === "signup") {
-        const user = await signUpWithPassword(email, password, displayName);
+        const user = await signUpWithPassword(
+          normalizedEmail,
+          password,
+          normalizedDisplayName
+        );
         if (!isEmailVerified(user)) {
           setPassword("");
+          setVerificationEmail(normalizedEmail);
           setMessage(
             "Account created. Check your email and confirm the verification link before signing in."
           );
@@ -94,9 +124,10 @@ export function AuthScreen({ mode }: AuthScreenProps) {
         return;
       }
 
-      const user = await signInWithPassword(email, password);
+      const user = await signInWithPassword(normalizedEmail, password);
       if (!isEmailVerified(user)) {
         setPassword("");
+        setVerificationEmail(normalizedEmail);
         setMessage("Email not verified. Check your inbox and confirm your account.");
         return;
       }
@@ -105,6 +136,24 @@ export function AuthScreen({ mode }: AuthScreenProps) {
       setMessage(error instanceof Error ? error.message : "Auth action failed.");
     } finally {
       setIsWorking(false);
+    }
+  }
+
+  async function resendVerification() {
+    if (!verificationEmail) return;
+
+    setIsResending(true);
+    setMessage("");
+
+    try {
+      await resendSignupConfirmation(verificationEmail);
+      setMessage("Verification email sent again. Check your inbox.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Verification email could not be sent."
+      );
+    } finally {
+      setIsResending(false);
     }
   }
 
@@ -124,6 +173,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
 
         <form
           onSubmit={submitAuth}
+          noValidate
           className="space-y-4 rounded-lg border border-slate-800 bg-slate-900/60 p-5"
         >
           {mode === "signup" ? (
@@ -132,6 +182,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
               <input
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
+                autoComplete="name"
                 className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-cyan-300"
                 placeholder="Your name"
               />
@@ -144,7 +195,9 @@ export function AuthScreen({ mode }: AuthScreenProps) {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               type="email"
-              required
+              autoCapitalize="none"
+              autoComplete="email"
+              spellCheck={false}
               className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-cyan-300"
               placeholder="you@example.com"
             />
@@ -157,8 +210,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 type="password"
-                required
-                minLength={6}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-cyan-300"
                 placeholder="At least 6 characters"
               />
@@ -169,6 +221,17 @@ export function AuthScreen({ mode }: AuthScreenProps) {
             <p className="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm leading-6 text-cyan-50">
               {message}
             </p>
+          ) : null}
+
+          {verificationEmail ? (
+            <button
+              type="button"
+              onClick={resendVerification}
+              disabled={isWorking || isResending}
+              className="w-full rounded-md border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isResending ? "Sending..." : "Resend verification email"}
+            </button>
           ) : null}
 
           <button
