@@ -113,15 +113,19 @@ export function LiveBoard({
     mode === "board"
       ? "grid gap-3 xl:grid-cols-2 2xl:grid-cols-5"
       : "grid gap-4";
+  const sectionScrollClass =
+    mode === "board" ? "xl:max-h-[calc(100vh-190px)] xl:overflow-y-auto" : "";
+  const sectionHeaderClass =
+    mode === "board" ? "sticky top-0 z-10 -mx-2 -mt-2 bg-inherit px-3 pt-2" : "px-1";
 
   return (
     <div className={boardGridClass}>
       {sections.map((section) => (
         <section
           key={section.key}
-          className={`min-w-0 rounded-lg border p-2 shadow-sm ${section.shell}`}
+          className={`min-w-0 rounded-lg border p-2 shadow-sm ${section.shell} ${sectionScrollClass}`}
         >
-          <div className="mb-2 flex items-center justify-between gap-3 px-1">
+          <div className={`mb-2 flex items-center justify-between gap-3 ${sectionHeaderClass}`}>
             <div>
               <div className="flex items-center gap-2">
                 <span className={`h-2 w-2 rounded-full ${section.accent}`} />
