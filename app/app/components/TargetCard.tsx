@@ -73,8 +73,7 @@ export function TargetCard({
   const canClaim = canClaimTarget(currentMember, target);
   const canComplete = canCompleteTarget(currentMember, target);
   const dueState = getTargetDueState(target);
-  const primaryLabel = canClaim ? "Claim" : canComplete ? "Complete" : "Details";
-  const hasSecondaryDetailsAction = canClaim || canComplete;
+  const primaryLabel = canClaim ? "Claim" : canComplete ? "Complete" : "Open";
   const claimAgeLabel = target.claimedAt
     ? `Claimed ${formatRelativeTime(target.claimedAt)}`
     : "Unclaimed";
@@ -102,21 +101,26 @@ export function TargetCard({
       className={`group relative overflow-hidden rounded-lg border border-slate-200 bg-white p-2 pl-3 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md ${statusAccentClasses[target.status]}`}
     >
       <div className="grid gap-2">
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-start">
+        <div className="grid gap-2 xl:grid-cols-[1fr_auto] xl:items-start">
           <button
             type="button"
             onClick={() => onOpen(target)}
             className="min-w-0 text-left"
+            aria-label={`Open ${target.title}`}
           >
             <h3 className="truncate text-sm font-bold leading-5 text-slate-950 transition group-hover:text-sky-700">
               {target.title}
             </h3>
-            <p className="mt-1 truncate text-xs font-medium text-slate-500">
-              {claimant} - due {formatDateLabel(target.dueDate)}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-500">
+              <span className="truncate">{claimant}</span>
+              <span className="text-slate-300">|</span>
+              <span>Due {formatDateLabel(target.dueDate)}</span>
+              <span className="text-slate-300">|</span>
+              <span>{claimAgeLabel}</span>
+            </div>
           </button>
 
-          <div className="flex flex-wrap gap-1.5 sm:justify-end">
+          <div className="flex flex-wrap gap-1.5 xl:justify-end">
             <span
               className={`rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize ${statusClasses[target.status]}`}
             >
@@ -137,8 +141,8 @@ export function TargetCard({
           </div>
         </div>
 
-        {target.description ? (
-          <p className="line-clamp-1 text-xs leading-5 text-slate-500">
+        {target.description && target.status !== "available" ? (
+          <p className="line-clamp-1 text-[11px] leading-5 text-slate-500">
             {target.description}
           </p>
         ) : null}
@@ -149,10 +153,7 @@ export function TargetCard({
           </p>
         ) : null}
 
-        <div className="flex items-center justify-between gap-2">
-          <p className="truncate text-[11px] font-semibold text-slate-500">
-            {claimAgeLabel}
-          </p>
+        <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={primaryAction}
@@ -161,15 +162,6 @@ export function TargetCard({
           >
             {busy ? "..." : primaryLabel}
           </button>
-          {hasSecondaryDetailsAction ? (
-            <button
-              type="button"
-              onClick={() => onOpen(target)}
-              className="shrink-0 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-            >
-              Open
-            </button>
-          ) : null}
         </div>
       </div>
     </article>
