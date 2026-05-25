@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   BoardCapabilities,
   TargetActivity,
@@ -73,6 +73,16 @@ export function TargetDrawer({
     target.status === "completed" &&
     canReopenTarget(currentMember);
   const canArchive = target.status !== "archived" && canArchiveTarget(currentMember);
+  const titleId = `target-drawer-title-${target.id}`;
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
 
   function submitNote() {
     if (!noteBody.trim()) return;
@@ -81,7 +91,12 @@ export function TargetDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid bg-slate-950/35 backdrop-blur-sm lg:grid-cols-[1fr_560px]">
+    <div
+      className="fixed inset-0 z-50 grid bg-slate-950/35 backdrop-blur-sm lg:grid-cols-[1fr_560px]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
       <button
         type="button"
         aria-label="Close target details"
@@ -95,7 +110,10 @@ export function TargetDrawer({
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-500">
               Target details
             </p>
-            <h2 className="mt-2 break-words text-2xl font-bold text-slate-950">
+            <h2
+              id={titleId}
+              className="mt-2 break-words text-2xl font-bold text-slate-950"
+            >
               {target.title}
             </h2>
             <div className="mt-3 flex flex-wrap gap-2">
