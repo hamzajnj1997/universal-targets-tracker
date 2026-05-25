@@ -218,25 +218,21 @@ export function AppShell({ children }: AppShellProps) {
     {
       label: "Ready",
       value: splitTargets.available.length,
-      detail: "can be claimed",
       className: "border-cyan-200 bg-cyan-50 text-cyan-800",
     },
     {
       label: "My queue",
       value: splitTargets.myWork.length,
-      detail: "owned by me",
       className: "border-sky-200 bg-sky-50 text-sky-800",
     },
     {
       label: "Blocked",
       value: splitTargets.blocked.length,
-      detail: "needs help",
       className: "border-amber-200 bg-amber-50 text-amber-800",
     },
     {
       label: "Today",
       value: metrics.dueTodayTargets,
-      detail: "due today",
       className: "border-emerald-200 bg-emerald-50 text-emerald-800",
     },
   ];
@@ -1323,62 +1319,59 @@ export function AppShell({ children }: AppShellProps) {
         </aside>
 
         <section className="min-w-0 p-4 sm:p-6">
-          <header className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-500">
-                {activeTeam?.name ?? "Team"}
-              </p>
-              <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-                {pathname.startsWith("/app/dashboard")
-                  ? "Dashboard"
-                  : pathname.startsWith("/app/settings")
-                    ? "Settings"
-                    : pathname.startsWith("/app/my-work")
-                      ? "My Work"
-                      : pathname.startsWith("/app/completed")
-                        ? "Completed"
-                        : "Live Board"}
-              </h2>
-              <p className="mt-2 text-sm text-slate-500">
-                Account: {user?.email ?? "team member"} -{" "}
-                {currentMember
-                  ? `${currentMember.name} (${currentMember.role})`
-                  : "membership loading"}
-              </p>
+          <header className="mb-4 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-sky-500">
+                  {activeTeam?.name ?? "Team"}
+                </p>
+                <div className="mt-1 flex flex-wrap items-end gap-x-3 gap-y-1">
+                  <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+                    {pathname.startsWith("/app/dashboard")
+                      ? "Dashboard"
+                      : pathname.startsWith("/app/settings")
+                        ? "Settings"
+                        : pathname.startsWith("/app/my-work")
+                          ? "My Work"
+                          : pathname.startsWith("/app/completed")
+                            ? "Completed"
+                            : "Live Board"}
+                  </h2>
+                  <p className="pb-1 text-xs font-semibold text-slate-500">
+                    {currentMember
+                      ? `${currentMember.name} (${currentMember.role})`
+                      : user?.email ?? "Loading"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto]">
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  type="search"
+                  placeholder="Search work"
+                  className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={toggleCreateTargetForm}
+                  disabled={!canCreateTarget(currentMember)}
+                  className="rounded-md bg-sky-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Create target
+                </button>
+              </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto]">
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                type="search"
-                placeholder="Search work"
-                className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-              />
-              <button
-                type="button"
-                onClick={toggleCreateTargetForm}
-                disabled={!canCreateTarget(currentMember)}
-                className="rounded-md bg-sky-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Create target
-              </button>
-            </div>
-            </div>
-
-            <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-3 flex flex-wrap gap-2">
               {commandStats.map((stat) => (
                 <div
                   key={stat.label}
-                  className={`rounded-lg border px-3 py-3 ${stat.className}`}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-bold ${stat.className}`}
                 >
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-80">
-                    {stat.label}
-                  </p>
-                  <div className="mt-2 flex items-end justify-between gap-3">
-                    <p className="text-2xl font-bold text-slate-950">{stat.value}</p>
-                  </div>
+                  <span className="opacity-80">{stat.label}</span>
+                  <span className="ml-2 text-slate-950">{stat.value}</span>
                 </div>
               ))}
             </div>
