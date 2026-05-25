@@ -114,10 +114,10 @@ const navItems = [
 ];
 
 const dashboardCardToneClasses = {
-  neutral: "border-slate-800 bg-slate-950/80",
-  good: "border-emerald-400/30 bg-emerald-400/10",
-  warning: "border-amber-400/30 bg-amber-400/10",
-  danger: "border-rose-400/30 bg-rose-400/10",
+  neutral: "border-slate-200 bg-white",
+  good: "border-emerald-200 bg-emerald-50",
+  warning: "border-amber-200 bg-amber-50",
+  danger: "border-rose-200 bg-rose-50",
 };
 
 const priorityBarClasses: Record<TargetPriority, string> = {
@@ -130,11 +130,11 @@ const priorityBarClasses: Record<TargetPriority, string> = {
 type DashboardCardTone = keyof typeof dashboardCardToneClasses;
 
 const attentionReasonClasses = {
-  overdue: "border-rose-400/40 bg-rose-400/10 text-rose-100",
-  today: "border-amber-400/40 bg-amber-400/10 text-amber-100",
-  blocked: "border-amber-400/40 bg-amber-400/10 text-amber-100",
-  stale: "border-violet-400/40 bg-violet-400/10 text-violet-100",
-  priority: "border-cyan-400/40 bg-cyan-400/10 text-cyan-100",
+  overdue: "border-rose-200 bg-rose-100 text-rose-800",
+  today: "border-amber-200 bg-amber-100 text-amber-800",
+  blocked: "border-amber-200 bg-amber-100 text-amber-800",
+  stale: "border-violet-200 bg-violet-100 text-violet-800",
+  priority: "border-cyan-200 bg-cyan-100 text-cyan-800",
 } as const;
 
 function DatabaseModeBanner({
@@ -147,7 +147,7 @@ function DatabaseModeBanner({
   }
 
   return (
-    <div className="mb-5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm leading-6 text-amber-50">
+    <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
       Legacy database mode is active. Claim, release, complete, create, and archive use the existing tracker tables. Block reasons, notes, invite links, and full audit history need the Supabase migration in <span className="font-mono">supabase/migrations/20260521_work_ownership_tracker.sql</span>.
     </div>
   );
@@ -211,25 +211,25 @@ export function AppShell({ children }: AppShellProps) {
       label: "Ready",
       value: splitTargets.available.length,
       detail: "can be claimed",
-      className: "border-cyan-300/30 bg-cyan-300/12 text-cyan-100",
+      className: "border-cyan-200 bg-cyan-50 text-cyan-800",
     },
     {
       label: "My queue",
       value: splitTargets.myWork.length,
       detail: "owned by me",
-      className: "border-sky-300/30 bg-sky-300/12 text-sky-100",
+      className: "border-sky-200 bg-sky-50 text-sky-800",
     },
     {
       label: "Blocked",
       value: splitTargets.blocked.length,
       detail: "needs help",
-      className: "border-amber-300/35 bg-amber-300/12 text-amber-100",
+      className: "border-amber-200 bg-amber-50 text-amber-800",
     },
     {
       label: "Today",
       value: metrics.dueTodayTargets,
       detail: "due today",
-      className: "border-emerald-300/30 bg-emerald-300/12 text-emerald-100",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-800",
     },
   ];
 
@@ -561,8 +561,8 @@ export function AppShell({ children }: AppShellProps) {
           title: "Review blocked work",
           detail: "Something is stuck. Open it, read the reason, then decide what needs to happen next.",
           button: "Open blocker",
-          className: "border-amber-300/35 bg-amber-300/10",
-          textClassName: "text-amber-100",
+          className: "border-amber-200 bg-amber-50",
+          textClassName: "text-amber-700",
           action: () => setSelectedTargetId(blockedTarget.id),
         }
       : ownedTarget
@@ -570,8 +570,8 @@ export function AppShell({ children }: AppShellProps) {
             title: "Finish your queue",
             detail: "You already own work. Open the next item to complete it, block it, or release it.",
             button: "Open my next target",
-            className: "border-sky-300/30 bg-sky-300/10",
-            textClassName: "text-sky-100",
+            className: "border-sky-200 bg-sky-50",
+            textClassName: "text-sky-700",
             action: () => setSelectedTargetId(ownedTarget.id),
           }
         : availableTarget
@@ -579,8 +579,8 @@ export function AppShell({ children }: AppShellProps) {
               title: "Pick up available work",
               detail: "There is ready work on the board. Open it and claim it when you start.",
               button: "Open ready work",
-              className: "border-cyan-300/30 bg-cyan-300/10",
-              textClassName: "text-cyan-100",
+              className: "border-cyan-200 bg-cyan-50",
+              textClassName: "text-cyan-700",
               action: () => setSelectedTargetId(availableTarget.id),
             }
           : canCreateTarget(currentMember) && !isCreateOpen
@@ -588,8 +588,8 @@ export function AppShell({ children }: AppShellProps) {
                 title: "Create the next target",
                 detail: "Add one clear piece of work with a finish line and due date.",
                 button: "Create target",
-                className: "border-emerald-300/30 bg-emerald-300/10",
-                textClassName: "text-emerald-100",
+                className: "border-emerald-200 bg-emerald-50",
+                textClassName: "text-emerald-700",
                 action: toggleCreateTargetForm,
               }
             : null;
@@ -603,13 +603,13 @@ export function AppShell({ children }: AppShellProps) {
             <p className={`text-sm font-bold ${guidance.textClassName}`}>
               Best next step
             </p>
-            <h3 className="mt-1 text-lg font-bold text-white">{guidance.title}</h3>
-            <p className="mt-1 text-sm leading-6 text-slate-300">{guidance.detail}</p>
+            <h3 className="mt-1 text-lg font-bold text-slate-950">{guidance.title}</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-600">{guidance.detail}</p>
           </div>
           <button
             type="button"
             onClick={guidance.action}
-            className="rounded-md bg-white px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-slate-200"
+            className="rounded-md bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800"
           >
             {guidance.button}
           </button>
@@ -768,32 +768,32 @@ export function AppShell({ children }: AppShellProps) {
               key={card.label}
               className={`rounded-lg border p-4 ${dashboardCardToneClasses[card.tone]}`}
             >
-              <p className="text-sm text-slate-300">{card.label}</p>
-              <p className="mt-2 text-3xl font-bold text-white">{card.value}</p>
-              <p className="mt-2 text-xs font-medium text-slate-400">{card.detail}</p>
+              <p className="text-sm text-slate-500">{card.label}</p>
+              <p className="mt-2 text-3xl font-bold text-slate-950">{card.value}</p>
+              <p className="mt-2 text-xs font-medium text-slate-500">{card.detail}</p>
             </div>
           ))}
         </div>
 
-        <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-xl font-bold text-white">Needs attention</h2>
-              <p className="text-sm leading-6 text-slate-400">
+              <h2 className="text-xl font-bold text-slate-950">Needs attention</h2>
+              <p className="text-sm leading-6 text-slate-500">
                 Blocked, overdue, urgent, and stale work in one place.
               </p>
             </div>
-            <span className="w-fit rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-100">
+            <span className="w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">
               {attentionItems.length}
             </span>
           </div>
           <div className="mt-4 grid gap-3">
             {attentionItems.length === 0 ? (
-              <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-4">
-                <p className="text-sm font-semibold text-emerald-100">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                <p className="text-sm font-semibold text-emerald-800">
                   No urgent attention needed.
                 </p>
-                <p className="mt-1 text-xs leading-5 text-emerald-100/70">
+                <p className="mt-1 text-xs leading-5 text-emerald-700">
                   The team has no blocked, overdue, stale, or urgent open work right now.
                 </p>
               </div>
@@ -803,13 +803,13 @@ export function AppShell({ children }: AppShellProps) {
                   key={item.target.id}
                   type="button"
                   onClick={() => setSelectedTargetId(item.target.id)}
-                  className="grid gap-3 rounded-lg border border-slate-800 bg-slate-900/55 p-3 text-left transition hover:border-slate-600 sm:grid-cols-[1fr_auto]"
+                  className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-left transition hover:border-slate-300 hover:bg-white sm:grid-cols-[1fr_auto]"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-bold text-white">
+                    <span className="block truncate text-sm font-bold text-slate-950">
                       {item.target.title}
                     </span>
-                    <span className="mt-1 block text-xs leading-5 text-slate-400">
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">
                       {item.detail}
                     </span>
                   </span>
@@ -825,25 +825,25 @@ export function AppShell({ children }: AppShellProps) {
         </section>
 
         <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-          <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
-            <h2 className="text-xl font-bold text-white">Member workload</h2>
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-xl font-bold text-slate-950">Member workload</h2>
             <div className="mt-4 grid gap-3">
               {metrics.memberWorkload.length === 0 ? (
-                <p className="text-sm text-slate-400">No owned work yet.</p>
+                <p className="text-sm text-slate-500">No owned work yet.</p>
               ) : (
                 metrics.memberWorkload.map((entry) => (
                   <div
                     key={entry.member.id}
-                    className="grid gap-3 rounded-md border border-slate-800 bg-slate-900/60 px-3 py-3 sm:grid-cols-[1fr_auto_auto_auto]"
+                    className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 sm:grid-cols-[1fr_auto_auto_auto]"
                   >
-                    <span className="font-semibold text-white">{entry.member.name}</span>
-                    <span className="text-sm text-slate-300">
+                    <span className="font-semibold text-slate-950">{entry.member.name}</span>
+                    <span className="text-sm text-slate-500">
                       {entry.activeTargets} active
                     </span>
-                    <span className="text-sm text-amber-100">
+                    <span className="text-sm text-amber-700">
                       {entry.blockedTargets} blocked
                     </span>
-                    <span className="text-sm text-emerald-100">
+                    <span className="text-sm text-emerald-700">
                       {entry.completedThisWeek} done
                     </span>
                   </div>
@@ -852,8 +852,8 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
-            <h2 className="text-xl font-bold text-white">Priority load</h2>
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-xl font-bold text-slate-950">Priority load</h2>
             <div className="mt-4 grid gap-4">
               {metrics.priorityBreakdown.map((entry) => (
                 <div
@@ -861,14 +861,14 @@ export function AppShell({ children }: AppShellProps) {
                   className="grid gap-2"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold capitalize text-slate-100">
+                    <span className="text-sm font-semibold capitalize text-slate-800">
                       {entry.priority}
                     </span>
-                    <span className="text-sm text-slate-400">
+                    <span className="text-sm text-slate-500">
                       {entry.openTargets}
                     </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                     <div
                       className={`h-full rounded-full ${priorityBarClasses[entry.priority]}`}
                       style={{
@@ -885,19 +885,19 @@ export function AppShell({ children }: AppShellProps) {
           </section>
         </div>
 
-        <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
-          <h2 className="text-xl font-bold text-white">Audit activity</h2>
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-950">Audit activity</h2>
           <div className="mt-4 grid gap-3">
             {metrics.mostActiveMembers.length === 0 ? (
-              <p className="text-sm text-slate-400">No activity yet.</p>
+              <p className="text-sm text-slate-500">No activity yet.</p>
             ) : (
               metrics.mostActiveMembers.map((entry) => (
                 <div
                   key={entry.member.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-slate-800 bg-slate-900/60 px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
                 >
-                  <span className="font-semibold text-white">{entry.member.name}</span>
-                  <span className="text-sm text-slate-300">{entry.actions} actions</span>
+                  <span className="font-semibold text-slate-950">{entry.member.name}</span>
+                  <span className="text-sm text-slate-500">{entry.actions} actions</span>
                 </div>
               ))
             )}
@@ -911,18 +911,18 @@ export function AppShell({ children }: AppShellProps) {
     if (pathname.endsWith("/settings/members")) {
       return (
         <div className="space-y-6">
-          <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-xl font-bold text-white">Members</h2>
-                <p className="text-sm text-slate-400">
+                <h2 className="text-xl font-bold text-slate-950">Members</h2>
+                <p className="text-sm text-slate-500">
                   Active members can view the board and act through protected RPCs.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={copyInviteLink}
-                className="rounded-md border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-100"
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 Copy invite link
               </button>
@@ -942,12 +942,12 @@ export function AppShell({ children }: AppShellProps) {
                   autoComplete="email"
                   spellCheck={false}
                   placeholder="member@example.com"
-                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-cyan-300"
+                  className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none focus:border-sky-400 focus:bg-white"
                 />
                 <select
                   value={inviteRole}
                   onChange={(event) => setInviteRole(event.target.value as TeamRole)}
-                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-cyan-300"
+                  className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none focus:border-sky-400 focus:bg-white"
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
@@ -955,27 +955,27 @@ export function AppShell({ children }: AppShellProps) {
                 <button
                   type="submit"
                   disabled={!isValidEmailAddress(inviteEmail)}
-                  className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Invite
                 </button>
               </form>
             ) : null}
 
-            <div className="mt-5 overflow-hidden rounded-lg border border-slate-800">
+            <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
               {boardData.members.map((member) => (
                 <div
                   key={member.id}
-                  className="grid gap-2 border-b border-slate-800 bg-slate-900/40 p-3 last:border-b-0 sm:grid-cols-[1fr_auto_auto]"
+                  className="grid gap-2 border-b border-slate-200 bg-slate-50/70 p-3 last:border-b-0 sm:grid-cols-[1fr_auto_auto]"
                 >
                   <div>
-                    <p className="font-semibold text-white">{member.name}</p>
+                    <p className="font-semibold text-slate-950">{member.name}</p>
                     <p className="text-sm text-slate-500">{member.email ?? member.userId ?? "Pending invite"}</p>
                   </div>
-                  <span className="h-fit rounded-full border border-slate-700 px-3 py-1 text-sm capitalize text-slate-200">
+                  <span className="h-fit rounded-full border border-slate-200 bg-white px-3 py-1 text-sm capitalize text-slate-700">
                     {member.role}
                   </span>
-                  <span className="h-fit rounded-full border border-slate-700 px-3 py-1 text-sm capitalize text-slate-200">
+                  <span className="h-fit rounded-full border border-slate-200 bg-white px-3 py-1 text-sm capitalize text-slate-700">
                     {member.status}
                   </span>
                 </div>
@@ -988,16 +988,16 @@ export function AppShell({ children }: AppShellProps) {
 
     if (pathname.endsWith("/settings/team")) {
       return (
-        <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
-          <h2 className="text-xl font-bold text-white">Team settings</h2>
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-950">Team settings</h2>
           <dl className="mt-4 grid gap-3 text-sm">
             <div className="flex justify-between gap-3">
               <dt className="text-slate-500">Team</dt>
-              <dd className="font-semibold text-white">{activeTeam?.name ?? "No team"}</dd>
+              <dd className="font-semibold text-slate-950">{activeTeam?.name ?? "No team"}</dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-slate-500">Database mode</dt>
-              <dd className="font-semibold capitalize text-white">
+              <dd className="font-semibold capitalize text-slate-950">
                 {boardData.capabilities.schemaMode === "workOwnership"
                   ? "Work ownership"
                   : "Legacy tracker"}
@@ -1005,13 +1005,13 @@ export function AppShell({ children }: AppShellProps) {
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-slate-500">Invite code</dt>
-              <dd className="text-right font-mono font-semibold text-white">
+              <dd className="text-right font-mono font-semibold text-slate-950">
                 {activeTeam?.inviteCode || "Migration required"}
               </dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-slate-500">Your role</dt>
-              <dd className="font-semibold capitalize text-white">
+              <dd className="font-semibold capitalize text-slate-950">
                 {currentMember?.role ?? "Unknown"}
               </dd>
             </div>
@@ -1027,12 +1027,12 @@ export function AppShell({ children }: AppShellProps) {
                 key={String(label)}
                 className={
                   active
-                    ? "rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3"
-                    : "rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+                    ? "rounded-lg border border-emerald-200 bg-emerald-50 p-3"
+                    : "rounded-lg border border-slate-200 bg-slate-50 p-3"
                 }
               >
-                <p className="text-sm font-semibold text-white">{label}</p>
-                <p className={active ? "mt-1 text-xs text-emerald-100" : "mt-1 text-xs text-slate-400"}>
+                <p className="text-sm font-semibold text-slate-950">{label}</p>
+                <p className={active ? "mt-1 text-xs text-emerald-700" : "mt-1 text-xs text-slate-500"}>
                   {active ? "Available" : "Needs migration"}
                 </p>
               </div>
@@ -1040,7 +1040,7 @@ export function AppShell({ children }: AppShellProps) {
           </div>
 
           {boardData.capabilities.schemaMode === "legacy" ? (
-            <p className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 p-3 text-sm leading-6 text-amber-50">
+            <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
               Apply <span className="font-mono">supabase/migrations/20260521_work_ownership_tracker.sql</span> with Supabase admin access to enable the full production database.
             </p>
           ) : null}
@@ -1048,7 +1048,7 @@ export function AppShell({ children }: AppShellProps) {
           <button
             type="button"
             onClick={copyInviteLink}
-            className="mt-5 rounded-md bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950"
+            className="mt-5 rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600"
           >
             Copy invite link
           </button>
@@ -1058,16 +1058,16 @@ export function AppShell({ children }: AppShellProps) {
 
     if (pathname.endsWith("/settings/profile")) {
       return (
-        <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
-          <h2 className="text-xl font-bold text-white">Profile</h2>
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-950">Profile</h2>
           <dl className="mt-4 grid gap-3 text-sm">
             <div className="flex justify-between gap-3">
               <dt className="text-slate-500">Email</dt>
-              <dd className="font-semibold text-white">{user?.email ?? "Unknown"}</dd>
+              <dd className="font-semibold text-slate-950">{user?.email ?? "Unknown"}</dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-slate-500">Member name</dt>
-              <dd className="font-semibold text-white">{currentMember?.name ?? "Unknown"}</dd>
+              <dd className="font-semibold text-slate-950">{currentMember?.name ?? "Unknown"}</dd>
             </div>
           </dl>
           <button
@@ -1091,7 +1091,7 @@ export function AppShell({ children }: AppShellProps) {
           <Link
             key={href}
             href={href}
-            className="rounded-lg border border-slate-800 bg-slate-950/80 p-5 text-lg font-bold text-white hover:border-cyan-300"
+            className="rounded-lg border border-slate-200 bg-white p-5 text-lg font-bold text-slate-950 shadow-sm hover:border-sky-300"
           >
             {label}
           </Link>
@@ -1153,25 +1153,25 @@ export function AppShell({ children }: AppShellProps) {
 
   if (isBooting) {
     return (
-      <main className="grid min-h-screen place-items-center bg-slate-950 px-4 text-white">
-        <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-300">
+      <main className="grid min-h-screen place-items-center bg-slate-50 px-4 text-slate-950">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-sky-500">
             Real-Time Work Ownership Tracker
           </p>
-          <p className="mt-3 text-slate-300">Opening your board...</p>
+          <p className="mt-3 text-slate-500">Opening your board...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#07111d] text-white">
+    <main className="min-h-screen bg-[#f4f7fb] text-slate-950">
       <div className="hidden">{children}</div>
       <div className="mx-auto grid w-full max-w-[1900px] gap-0 lg:grid-cols-[288px_1fr]">
-        <aside className="border-b border-slate-800 bg-[#091321] p-4 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r">
+        <aside className="border-b border-slate-200 bg-[#132346] p-4 text-white lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r lg:border-r-slate-200">
           <div className="flex items-center justify-between gap-3 lg:block">
             <Link href="/app/board" className="block">
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300">
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-200">
                 Work Tracker
               </p>
               <h1 className="mt-2 text-xl font-bold leading-6 text-white">
@@ -1182,22 +1182,22 @@ export function AppShell({ children }: AppShellProps) {
             <button
               type="button"
               onClick={() => setIsMenuOpen((value) => !value)}
-              className="rounded-md border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-cyan-300 lg:mt-5 lg:w-full"
+              className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-sky-200 hover:bg-white/10 lg:mt-5 lg:w-full"
             >
               {activeTeam?.name ?? "Team"}
             </button>
           </div>
 
           {isMenuOpen ? (
-            <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900 p-3">
-              <label className="block text-xs font-semibold text-slate-400" htmlFor="team-switcher">
+            <div className="mt-4 rounded-lg border border-white/10 bg-white/10 p-3">
+              <label className="block text-xs font-semibold text-slate-300" htmlFor="team-switcher">
                 Switch team
               </label>
               <select
                 id="team-switcher"
                 value={activeTeamId}
                 onChange={(event) => void switchTeam(event.target.value)}
-                className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                className="mt-2 w-full rounded-md border border-white/15 bg-[#0e1a36] px-3 py-2 text-sm text-white"
               >
                 {teams.map((team) => (
                   <option key={team.id} value={team.id}>
@@ -1206,23 +1206,23 @@ export function AppShell({ children }: AppShellProps) {
                 ))}
               </select>
               <div className="mt-3 grid gap-2 text-sm">
-                <Link href="/onboarding" className="rounded-md px-2 py-2 hover:bg-slate-800">
+                <Link href="/onboarding" className="rounded-md px-2 py-2 hover:bg-white/10">
                   Create team
                 </Link>
                 <button
                   type="button"
                   onClick={copyInviteLink}
-                  className="rounded-md px-2 py-2 text-left hover:bg-slate-800"
+                  className="rounded-md px-2 py-2 text-left hover:bg-white/10"
                 >
                   Invite people
                 </button>
-                <Link href="/app/settings/members" className="rounded-md px-2 py-2 hover:bg-slate-800">
+                <Link href="/app/settings/members" className="rounded-md px-2 py-2 hover:bg-white/10">
                   Members
                 </Link>
-                <Link href="/app/settings/team" className="rounded-md px-2 py-2 hover:bg-slate-800">
+                <Link href="/app/settings/team" className="rounded-md px-2 py-2 hover:bg-white/10">
                   Team settings
                 </Link>
-                <Link href="/app/settings/profile" className="rounded-md px-2 py-2 hover:bg-slate-800">
+                <Link href="/app/settings/profile" className="rounded-md px-2 py-2 hover:bg-white/10">
                   Profile
                 </Link>
                 <button
@@ -1245,15 +1245,15 @@ export function AppShell({ children }: AppShellProps) {
                   href={item.href}
                   className={
                     isActive
-                      ? "rounded-md border border-cyan-200 bg-cyan-300 px-3 py-2 text-sm font-bold text-slate-950 shadow-sm shadow-cyan-950/30"
-                      : "rounded-md border border-transparent px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-slate-700 hover:bg-slate-900 hover:text-white"
+                      ? "rounded-md border border-sky-300 bg-sky-100 px-3 py-2 text-sm font-bold text-[#102045] shadow-sm"
+                      : "rounded-md border border-transparent px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/10 hover:bg-white/10 hover:text-white"
                   }
                 >
                   <span className="flex items-center gap-2">
                     <span className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-slate-950" : item.dot}`} />
                     <span>{item.label}</span>
                   </span>
-                  <span className={isActive ? "mt-1 block text-xs font-semibold text-slate-800" : "mt-1 block text-xs font-medium text-slate-500"}>
+                  <span className={isActive ? "mt-1 block text-xs font-semibold text-[#102045]/80" : "mt-1 block text-xs font-medium text-slate-400"}>
                     {item.cue}
                   </span>
                 </Link>
@@ -1262,11 +1262,11 @@ export function AppShell({ children }: AppShellProps) {
           </nav>
 
           <div className="mt-5 grid grid-cols-2 gap-2 text-sm lg:grid-cols-1">
-            <div className="rounded-lg border border-cyan-300/25 bg-cyan-300/10 p-3">
+            <div className="rounded-lg border border-cyan-200/30 bg-cyan-200/10 p-3">
               <p className="text-cyan-100/80">Ready to claim</p>
               <p className="mt-1 text-2xl font-bold text-white">{splitTargets.available.length}</p>
             </div>
-            <div className="rounded-lg border border-sky-300/25 bg-sky-300/10 p-3">
+            <div className="rounded-lg border border-sky-200/30 bg-sky-200/10 p-3">
               <p className="text-sky-100/80">My queue</p>
               <p className="mt-1 text-2xl font-bold text-white">{splitTargets.myWork.length}</p>
             </div>
@@ -1274,13 +1274,13 @@ export function AppShell({ children }: AppShellProps) {
         </aside>
 
         <section className="min-w-0 p-4 sm:p-6">
-          <header className="mb-5 rounded-lg border border-slate-800 bg-slate-950/70 p-4 shadow-sm ring-1 ring-white/[0.03]">
+          <header className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-300">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-500">
                 {activeTeam?.name ?? "Team"}
               </p>
-              <h2 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
                 {pathname.startsWith("/app/dashboard")
                   ? "Dashboard"
                   : pathname.startsWith("/app/settings")
@@ -1291,7 +1291,7 @@ export function AppShell({ children }: AppShellProps) {
                         ? "Completed"
                         : "Live Board"}
               </h2>
-              <p className="mt-2 text-sm text-slate-400">
+              <p className="mt-2 text-sm text-slate-500">
                 Account: {user?.email ?? "team member"} -{" "}
                 {currentMember
                   ? `${currentMember.name} (${currentMember.role})`
@@ -1307,7 +1307,7 @@ export function AppShell({ children }: AppShellProps) {
                 ].map(([label, dot]) => (
                   <span
                     key={label}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs font-semibold text-slate-200"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
                   >
                     <span className={`h-2 w-2 rounded-full ${dot}`} />
                     {label}
@@ -1322,13 +1322,13 @@ export function AppShell({ children }: AppShellProps) {
                 onChange={(event) => setSearchQuery(event.target.value)}
                 type="search"
                 placeholder="Search work"
-                className="rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2 text-white outline-none transition focus:border-cyan-300"
+                className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
               />
               <button
                 type="button"
                 onClick={toggleCreateTargetForm}
                 disabled={!canCreateTarget(currentMember)}
-                className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-md bg-sky-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Create target
               </button>
@@ -1345,7 +1345,7 @@ export function AppShell({ children }: AppShellProps) {
                     {stat.label}
                   </p>
                   <div className="mt-2 flex items-end justify-between gap-3">
-                    <p className="text-2xl font-bold text-white">{stat.value}</p>
+                    <p className="text-2xl font-bold text-slate-950">{stat.value}</p>
                     <p className="text-xs font-medium opacity-80">{stat.detail}</p>
                   </div>
                 </div>
@@ -1371,20 +1371,20 @@ export function AppShell({ children }: AppShellProps) {
             <form
               onSubmit={submitTarget}
               noValidate
-              className="mb-6 grid gap-3 rounded-lg border border-cyan-300/20 bg-slate-950/80 p-4 shadow-sm ring-1 ring-cyan-300/10 xl:grid-cols-[1fr_180px_170px_auto]"
+              className="mb-6 grid gap-3 rounded-lg border border-sky-200 bg-white p-4 shadow-sm xl:grid-cols-[1fr_180px_170px_auto]"
             >
-              <label className="block text-sm font-semibold text-slate-200">
+              <label className="block text-sm font-semibold text-slate-700">
                 Work title
                 <input
                   value={targetForm.title}
                   onChange={(event) =>
                     setTargetForm((form) => ({ ...form, title: event.target.value }))
                   }
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-white outline-none transition focus:border-cyan-300"
+                  className="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
                   placeholder="Example: Prepare weekly report"
                 />
               </label>
-              <label className="block text-sm font-semibold text-slate-200">
+              <label className="block text-sm font-semibold text-slate-700">
                 Priority
                 <select
                   value={targetForm.priority}
@@ -1394,7 +1394,7 @@ export function AppShell({ children }: AppShellProps) {
                       priority: event.target.value as TargetPriority,
                     }))
                   }
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-white outline-none transition focus:border-cyan-300"
+                  className="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -1402,7 +1402,7 @@ export function AppShell({ children }: AppShellProps) {
                   <option value="urgent">Urgent</option>
                 </select>
               </label>
-              <label className="block text-sm font-semibold text-slate-200">
+              <label className="block text-sm font-semibold text-slate-700">
                 Due date
                 <input
                   value={targetForm.dueDate}
@@ -1410,7 +1410,7 @@ export function AppShell({ children }: AppShellProps) {
                     setTargetForm((form) => ({ ...form, dueDate: event.target.value }))
                   }
                   type="date"
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-white outline-none transition focus:border-cyan-300"
+                  className="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
                 />
               </label>
               <button
@@ -1420,7 +1420,7 @@ export function AppShell({ children }: AppShellProps) {
               >
                 {isCreatingTarget ? "Creating..." : "Create"}
               </button>
-              <label className="block text-sm font-semibold text-slate-200 xl:col-span-4">
+              <label className="block text-sm font-semibold text-slate-700 xl:col-span-4">
                 Completion notes
                 <textarea
                   value={targetForm.description}
@@ -1431,7 +1431,7 @@ export function AppShell({ children }: AppShellProps) {
                     }))
                   }
                   rows={3}
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-white outline-none transition focus:border-cyan-300"
+                  className="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
                   placeholder="Write the clear finish line for this work."
                 />
               </label>
@@ -1439,7 +1439,7 @@ export function AppShell({ children }: AppShellProps) {
           ) : null}
 
           {currentMember ? renderContent() : (
-            <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-5 text-sm text-slate-400">
+            <div className="rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
               Your team membership is not active. Ask an owner/admin to invite you, or join with an invite code.
             </div>
           )}
