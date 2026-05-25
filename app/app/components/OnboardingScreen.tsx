@@ -7,14 +7,16 @@ import {
   createTeam,
   getCurrentUser,
   joinTeamByInviteCode,
+  listTeams,
   signOut,
 } from "../../../lib/workOwnershipApi";
 
 export function OnboardingScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const inviteFromUrl = searchParams.get("invite")?.trim() ?? "";
   const [teamName, setTeamName] = useState("");
-  const [inviteCode, setInviteCode] = useState(searchParams.get("invite") ?? "");
+  const [inviteCode, setInviteCode] = useState(inviteFromUrl);
   const [message, setMessage] = useState("");
   const [isWorking, setIsWorking] = useState(false);
 
@@ -29,6 +31,13 @@ export function OnboardingScreen() {
           return;
         }
 
+        if (inviteFromUrl) return;
+
+        const teams = await listTeams();
+        if (!isMounted || teams.length === 0) return;
+
+        window.localStorage.setItem("work-ownership-active-team", teams[0].id);
+        router.replace("/app/board");
       })
       .catch((error) => {
         if (isMounted) {
@@ -39,7 +48,7 @@ export function OnboardingScreen() {
     return () => {
       isMounted = false;
     };
-  }, [router]);
+  }, [inviteFromUrl, router]);
 
   async function createNewTeam(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
