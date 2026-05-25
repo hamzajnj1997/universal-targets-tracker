@@ -32,11 +32,17 @@ import type {
   WorkTarget,
 } from "../../../lib/workOwnershipTypes";
 import {
+  STALE_CLAIM_HOURS,
   calculateDashboardMetrics,
   canCreateTarget,
   filterTargetsForSearch,
+  formatDateLabel,
+  formatRelativeTime,
+  getTargetDueState,
   isManagerRole,
+  memberName,
   splitBoardTargets,
+  statusLabel,
   todayISO,
 } from "../../../lib/workOwnershipRules";
 import { LiveBoard } from "./LiveBoard";
@@ -123,6 +129,14 @@ const priorityBarClasses: Record<TargetPriority, string> = {
 
 type DashboardCardTone = keyof typeof dashboardCardToneClasses;
 
+const attentionReasonClasses = {
+  overdue: "border-rose-400/40 bg-rose-400/10 text-rose-100",
+  today: "border-amber-400/40 bg-amber-400/10 text-amber-100",
+  blocked: "border-amber-400/40 bg-amber-400/10 text-amber-100",
+  stale: "border-violet-400/40 bg-violet-400/10 text-violet-100",
+  priority: "border-cyan-400/40 bg-cyan-400/10 text-cyan-100",
+} as const;
+
 function DatabaseModeBanner({
   mode,
 }: {
@@ -156,6 +170,7 @@ export function AppShell({ children }: AppShellProps) {
   const [busyTargetId, setBusyTargetId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [targetForm, setTargetForm] = useState<TargetForm>(createDefaultTargetForm);
+  const [dashboardTimestamp, setDashboardTimestamp] = useState(() => Date.now());
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamRole>("member");
 
@@ -225,6 +240,7 @@ export function AppShell({ children }: AppShellProps) {
       try {
         const data = await loadBoardData(teamId);
         setBoardData(data);
+        setDashboardTimestamp(Date.now());
         setMessage("");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Unable to load board.");
@@ -593,6 +609,81 @@ export function AppShell({ children }: AppShellProps) {
       1,
       ...metrics.priorityBreakdown.map((entry) => entry.openTargets)
     );
+    type AttentionItem = {
+      target: WorkTarget;
+      reason: string;
+      detail: string;
+      className: string;
+      rank: number;
+    };
+    const staleThreshold =
+      dashboardTimestamp - STALE_CLAIM_HOURS * 60 * 60 * 1000;
+    const attentionItems = boardData.targets
+      .filter((target) => target.status !== "completed" && target.status !== "archived")
+      .map<AttentionItem | null>((target) => {
+        const dueState = getTargetDueState(target);
+        const claimedAt = target.claimedAt ? new Date(target.claimedAt).getTime() : null;
+        const isStale =
+          target.status === "claimed" &&
+          claimedAt !== null &&
+          !Number.isNaN(claimedAt) &&
+          claimedAt < staleThreshold;
+        const owner = memberName(target.claimedById, boardData.members, "Unassigned");
+        const detail = `${statusLabel(target.status)} - ${owner} - due ${formatDateLabel(
+          target.dueDate
+        )}`;
+
+        if (target.status === "blocked") {
+          return {
+            target,
+            reason: "Blocked",
+            detail,
+            className: attentionReasonClasses.blocked,
+            rank: 0,
+          };
+        }
+        if (dueState === "overdue") {
+          return {
+            target,
+            reason: "Overdue",
+            detail,
+            className: attentionReasonClasses.overdue,
+            rank: 1,
+          };
+        }
+        if (dueState === "today") {
+          return {
+            target,
+            reason: "Due today",
+            detail,
+            className: attentionReasonClasses.today,
+            rank: 2,
+          };
+        }
+        if (isStale) {
+          return {
+            target,
+            reason: `Claimed ${formatRelativeTime(target.claimedAt)}`,
+            detail,
+            className: attentionReasonClasses.stale,
+            rank: 3,
+          };
+        }
+        if (target.priority === "urgent" || target.priority === "high") {
+          return {
+            target,
+            reason: target.priority === "urgent" ? "Urgent" : "High priority",
+            detail,
+            className: attentionReasonClasses.priority,
+            rank: 4,
+          };
+        }
+
+        return null;
+      })
+      .filter((item): item is AttentionItem => item !== null)
+      .sort((a, b) => a.rank - b.rank)
+      .slice(0, 8);
 
     return (
       <div className="space-y-6">
@@ -608,6 +699,55 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           ))}
         </div>
+
+        <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white">Needs attention</h2>
+              <p className="text-sm leading-6 text-slate-400">
+                Blocked, overdue, urgent, and stale work in one place.
+              </p>
+            </div>
+            <span className="w-fit rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-100">
+              {attentionItems.length}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {attentionItems.length === 0 ? (
+              <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-4">
+                <p className="text-sm font-semibold text-emerald-100">
+                  No urgent attention needed.
+                </p>
+                <p className="mt-1 text-xs leading-5 text-emerald-100/70">
+                  The team has no blocked, overdue, stale, or urgent open work right now.
+                </p>
+              </div>
+            ) : (
+              attentionItems.map((item) => (
+                <button
+                  key={item.target.id}
+                  type="button"
+                  onClick={() => setSelectedTargetId(item.target.id)}
+                  className="grid gap-3 rounded-lg border border-slate-800 bg-slate-900/55 p-3 text-left transition hover:border-slate-600 sm:grid-cols-[1fr_auto]"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold text-white">
+                      {item.target.title}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-400">
+                      {item.detail}
+                    </span>
+                  </span>
+                  <span
+                    className={`h-fit w-fit rounded-full border px-3 py-1 text-xs font-bold ${item.className}`}
+                  >
+                    {item.reason}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </section>
 
         <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
           <section className="rounded-lg border border-slate-800 bg-slate-950/80 p-5">
