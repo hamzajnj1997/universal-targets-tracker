@@ -1341,7 +1341,7 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto]">
+              <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto_auto]">
                 <input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
@@ -1349,6 +1349,14 @@ export function AppShell({ children }: AppShellProps) {
                   placeholder="Search work"
                   className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
                 />
+                <button
+                  type="button"
+                  onClick={() => void refreshBoard()}
+                  disabled={!activeTeamId || isRefreshing}
+                  className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isRefreshing ? "Refreshing" : "Refresh"}
+                </button>
                 <button
                   type="button"
                   onClick={toggleCreateTargetForm}
@@ -1380,10 +1388,6 @@ export function AppShell({ children }: AppShellProps) {
           ) : null}
 
           <DatabaseModeBanner mode={boardData.capabilities} />
-
-          {isRefreshing ? (
-            <p className="mb-5 text-sm text-slate-500">Refreshing board...</p>
-          ) : null}
 
           {renderNextStep()}
 
