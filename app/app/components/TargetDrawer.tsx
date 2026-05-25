@@ -190,8 +190,13 @@ export function TargetDrawer({
           </section>
         ) : null}
 
-        <section className="mt-5 space-y-3">
-          <h3 className="text-sm font-semibold text-white">Actions</h3>
+        <section className="mt-5 space-y-3 rounded-lg border border-slate-800 bg-slate-950/45 p-4">
+          <div>
+            <h3 className="text-sm font-semibold text-white">Choose action</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Current status and available actions are below.
+            </p>
+          </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {canComplete ? (
               <button
@@ -236,9 +241,9 @@ export function TargetDrawer({
           </div>
 
           {canRelease ? (
-            <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+            <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-3">
               <label className="text-xs font-semibold text-slate-400" htmlFor="release-reason">
-                Release reason
+                Release note
               </label>
               <textarea
                 id="release-reason"
@@ -246,7 +251,7 @@ export function TargetDrawer({
                 onChange={(event) => setReleaseReason(event.target.value)}
                 rows={2}
                 className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300"
-                placeholder="Optional"
+                placeholder="Optional: why are you releasing it?"
               />
               <button
                 type="button"
@@ -270,7 +275,7 @@ export function TargetDrawer({
                 onChange={(event) => setBlockReason(event.target.value)}
                 rows={2}
                 className="mt-2 w-full rounded-md border border-amber-300/40 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-amber-200"
-                placeholder="Required"
+                placeholder="Required: what is stopping this?"
               />
               <button
                 type="button"
@@ -293,7 +298,7 @@ export function TargetDrawer({
           {canForceRelease ? (
             <div className="rounded-lg border border-rose-400/30 bg-rose-400/10 p-3">
               <label className="text-xs font-semibold text-rose-100" htmlFor="force-reason">
-                Force release reason
+                Owner/admin release reason
               </label>
               <textarea
                 id="force-reason"
@@ -301,7 +306,7 @@ export function TargetDrawer({
                 onChange={(event) => setForceReason(event.target.value)}
                 rows={2}
                 className="mt-2 w-full rounded-md border border-rose-300/40 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-rose-200"
-                placeholder="Required for owner/admin"
+                placeholder="Required: why should this be released?"
               />
               <button
                 type="button"

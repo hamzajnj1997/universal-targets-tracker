@@ -52,6 +52,14 @@ const statusClasses: Record<WorkTarget["status"], string> = {
   archived: "border-slate-700 bg-slate-900 text-slate-300",
 };
 
+const statusAccentClasses: Record<WorkTarget["status"], string> = {
+  available: "before:bg-cyan-300",
+  claimed: "before:bg-sky-300",
+  blocked: "before:bg-amber-300",
+  completed: "before:bg-emerald-300",
+  archived: "before:bg-slate-500",
+};
+
 export function TargetCard({
   target,
   members,
@@ -67,6 +75,20 @@ export function TargetCard({
   const dueState = getTargetDueState(target);
   const primaryLabel = canClaim ? "Claim" : canComplete ? "Complete" : "Details";
   const hasSecondaryDetailsAction = canClaim || canComplete;
+  const primaryButtonClass = canComplete
+    ? "bg-emerald-300 hover:bg-emerald-200"
+    : canClaim
+      ? "bg-cyan-300 hover:bg-cyan-200"
+      : "bg-slate-200 hover:bg-white";
+  const actionHint = canClaim
+    ? "Ready for someone to own."
+    : canComplete
+      ? "Owned by you. Finish it or open for options."
+      : target.status === "blocked"
+        ? "Waiting on a blocker."
+        : target.status === "completed"
+          ? "Finished and kept for audit."
+          : "Open for details.";
   const primaryAction = () => {
     if (canClaim) {
       onClaim(target);
@@ -82,7 +104,9 @@ export function TargetCard({
   };
 
   return (
-    <article className="group flex min-h-[230px] flex-col justify-between rounded-lg border border-slate-800 bg-slate-900/65 p-3 shadow-sm ring-1 ring-white/[0.03] transition hover:border-slate-700 hover:bg-slate-900">
+    <article
+      className={`group relative flex min-h-[230px] flex-col justify-between overflow-hidden rounded-lg border border-slate-800 bg-slate-900/65 p-3 pl-4 shadow-sm ring-1 ring-white/[0.03] transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-700 hover:bg-slate-900 ${statusAccentClasses[target.status]}`}
+    >
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <span
@@ -121,6 +145,10 @@ export function TargetCard({
           </button>
         </div>
 
+        <p className="rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs font-medium leading-5 text-slate-400">
+          {actionHint}
+        </p>
+
         <dl className="grid gap-2 rounded-lg border border-slate-800 bg-slate-950/45 p-3 text-xs text-slate-300">
           <div className="flex items-center justify-between gap-3">
             <dt className="text-slate-500">Owner</dt>
@@ -158,7 +186,7 @@ export function TargetCard({
           type="button"
           onClick={primaryAction}
           disabled={busy}
-          className="rounded-md bg-cyan-300 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+          className={`rounded-md px-3 py-2 text-sm font-semibold text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
         >
           {busy ? "Working..." : primaryLabel}
         </button>
