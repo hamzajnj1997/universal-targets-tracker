@@ -52,6 +52,7 @@ import {
 } from "./TargetDrawer";
 
 const ACTIVE_TEAM_KEY = "work-ownership-active-team";
+const SIDEBAR_PIN_KEY = "work-ownership-sidebar-pinned";
 
 const emptyBoardData: BoardData = {
   members: [],
@@ -163,6 +164,8 @@ export function AppShell({ children }: AppShellProps) {
   const [isCreatingTarget, setIsCreatingTarget] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSidebarPinned, setIsSidebarPinned] = useState(false);
+  const [hasLoadedSidebarPin, setHasLoadedSidebarPin] = useState(false);
   const [busyTargetId, setBusyTargetId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [targetForm, setTargetForm] = useState<TargetForm>(createDefaultTargetForm);
@@ -202,6 +205,15 @@ export function AppShell({ children }: AppShellProps) {
     () => splitBoardTargets(visibleTargets, currentMember),
     [currentMember, visibleTargets]
   );
+  const sidebarTextClass = isSidebarPinned
+    ? "lg:block"
+    : "lg:hidden lg:group-hover:block lg:group-focus-within:block";
+  const sidebarLabelClass = isSidebarPinned
+    ? "lg:opacity-100"
+    : "lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100";
+  const sidebarHoverPanelClass = isSidebarPinned
+    ? ""
+    : "lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100";
   const commandStats = [
     {
       label: "Ready",
@@ -298,6 +310,21 @@ export function AppShell({ children }: AppShellProps) {
       isMounted = false;
     };
   }, [router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const frameId = window.requestAnimationFrame(() => {
+      setIsSidebarPinned(window.localStorage.getItem(SIDEBAR_PIN_KEY) === "true");
+      setHasLoadedSidebarPin(true);
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasLoadedSidebarPin) return;
+    window.localStorage.setItem(SIDEBAR_PIN_KEY, String(isSidebarPinned));
+  }, [hasLoadedSidebarPin, isSidebarPinned]);
 
   useEffect(() => {
     if (!activeTeamId) return;
@@ -1162,19 +1189,21 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <main className="min-h-screen bg-[#f4f7fb] text-slate-950">
       <div className="hidden">{children}</div>
-      <div className="mx-auto grid w-full max-w-[1900px] gap-0 lg:grid-cols-[84px_1fr]">
-        <aside className="group border-b border-slate-200 bg-[#132346] p-4 text-white lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:w-[84px] lg:overflow-hidden lg:border-b-0 lg:border-r lg:border-r-slate-200 lg:transition-[width] lg:duration-200 lg:hover:w-[288px] lg:focus-within:w-[288px]">
+      <div className={`mx-auto grid w-full max-w-[1900px] gap-0 ${isSidebarPinned ? "lg:grid-cols-[288px_1fr]" : "lg:grid-cols-[84px_1fr]"}`}>
+        <aside className={`group border-b border-slate-200 bg-[#132346] p-4 text-white lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:overflow-hidden lg:border-b-0 lg:border-r lg:border-r-slate-200 lg:transition-[width] lg:duration-200 ${isSidebarPinned ? "lg:w-[288px]" : "lg:w-[84px] lg:hover:w-[288px] lg:focus-within:w-[288px]"}`}>
           <div className="flex items-center justify-between gap-3 lg:block">
             <Link href="/app/board" className="block">
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-200 lg:hidden lg:whitespace-nowrap lg:group-hover:block lg:group-focus-within:block">
+              <p className={`text-sm font-semibold uppercase tracking-[0.22em] text-sky-200 lg:whitespace-nowrap ${sidebarTextClass}`}>
                 Work Tracker
               </p>
-              <h1 className="mt-2 text-xl font-bold leading-6 text-white lg:hidden lg:whitespace-nowrap lg:group-hover:block lg:group-focus-within:block">
+              <h1 className={`mt-2 text-xl font-bold leading-6 text-white lg:whitespace-nowrap ${sidebarTextClass}`}>
                 Live ownership
               </h1>
-              <span className="hidden h-9 w-9 items-center justify-center rounded-lg bg-sky-100 text-sm font-black text-[#102045] lg:flex lg:group-hover:hidden lg:group-focus-within:hidden">
-                W
-              </span>
+              {!isSidebarPinned ? (
+                <span className="hidden h-9 w-9 items-center justify-center rounded-lg bg-sky-100 text-sm font-black text-[#102045] lg:flex lg:group-hover:hidden lg:group-focus-within:hidden">
+                  W
+                </span>
+              ) : null}
             </Link>
 
             <button
@@ -1182,17 +1211,37 @@ export function AppShell({ children }: AppShellProps) {
               onClick={() => setIsMenuOpen((value) => !value)}
               className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-sky-200 hover:bg-white/10 lg:mt-5 lg:w-full lg:overflow-hidden lg:whitespace-nowrap"
             >
-              <span className="lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+              <span className={sidebarLabelClass}>
                 {activeTeam?.name ?? "Team"}
               </span>
-              <span className="hidden lg:inline lg:group-hover:hidden lg:group-focus-within:hidden">
-                {activeTeam?.name?.charAt(0).toUpperCase() ?? "T"}
+              {!isSidebarPinned ? (
+                <span className="hidden lg:inline lg:group-hover:hidden lg:group-focus-within:hidden">
+                  {activeTeam?.name?.charAt(0).toUpperCase() ?? "T"}
+                </span>
+              ) : null}
+            </button>
+
+            <button
+              type="button"
+              aria-pressed={isSidebarPinned}
+              aria-label={isSidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
+              title={isSidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
+              onClick={() => setIsSidebarPinned((value) => !value)}
+              className="mt-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-sky-200 hover:bg-white/10 lg:w-full lg:overflow-hidden lg:whitespace-nowrap"
+            >
+              <span className={sidebarLabelClass}>
+                {isSidebarPinned ? "Pinned" : "Pin sidebar"}
               </span>
+              {!isSidebarPinned ? (
+                <span className="hidden lg:inline lg:group-hover:hidden lg:group-focus-within:hidden">
+                  P
+                </span>
+              ) : null}
             </button>
           </div>
 
           {isMenuOpen ? (
-            <div className="mt-4 rounded-lg border border-white/10 bg-white/10 p-3 lg:min-w-[256px] lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+            <div className={`mt-4 rounded-lg border border-white/10 bg-white/10 p-3 lg:min-w-[256px] ${sidebarHoverPanelClass}`}>
               <label className="block text-xs font-semibold text-slate-300" htmlFor="team-switcher">
                 Switch team
               </label>
@@ -1254,7 +1303,7 @@ export function AppShell({ children }: AppShellProps) {
                 >
                   <span className="flex items-center gap-2 lg:whitespace-nowrap">
                     <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${isActive ? "bg-slate-950" : item.dot}`} />
-                    <span className="lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">{item.label}</span>
+                    <span className={sidebarLabelClass}>{item.label}</span>
                   </span>
                 </Link>
               );
@@ -1263,11 +1312,11 @@ export function AppShell({ children }: AppShellProps) {
 
           <div className="mt-5 grid grid-cols-2 gap-2 text-sm lg:grid-cols-1">
             <div className="rounded-lg border border-cyan-200/30 bg-cyan-200/10 p-3 lg:overflow-hidden lg:whitespace-nowrap">
-              <p className="text-cyan-100/80 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">Ready</p>
+              <p className={`text-cyan-100/80 ${sidebarLabelClass}`}>Ready</p>
               <p className="mt-1 text-2xl font-bold text-white">{splitTargets.available.length}</p>
             </div>
             <div className="rounded-lg border border-sky-200/30 bg-sky-200/10 p-3 lg:overflow-hidden lg:whitespace-nowrap">
-              <p className="text-sky-100/80 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">Mine</p>
+              <p className={`text-sky-100/80 ${sidebarLabelClass}`}>Mine</p>
               <p className="mt-1 text-2xl font-bold text-white">{splitTargets.myWork.length}</p>
             </div>
           </div>
