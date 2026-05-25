@@ -148,7 +148,7 @@ function DatabaseModeBanner({
 
   return (
     <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-      Legacy database mode is active. Claim, release, complete, create, and archive use the existing tracker tables. Block reasons, notes, invite links, and full audit history need the Supabase migration in <span className="font-mono">supabase/migrations/20260521_work_ownership_tracker.sql</span>.
+      Core work tracking is available. Some upgrade features are limited on this team: blockers, notes, invite links, or full audit history may need database permissions before they appear.
     </div>
   );
 }
