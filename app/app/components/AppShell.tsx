@@ -543,6 +543,81 @@ export function AppShell({ children }: AppShellProps) {
     }
   }
 
+  function renderNextStep() {
+    if (
+      !currentMember ||
+      pathname.startsWith("/app/dashboard") ||
+      pathname.startsWith("/app/settings") ||
+      pathname.startsWith("/app/completed")
+    ) {
+      return null;
+    }
+
+    const blockedTarget = splitTargets.blocked[0];
+    const ownedTarget = splitTargets.myWork[0];
+    const availableTarget = splitTargets.available[0];
+    const guidance = blockedTarget
+      ? {
+          title: "Review blocked work",
+          detail: "Something is stuck. Open it, read the reason, then decide what needs to happen next.",
+          button: "Open blocker",
+          className: "border-amber-300/35 bg-amber-300/10",
+          textClassName: "text-amber-100",
+          action: () => setSelectedTargetId(blockedTarget.id),
+        }
+      : ownedTarget
+        ? {
+            title: "Finish your queue",
+            detail: "You already own work. Open the next item to complete it, block it, or release it.",
+            button: "Open my next target",
+            className: "border-sky-300/30 bg-sky-300/10",
+            textClassName: "text-sky-100",
+            action: () => setSelectedTargetId(ownedTarget.id),
+          }
+        : availableTarget
+          ? {
+              title: "Pick up available work",
+              detail: "There is ready work on the board. Open it and claim it when you start.",
+              button: "Open ready work",
+              className: "border-cyan-300/30 bg-cyan-300/10",
+              textClassName: "text-cyan-100",
+              action: () => setSelectedTargetId(availableTarget.id),
+            }
+          : canCreateTarget(currentMember) && !isCreateOpen
+            ? {
+                title: "Create the next target",
+                detail: "Add one clear piece of work with a finish line and due date.",
+                button: "Create target",
+                className: "border-emerald-300/30 bg-emerald-300/10",
+                textClassName: "text-emerald-100",
+                action: toggleCreateTargetForm,
+              }
+            : null;
+
+    if (!guidance) return null;
+
+    return (
+      <section className={`mb-5 rounded-lg border p-4 ${guidance.className}`}>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div>
+            <p className={`text-sm font-bold ${guidance.textClassName}`}>
+              Best next step
+            </p>
+            <h3 className="mt-1 text-lg font-bold text-white">{guidance.title}</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-300">{guidance.detail}</p>
+          </div>
+          <button
+            type="button"
+            onClick={guidance.action}
+            className="rounded-md bg-white px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-slate-200"
+          >
+            {guidance.button}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   function renderDashboard() {
     const metricCards: {
       label: string;
@@ -1289,6 +1364,8 @@ export function AppShell({ children }: AppShellProps) {
           {isRefreshing ? (
             <p className="mb-5 text-sm text-slate-500">Refreshing board...</p>
           ) : null}
+
+          {renderNextStep()}
 
           {isCreateOpen ? (
             <form
