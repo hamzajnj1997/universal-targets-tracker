@@ -53,7 +53,7 @@ export function LiveBoard({
             targets: split.myWork,
             accent: "bg-cyan-300",
             shell: "border-sky-100 bg-sky-50/80",
-            emptyTitle: "Your queue is clear.",
+            emptyTitle: "Clear.",
           },
         ]
       : mode === "completed"
@@ -64,7 +64,7 @@ export function LiveBoard({
               targets: split.completed,
               accent: "bg-emerald-300",
               shell: "border-emerald-100 bg-emerald-50/80",
-              emptyTitle: "No completed work yet.",
+              emptyTitle: "None.",
             },
           ]
         : [
@@ -74,7 +74,7 @@ export function LiveBoard({
               targets: split.available,
               accent: "bg-cyan-300",
               shell: "border-cyan-100 bg-cyan-50/80",
-              emptyTitle: "No open work waiting.",
+              emptyTitle: "Clear.",
             },
             {
               key: "my-work",
@@ -82,7 +82,7 @@ export function LiveBoard({
               targets: split.myWork,
               accent: "bg-sky-300",
               shell: "border-sky-100 bg-sky-50/80",
-              emptyTitle: "Nothing assigned to you.",
+              emptyTitle: "Clear.",
             },
             {
               key: "claimed-others",
@@ -90,7 +90,7 @@ export function LiveBoard({
               targets: split.claimedByOthers,
               accent: "bg-violet-300",
               shell: "border-violet-100 bg-violet-50/80",
-              emptyTitle: "No one else is holding work.",
+              emptyTitle: "Clear.",
             },
             {
               key: "blocked",
@@ -98,7 +98,7 @@ export function LiveBoard({
               targets: split.blocked,
               accent: "bg-amber-300",
               shell: "border-amber-100 bg-amber-50/80",
-              emptyTitle: "No blockers right now.",
+              emptyTitle: "Clear.",
             },
             {
               key: "completed-today",
@@ -106,12 +106,12 @@ export function LiveBoard({
               targets: split.completedToday,
               accent: "bg-emerald-300",
               shell: "border-emerald-100 bg-emerald-50/80",
-              emptyTitle: "Nothing completed today yet.",
+              emptyTitle: "None.",
             },
           ];
   const boardGridClass =
     mode === "board"
-      ? "grid gap-4 xl:grid-cols-2 2xl:grid-cols-5"
+      ? "grid gap-3 xl:grid-cols-2 2xl:grid-cols-5"
       : "grid gap-4";
 
   return (
@@ -121,7 +121,7 @@ export function LiveBoard({
           key={section.key}
           className={`min-w-0 rounded-lg border p-2 shadow-sm ${section.shell}`}
         >
-          <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="mb-2 flex items-center justify-between gap-3 px-1">
             <div>
               <div className="flex items-center gap-2">
                 <span className={`h-2 w-2 rounded-full ${section.accent}`} />
@@ -134,8 +134,8 @@ export function LiveBoard({
           </div>
 
           {section.targets.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-white/75 p-3">
-              <p className="text-sm font-semibold text-slate-900">{section.emptyTitle}</p>
+            <div className="rounded-md border border-dashed border-slate-200 bg-white/75 px-3 py-2">
+              <p className="text-xs font-semibold text-slate-500">{section.emptyTitle}</p>
             </div>
           ) : (
             <div className={mode === "board" ? "grid gap-2" : "grid gap-2 lg:grid-cols-2 2xl:grid-cols-3"}>

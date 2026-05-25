@@ -8,7 +8,6 @@ import {
   formatRelativeTime,
   getTargetDueState,
   memberName,
-  statusLabel,
 } from "../../../lib/workOwnershipRules";
 
 type TargetCardProps = {
@@ -42,14 +41,6 @@ const dueStateClasses = {
   soon: "border-sky-200 bg-sky-100 text-sky-800",
   later: "border-slate-200 bg-slate-100 text-slate-700",
   none: "",
-};
-
-const statusClasses: Record<WorkTarget["status"], string> = {
-  available: "border-cyan-200 bg-cyan-100 text-cyan-800",
-  claimed: "border-sky-200 bg-sky-100 text-sky-800",
-  blocked: "border-amber-200 bg-amber-100 text-amber-800",
-  completed: "border-emerald-200 bg-emerald-100 text-emerald-800",
-  archived: "border-slate-200 bg-slate-100 text-slate-700",
 };
 
 const statusAccentClasses: Record<WorkTarget["status"], string> = {
@@ -98,10 +89,10 @@ export function TargetCard({
 
   return (
     <article
-      className={`group relative overflow-hidden rounded-lg border border-slate-200 bg-white p-2 pl-3 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md ${statusAccentClasses[target.status]}`}
+      className={`group relative overflow-hidden rounded-md border border-slate-200 bg-white px-2 py-1.5 pl-3 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md ${statusAccentClasses[target.status]}`}
     >
-      <div className="grid gap-2">
-        <div className="grid gap-2 xl:grid-cols-[1fr_auto] xl:items-start">
+      <div className="grid gap-1.5">
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <button
             type="button"
             onClick={() => onOpen(target)}
@@ -111,7 +102,7 @@ export function TargetCard({
             <h3 className="truncate text-sm font-bold leading-5 text-slate-950 transition group-hover:text-sky-700">
               {target.title}
             </h3>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-500">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-semibold text-slate-500">
               <span className="truncate">{claimant}</span>
               <span className="text-slate-300">|</span>
               <span>Due {formatDateLabel(target.dueDate)}</span>
@@ -120,12 +111,7 @@ export function TargetCard({
             </div>
           </button>
 
-          <div className="flex flex-wrap gap-1.5 xl:justify-end">
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize ${statusClasses[target.status]}`}
-            >
-              {statusLabel(target.status)}
-            </span>
+          <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
             <span
               className={`rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize ${priorityClasses[target.priority]}`}
             >
@@ -138,31 +124,22 @@ export function TargetCard({
                 {dueStateLabels[dueState]}
               </span>
             ) : null}
+            <button
+              type="button"
+              onClick={primaryAction}
+              disabled={busy}
+              className={`shrink-0 rounded-md px-2.5 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
+            >
+              {busy ? "..." : primaryLabel}
+            </button>
           </div>
         </div>
 
-        {target.description && target.status !== "available" ? (
-          <p className="line-clamp-1 text-[11px] leading-5 text-slate-500">
-            {target.description}
-          </p>
-        ) : null}
-
         {target.status === "blocked" ? (
-          <p className="line-clamp-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs leading-5 text-amber-800">
+          <p className="line-clamp-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] leading-5 text-amber-800">
             Blocked: {target.blockedReason ?? "No reason recorded."}
           </p>
         ) : null}
-
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={primaryAction}
-            disabled={busy}
-            className={`shrink-0 rounded-md px-2.5 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
-          >
-            {busy ? "..." : primaryLabel}
-          </button>
-        </div>
       </div>
     </article>
   );

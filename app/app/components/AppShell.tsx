@@ -144,8 +144,8 @@ function DatabaseModeBanner({
   }
 
   return (
-    <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-      Core work tracking is available. Some upgrade features are limited on this team: blockers, notes, invite links, or full audit history may need database permissions before they appear.
+    <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+      Limited database mode: blockers, notes, invites, and full audit need the Supabase migration.
     </div>
   );
 }

@@ -191,12 +191,7 @@ export function TargetDrawer({
         ) : null}
 
         <section className="mt-5 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-950">Choose action</h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Current status and available actions are below.
-            </p>
-          </div>
+          <h3 className="text-sm font-semibold text-slate-950">Actions</h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {canComplete ? (
               <button
