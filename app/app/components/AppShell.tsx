@@ -1354,7 +1354,7 @@ export function AppShell({ children }: AppShellProps) {
           </header>
 
           {message ? (
-            <p className="mb-5 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm leading-6 text-amber-50">
+            <p className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-900">
               {message}
             </p>
           ) : null}

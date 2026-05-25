@@ -271,6 +271,11 @@ function isSchemaGap(error: SupabaseLikeError) {
   );
 }
 
+function isPermissionDenied(error: SupabaseLikeError) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return message.includes("permission denied") || error?.code === "42501";
+}
+
 function isMissingAuthSession(error: SupabaseLikeError) {
   const message = error?.message?.toLowerCase() ?? "";
   return (
@@ -383,7 +388,7 @@ async function fetchActivities(supabase: SupabaseClient, teamId: string) {
       supportsActivityLog: true,
     };
   }
-  if (isSchemaGap(result.error)) {
+  if (isSchemaGap(result.error) || isPermissionDenied(result.error)) {
     return {
       activities: [],
       supportsActivityLog: false,
@@ -410,7 +415,7 @@ async function fetchNotes(supabase: SupabaseClient, teamId: string) {
       supportsNotes: true,
     };
   }
-  if (isSchemaGap(result.error)) {
+  if (isSchemaGap(result.error) || isPermissionDenied(result.error)) {
     return {
       notes: [],
       supportsNotes: false,
