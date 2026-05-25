@@ -1395,17 +1395,17 @@ export function AppShell({ children }: AppShellProps) {
             <form
               onSubmit={submitTarget}
               noValidate
-              className="mb-6 grid gap-3 rounded-lg border border-sky-200 bg-white p-4 shadow-sm xl:grid-cols-[1fr_180px_170px_auto]"
+              className="mb-4 grid gap-2 rounded-lg border border-sky-200 bg-white p-3 shadow-sm xl:grid-cols-[minmax(0,1fr)_150px_150px_auto_auto]"
             >
               <label className="block text-sm font-semibold text-slate-700">
-                Work title
+                Title
                 <input
                   value={targetForm.title}
                   onChange={(event) =>
                     setTargetForm((form) => ({ ...form, title: event.target.value }))
                   }
-                  className="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-                  placeholder="Example: Prepare weekly report"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                  placeholder="Prepare weekly report"
                 />
               </label>
               <label className="block text-sm font-semibold text-slate-700">
@@ -1418,7 +1418,7 @@ export function AppShell({ children }: AppShellProps) {
                       priority: event.target.value as TargetPriority,
                     }))
                   }
-                  className="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -1434,7 +1434,7 @@ export function AppShell({ children }: AppShellProps) {
                     setTargetForm((form) => ({ ...form, dueDate: event.target.value }))
                   }
                   type="date"
-                  className="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
                 />
               </label>
               <button
@@ -1444,8 +1444,15 @@ export function AppShell({ children }: AppShellProps) {
               >
                 {isCreatingTarget ? "Creating..." : "Create"}
               </button>
-              <label className="block text-sm font-semibold text-slate-700 xl:col-span-4">
-                Completion notes
+              <button
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+                className="self-end rounded-md border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <label className="block text-sm font-semibold text-slate-700 xl:col-span-5">
+                Finish line
                 <textarea
                   value={targetForm.description}
                   onChange={(event) =>
@@ -1454,9 +1461,9 @@ export function AppShell({ children }: AppShellProps) {
                       description: event.target.value,
                     }))
                   }
-                  rows={3}
-                  className="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-                  placeholder="Write the clear finish line for this work."
+                  rows={2}
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                  placeholder="What counts as done?"
                 />
               </label>
             </form>
