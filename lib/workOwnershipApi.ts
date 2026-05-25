@@ -276,6 +276,11 @@ function isPermissionDenied(error: SupabaseLikeError) {
   return message.includes("permission denied") || error?.code === "42501";
 }
 
+function isOptionalActivityPermissionDenied(error: SupabaseLikeError) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return isPermissionDenied(error) && message.includes("target_activity");
+}
+
 function isMissingAuthSession(error: SupabaseLikeError) {
   const message = error?.message?.toLowerCase() ?? "";
   return (
@@ -585,7 +590,7 @@ async function insertLegacyProgressLog(
 async function claimPendingEmailInvites(supabase: SupabaseClient) {
   const { data, error } = await supabase.rpc("claim_workspace_invites_for_current_user");
 
-  if (isSchemaGap(error)) return [];
+  if (isSchemaGap(error) || isOptionalActivityPermissionDenied(error)) return [];
   throwSupabaseError(error);
   return rows(data).map(toMember);
 }
