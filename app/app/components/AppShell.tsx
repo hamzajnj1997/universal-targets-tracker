@@ -578,7 +578,6 @@ export function AppShell({ children }: AppShellProps) {
     const guidance = blockedTarget
       ? {
           title: "Review blocked work",
-          detail: "Something is stuck. Open it, read the reason, then decide what needs to happen next.",
           button: "Open blocker",
           className: "border-amber-200 bg-amber-50",
           textClassName: "text-amber-700",
@@ -587,7 +586,6 @@ export function AppShell({ children }: AppShellProps) {
       : ownedTarget
         ? {
             title: "Finish your queue",
-            detail: "You already own work. Open the next item to complete it, block it, or release it.",
             button: "Open my next target",
             className: "border-sky-200 bg-sky-50",
             textClassName: "text-sky-700",
@@ -596,7 +594,6 @@ export function AppShell({ children }: AppShellProps) {
         : availableTarget
           ? {
               title: "Pick up available work",
-              detail: "There is ready work on the board. Open it and claim it when you start.",
               button: "Open ready work",
               className: "border-cyan-200 bg-cyan-50",
               textClassName: "text-cyan-700",
@@ -605,7 +602,6 @@ export function AppShell({ children }: AppShellProps) {
           : canCreateTarget(currentMember) && !isCreateOpen
             ? {
                 title: "Create the next target",
-                detail: "Add one clear piece of work with a finish line and due date.",
                 button: "Create target",
                 className: "border-emerald-200 bg-emerald-50",
                 textClassName: "text-emerald-700",
@@ -616,18 +612,18 @@ export function AppShell({ children }: AppShellProps) {
     if (!guidance) return null;
 
     return (
-      <section className={`mb-5 rounded-lg border p-4 ${guidance.className}`}>
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div>
-            <p className={`text-sm font-bold ${guidance.textClassName}`}>
-              Best next step
-            </p>
-            <h3 className="mt-1 text-lg font-bold text-slate-950">{guidance.title}</h3>
-          </div>
+      <section className={`mb-3 rounded-lg border px-3 py-2 ${guidance.className}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="min-w-0 text-sm font-bold text-slate-950">
+            <span className={`mr-2 uppercase tracking-[0.12em] ${guidance.textClassName}`}>
+              Next
+            </span>
+            {guidance.title}
+          </p>
           <button
             type="button"
             onClick={guidance.action}
-            className="rounded-md bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800"
+            className="rounded-md bg-slate-950 px-3 py-1.5 text-sm font-bold text-white transition hover:bg-slate-800"
           >
             {guidance.button}
           </button>
