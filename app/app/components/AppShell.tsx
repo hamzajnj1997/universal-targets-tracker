@@ -90,25 +90,21 @@ const navItems = [
   {
     href: "/app/board",
     label: "Live Board",
-    cue: "All work",
     dot: "bg-cyan-300",
   },
   {
     href: "/app/my-work",
     label: "My Work",
-    cue: "Owned by me",
     dot: "bg-sky-300",
   },
   {
     href: "/app/completed",
     label: "Completed",
-    cue: "Finished",
     dot: "bg-emerald-300",
   },
   {
     href: "/app/dashboard",
     label: "Dashboard",
-    cue: "Team health",
     dot: "bg-violet-300",
   },
 ];
@@ -604,7 +600,6 @@ export function AppShell({ children }: AppShellProps) {
               Best next step
             </p>
             <h3 className="mt-1 text-lg font-bold text-slate-950">{guidance.title}</h3>
-            <p className="mt-1 text-sm leading-6 text-slate-600">{guidance.detail}</p>
           </div>
           <button
             type="button"
@@ -1167,29 +1162,37 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <main className="min-h-screen bg-[#f4f7fb] text-slate-950">
       <div className="hidden">{children}</div>
-      <div className="mx-auto grid w-full max-w-[1900px] gap-0 lg:grid-cols-[288px_1fr]">
-        <aside className="border-b border-slate-200 bg-[#132346] p-4 text-white lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r lg:border-r-slate-200">
+      <div className="mx-auto grid w-full max-w-[1900px] gap-0 lg:grid-cols-[84px_1fr]">
+        <aside className="group border-b border-slate-200 bg-[#132346] p-4 text-white lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:w-[84px] lg:overflow-hidden lg:border-b-0 lg:border-r lg:border-r-slate-200 lg:transition-[width] lg:duration-200 lg:hover:w-[288px] lg:focus-within:w-[288px]">
           <div className="flex items-center justify-between gap-3 lg:block">
             <Link href="/app/board" className="block">
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-200">
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-200 lg:hidden lg:whitespace-nowrap lg:group-hover:block lg:group-focus-within:block">
                 Work Tracker
               </p>
-              <h1 className="mt-2 text-xl font-bold leading-6 text-white">
+              <h1 className="mt-2 text-xl font-bold leading-6 text-white lg:hidden lg:whitespace-nowrap lg:group-hover:block lg:group-focus-within:block">
                 Live ownership
               </h1>
+              <span className="hidden h-9 w-9 items-center justify-center rounded-lg bg-sky-100 text-sm font-black text-[#102045] lg:flex lg:group-hover:hidden lg:group-focus-within:hidden">
+                W
+              </span>
             </Link>
 
             <button
               type="button"
               onClick={() => setIsMenuOpen((value) => !value)}
-              className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-sky-200 hover:bg-white/10 lg:mt-5 lg:w-full"
+              className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-sky-200 hover:bg-white/10 lg:mt-5 lg:w-full lg:overflow-hidden lg:whitespace-nowrap"
             >
-              {activeTeam?.name ?? "Team"}
+              <span className="lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+                {activeTeam?.name ?? "Team"}
+              </span>
+              <span className="hidden lg:inline lg:group-hover:hidden lg:group-focus-within:hidden">
+                {activeTeam?.name?.charAt(0).toUpperCase() ?? "T"}
+              </span>
             </button>
           </div>
 
           {isMenuOpen ? (
-            <div className="mt-4 rounded-lg border border-white/10 bg-white/10 p-3">
+            <div className="mt-4 rounded-lg border border-white/10 bg-white/10 p-3 lg:min-w-[256px] lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
               <label className="block text-xs font-semibold text-slate-300" htmlFor="team-switcher">
                 Switch team
               </label>
@@ -1249,12 +1252,9 @@ export function AppShell({ children }: AppShellProps) {
                       : "rounded-md border border-transparent px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/10 hover:bg-white/10 hover:text-white"
                   }
                 >
-                  <span className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-slate-950" : item.dot}`} />
-                    <span>{item.label}</span>
-                  </span>
-                  <span className={isActive ? "mt-1 block text-xs font-semibold text-[#102045]/80" : "mt-1 block text-xs font-medium text-slate-400"}>
-                    {item.cue}
+                  <span className="flex items-center gap-2 lg:whitespace-nowrap">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${isActive ? "bg-slate-950" : item.dot}`} />
+                    <span className="lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">{item.label}</span>
                   </span>
                 </Link>
               );
@@ -1262,12 +1262,12 @@ export function AppShell({ children }: AppShellProps) {
           </nav>
 
           <div className="mt-5 grid grid-cols-2 gap-2 text-sm lg:grid-cols-1">
-            <div className="rounded-lg border border-cyan-200/30 bg-cyan-200/10 p-3">
-              <p className="text-cyan-100/80">Ready to claim</p>
+            <div className="rounded-lg border border-cyan-200/30 bg-cyan-200/10 p-3 lg:overflow-hidden lg:whitespace-nowrap">
+              <p className="text-cyan-100/80 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">Ready</p>
               <p className="mt-1 text-2xl font-bold text-white">{splitTargets.available.length}</p>
             </div>
-            <div className="rounded-lg border border-sky-200/30 bg-sky-200/10 p-3">
-              <p className="text-sky-100/80">My queue</p>
+            <div className="rounded-lg border border-sky-200/30 bg-sky-200/10 p-3 lg:overflow-hidden lg:whitespace-nowrap">
+              <p className="text-sky-100/80 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">Mine</p>
               <p className="mt-1 text-2xl font-bold text-white">{splitTargets.myWork.length}</p>
             </div>
           </div>
@@ -1297,23 +1297,6 @@ export function AppShell({ children }: AppShellProps) {
                   ? `${currentMember.name} (${currentMember.role})`
                   : "membership loading"}
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {[
-                  ["Ready", "bg-cyan-300"],
-                  ["Mine", "bg-sky-300"],
-                  ["Others", "bg-violet-300"],
-                  ["Blocked", "bg-amber-300"],
-                  ["Done", "bg-emerald-300"],
-                ].map(([label, dot]) => (
-                  <span
-                    key={label}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
-                  >
-                    <span className={`h-2 w-2 rounded-full ${dot}`} />
-                    {label}
-                  </span>
-                ))}
-              </div>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto]">
@@ -1346,7 +1329,6 @@ export function AppShell({ children }: AppShellProps) {
                   </p>
                   <div className="mt-2 flex items-end justify-between gap-3">
                     <p className="text-2xl font-bold text-slate-950">{stat.value}</p>
-                    <p className="text-xs font-medium opacity-80">{stat.detail}</p>
                   </div>
                 </div>
               ))}

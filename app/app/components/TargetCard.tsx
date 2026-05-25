@@ -75,20 +75,14 @@ export function TargetCard({
   const dueState = getTargetDueState(target);
   const primaryLabel = canClaim ? "Claim" : canComplete ? "Complete" : "Details";
   const hasSecondaryDetailsAction = canClaim || canComplete;
+  const claimAgeLabel = target.claimedAt
+    ? `Claimed ${formatRelativeTime(target.claimedAt)}`
+    : "Unclaimed";
   const primaryButtonClass = canComplete
     ? "bg-emerald-500 text-white hover:bg-emerald-600"
     : canClaim
       ? "bg-sky-500 text-white hover:bg-sky-600"
       : "bg-slate-900 text-white hover:bg-slate-800";
-  const actionHint = canClaim
-    ? "Ready for someone to own."
-    : canComplete
-      ? "Owned by you. Finish it or open for options."
-      : target.status === "blocked"
-        ? "Waiting on a blocker."
-        : target.status === "completed"
-          ? "Finished and kept for audit."
-          : "Open for details.";
   const primaryAction = () => {
     if (canClaim) {
       onClaim(target);
@@ -105,100 +99,78 @@ export function TargetCard({
 
   return (
     <article
-      className={`group relative flex min-h-[230px] flex-col justify-between overflow-hidden rounded-lg border border-slate-200 bg-white p-3 pl-4 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md ${statusAccentClasses[target.status]}`}
+      className={`group relative overflow-hidden rounded-lg border border-slate-200 bg-white p-2 pl-3 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md ${statusAccentClasses[target.status]}`}
     >
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`rounded-full border px-2.5 py-1 text-[11px] font-bold capitalize ${statusClasses[target.status]}`}
-          >
-            {statusLabel(target.status)}
-          </span>
-          <span
-            className={`rounded-full border px-2.5 py-1 text-[11px] font-bold capitalize ${priorityClasses[target.priority]}`}
-          >
-            {target.priority}
-          </span>
-          {dueState !== "none" ? (
-            <span
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${dueStateClasses[dueState]}`}
-            >
-              {dueStateLabels[dueState]}
-            </span>
-          ) : null}
-        </div>
-
-        <div className="min-w-0">
+      <div className="grid gap-2">
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-start">
           <button
             type="button"
             onClick={() => onOpen(target)}
-            className="block w-full text-left"
+            className="min-w-0 text-left"
           >
-            <h3 className="break-words text-base font-bold leading-6 text-slate-950 transition group-hover:text-sky-700">
+            <h3 className="truncate text-sm font-bold leading-5 text-slate-950 transition group-hover:text-sky-700">
               {target.title}
             </h3>
-            {target.description ? (
-              <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">
-                {target.description}
-              </p>
-            ) : null}
+            <p className="mt-1 truncate text-xs font-medium text-slate-500">
+              {claimant} - due {formatDateLabel(target.dueDate)}
+            </p>
           </button>
+
+          <div className="flex flex-wrap gap-1.5 sm:justify-end">
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize ${statusClasses[target.status]}`}
+            >
+              {statusLabel(target.status)}
+            </span>
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize ${priorityClasses[target.priority]}`}
+            >
+              {target.priority}
+            </span>
+            {dueState !== "none" ? (
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${dueStateClasses[dueState]}`}
+              >
+                {dueStateLabels[dueState]}
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        <p className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-medium leading-5 text-slate-500">
-          {actionHint}
-        </p>
-
-        <dl className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50/80 p-3 text-xs text-slate-600">
-          <div className="flex items-center justify-between gap-3">
-            <dt className="text-slate-500">Owner</dt>
-            <dd className="truncate text-right font-semibold text-slate-900">{claimant}</dd>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <dt className="text-slate-500">Claim age</dt>
-            <dd className="text-right font-semibold text-slate-900">
-              {formatRelativeTime(target.claimedAt)}
-            </dd>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <dt className="text-slate-500">Due</dt>
-            <dd className="text-right font-semibold text-slate-900">
-              {formatDateLabel(target.dueDate)}
-            </dd>
-          </div>
-        </dl>
+        {target.description ? (
+          <p className="line-clamp-1 text-xs leading-5 text-slate-500">
+            {target.description}
+          </p>
+        ) : null}
 
         {target.status === "blocked" ? (
-          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+          <p className="line-clamp-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs leading-5 text-amber-800">
             Blocked: {target.blockedReason ?? "No reason recorded."}
           </p>
         ) : null}
-      </div>
 
-      <div
-        className={
-          hasSecondaryDetailsAction
-            ? "mt-5 grid grid-cols-[1fr_auto] gap-2"
-            : "mt-5 grid gap-2"
-        }
-      >
-        <button
-          type="button"
-          onClick={primaryAction}
-          disabled={busy}
-          className={`rounded-md px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
-        >
-          {busy ? "Working..." : primaryLabel}
-        </button>
-        {hasSecondaryDetailsAction ? (
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-[11px] font-semibold text-slate-500">
+            {claimAgeLabel}
+          </p>
           <button
             type="button"
-            onClick={() => onOpen(target)}
-            className="rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            onClick={primaryAction}
+            disabled={busy}
+            className={`shrink-0 rounded-md px-2.5 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
           >
-            Open
+            {busy ? "..." : primaryLabel}
           </button>
-        ) : null}
+          {hasSecondaryDetailsAction ? (
+            <button
+              type="button"
+              onClick={() => onOpen(target)}
+              className="shrink-0 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              Open
+            </button>
+          ) : null}
+        </div>
       </div>
     </article>
   );
