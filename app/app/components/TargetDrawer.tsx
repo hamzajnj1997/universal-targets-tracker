@@ -81,33 +81,46 @@ export function TargetDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid bg-slate-950/70 backdrop-blur-sm lg:grid-cols-[1fr_520px]">
+    <div className="fixed inset-0 z-50 grid bg-slate-950/75 backdrop-blur-sm lg:grid-cols-[1fr_560px]">
       <button
         type="button"
         aria-label="Close target details"
         onClick={onClose}
         className="hidden lg:block"
       />
-      <aside className="h-full overflow-y-auto border-l border-slate-800 bg-slate-950 p-5 shadow-2xl">
-        <div className="flex items-start justify-between gap-4">
+      <aside className="h-full overflow-y-auto border-l border-slate-800 bg-[#091321] p-5 shadow-2xl">
+        <div className="sticky top-0 z-10 -mx-5 -mt-5 border-b border-slate-800 bg-[#091321]/95 px-5 py-5 backdrop-blur">
+          <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-300">
-              Target
+              Target details
             </p>
             <h2 className="mt-2 break-words text-2xl font-bold text-white">
               {target.title}
             </h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs font-semibold capitalize text-slate-100">
+                {statusLabel(target.status)}
+              </span>
+              <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs font-semibold capitalize text-slate-100">
+                {target.priority}
+              </span>
+              <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs font-semibold text-slate-100">
+                Due {formatDateLabel(target.dueDate)}
+              </span>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-900"
+            className="rounded-md border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-900"
           >
             Close
           </button>
+          </div>
         </div>
 
-        <dl className="mt-6 grid gap-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4 text-sm">
+        <dl className="mt-5 grid gap-3 rounded-lg border border-slate-800 bg-slate-950/60 p-4 text-sm">
           <div className="flex justify-between gap-3">
             <dt className="text-slate-500">Status</dt>
             <dd className="font-semibold text-white">{statusLabel(target.status)}</dd>
@@ -141,7 +154,7 @@ export function TargetDrawer({
         {target.description ? (
           <section className="mt-5">
             <h3 className="text-sm font-semibold text-white">Details</h3>
-            <p className="mt-2 whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-900/60 p-4 text-sm leading-6 text-slate-300">
+            <p className="mt-2 whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950/60 p-4 text-sm leading-6 text-slate-300">
               {target.description}
             </p>
           </section>
@@ -185,7 +198,7 @@ export function TargetDrawer({
                 type="button"
                 onClick={() => onAction("complete", target)}
                 disabled={busy}
-                className="rounded-md bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-md bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Complete
               </button>
@@ -195,7 +208,7 @@ export function TargetDrawer({
                 type="button"
                 onClick={() => onAction("claim", target)}
                 disabled={busy}
-                className="rounded-md bg-cyan-300 px-3 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-md bg-cyan-300 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Claim
               </button>

@@ -109,11 +109,7 @@ function DatabaseModeBanner({
   mode: BoardData["capabilities"];
 }) {
   if (mode.schemaMode === "workOwnership") {
-    return (
-      <div className="mb-5 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm leading-6 text-emerald-50">
-        Work ownership database is active. Blockers, notes, audit log, and protected actions are available.
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -175,6 +171,32 @@ export function AppShell({ children }: AppShellProps) {
     () => splitBoardTargets(visibleTargets, currentMember),
     [currentMember, visibleTargets]
   );
+  const commandStats = [
+    {
+      label: "Available",
+      value: splitTargets.available.length,
+      detail: "ready to claim",
+      className: "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
+    },
+    {
+      label: "Owned by me",
+      value: splitTargets.myWork.length,
+      detail: "in progress",
+      className: "border-sky-300/25 bg-sky-300/10 text-sky-100",
+    },
+    {
+      label: "Blocked",
+      value: splitTargets.blocked.length,
+      detail: "needs help",
+      className: "border-amber-300/30 bg-amber-300/10 text-amber-100",
+    },
+    {
+      label: "Due today",
+      value: metrics.dueTodayTargets,
+      detail: "deadline pressure",
+      className: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
+    },
+  ];
 
   const refreshBoard = useCallback(
     async (teamId = activeTeamId) => {
@@ -908,10 +930,10 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main className="min-h-screen bg-[#07111d] text-white">
       <div className="hidden">{children}</div>
-      <div className="mx-auto grid w-full max-w-[1800px] gap-0 lg:grid-cols-[260px_1fr]">
-        <aside className="border-b border-slate-800 bg-slate-950/95 p-4 lg:min-h-screen lg:border-b-0 lg:border-r">
+      <div className="mx-auto grid w-full max-w-[1900px] gap-0 lg:grid-cols-[288px_1fr]">
+        <aside className="border-b border-slate-800 bg-[#091321] p-4 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3 lg:block">
             <Link href="/app/board" className="block">
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300">
@@ -925,7 +947,7 @@ export function AppShell({ children }: AppShellProps) {
             <button
               type="button"
               onClick={() => setIsMenuOpen((value) => !value)}
-              className="rounded-md border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-100 lg:mt-5 lg:w-full"
+              className="rounded-md border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-cyan-300 lg:mt-5 lg:w-full"
             >
               {activeTeam?.name ?? "Team"}
             </button>
@@ -988,8 +1010,8 @@ export function AppShell({ children }: AppShellProps) {
                   href={item.href}
                   className={
                     isActive
-                      ? "rounded-md bg-cyan-300 px-3 py-2 text-sm font-bold text-slate-950"
-                      : "rounded-md px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-900 hover:text-white"
+                      ? "rounded-md bg-cyan-300 px-3 py-2 text-sm font-bold text-slate-950 shadow-sm shadow-cyan-950/30"
+                      : "rounded-md px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-900 hover:text-white"
                   }
                 >
                   {item.label}
@@ -999,11 +1021,11 @@ export function AppShell({ children }: AppShellProps) {
           </nav>
 
           <div className="mt-5 grid grid-cols-2 gap-2 text-sm lg:grid-cols-1">
-            <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
               <p className="text-slate-500">Available</p>
               <p className="mt-1 text-2xl font-bold text-white">{splitTargets.available.length}</p>
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
               <p className="text-slate-500">My work</p>
               <p className="mt-1 text-2xl font-bold text-white">{splitTargets.myWork.length}</p>
             </div>
@@ -1011,12 +1033,13 @@ export function AppShell({ children }: AppShellProps) {
         </aside>
 
         <section className="min-w-0 p-4 sm:p-6">
-          <header className="mb-5 grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
+          <header className="mb-5 rounded-lg border border-slate-800 bg-slate-950/70 p-4 shadow-sm ring-1 ring-white/[0.03]">
+            <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-300">
                 {activeTeam?.name ?? "Team"}
               </p>
-              <h2 className="mt-2 text-3xl font-bold tracking-tight text-white">
+              <h2 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
                 {pathname.startsWith("/app/dashboard")
                   ? "Dashboard"
                   : pathname.startsWith("/app/settings")
@@ -1041,16 +1064,34 @@ export function AppShell({ children }: AppShellProps) {
                 onChange={(event) => setSearchQuery(event.target.value)}
                 type="search"
                 placeholder="Search targets"
-                className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-cyan-300"
+                className="rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2 text-white outline-none transition focus:border-cyan-300"
               />
               <button
                 type="button"
                 onClick={toggleCreateTargetForm}
                 disabled={!canCreateTarget(currentMember)}
-                className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 New target
               </button>
+            </div>
+            </div>
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {commandStats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className={`rounded-lg border px-3 py-3 ${stat.className}`}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-80">
+                    {stat.label}
+                  </p>
+                  <div className="mt-2 flex items-end justify-between gap-3">
+                    <p className="text-2xl font-bold text-white">{stat.value}</p>
+                    <p className="text-xs font-medium opacity-80">{stat.detail}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </header>
 
@@ -1070,7 +1111,7 @@ export function AppShell({ children }: AppShellProps) {
             <form
               onSubmit={submitTarget}
               noValidate
-              className="mb-6 grid gap-3 rounded-lg border border-slate-800 bg-slate-950/80 p-4 xl:grid-cols-[1fr_180px_170px_auto]"
+              className="mb-6 grid gap-3 rounded-lg border border-cyan-300/20 bg-slate-950/80 p-4 shadow-sm ring-1 ring-cyan-300/10 xl:grid-cols-[1fr_180px_170px_auto]"
             >
               <label className="block text-sm font-semibold text-slate-200">
                 Title
@@ -1079,7 +1120,7 @@ export function AppShell({ children }: AppShellProps) {
                   onChange={(event) =>
                     setTargetForm((form) => ({ ...form, title: event.target.value }))
                   }
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300"
+                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-white outline-none transition focus:border-cyan-300"
                   placeholder="Prepare weekly report"
                 />
               </label>
@@ -1093,7 +1134,7 @@ export function AppShell({ children }: AppShellProps) {
                       priority: event.target.value as TargetPriority,
                     }))
                   }
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300"
+                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-white outline-none transition focus:border-cyan-300"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -1109,13 +1150,13 @@ export function AppShell({ children }: AppShellProps) {
                     setTargetForm((form) => ({ ...form, dueDate: event.target.value }))
                   }
                   type="date"
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300"
+                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-white outline-none transition focus:border-cyan-300"
                 />
               </label>
               <button
                 type="submit"
                 disabled={isCreatingTarget || !targetForm.title.trim()}
-                className="self-end rounded-md bg-emerald-300 px-4 py-2 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                className="self-end rounded-md bg-emerald-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCreatingTarget ? "Creating..." : "Create"}
               </button>
@@ -1130,7 +1171,7 @@ export function AppShell({ children }: AppShellProps) {
                     }))
                   }
                   rows={3}
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300"
+                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/90 px-3 py-2 text-white outline-none transition focus:border-cyan-300"
                   placeholder="What needs to be true for this target to be complete?"
                 />
               </label>
