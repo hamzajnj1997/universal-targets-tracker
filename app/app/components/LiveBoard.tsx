@@ -48,6 +48,9 @@ export function LiveBoard({
   const isSearching = searchQuery.trim().length > 0;
   const filteredTargets = filterTargetsForSearch(targets, searchQuery);
   const split = splitBoardTargets(filteredTargets, currentMember);
+  const claimedByMeTargets = split.myWork.filter(
+    (target) => target.status === "claimed"
+  );
 
   const sections: Section[] =
     mode === "my-work"
@@ -88,7 +91,7 @@ export function LiveBoard({
             {
               key: "my-work",
               title: "My Work",
-              targets: split.myWork,
+              targets: claimedByMeTargets,
               accent: "bg-sky-500",
               shell: "border-sky-200 bg-sky-50",
               emptyTitle: "Nothing claimed.",
