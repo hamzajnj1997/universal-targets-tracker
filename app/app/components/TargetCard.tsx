@@ -11,6 +11,12 @@ import {
   memberName,
 } from "../../../lib/workOwnershipRules";
 
+type TargetMoveLane = "available" | "my-work" | "completed";
+type TargetMoveOption = {
+  key: TargetMoveLane;
+  label: string;
+};
+
 type TargetCardProps = {
   target: WorkTarget;
   members: TeamMember[];
@@ -22,6 +28,8 @@ type TargetCardProps = {
   draggable?: boolean;
   onDragStart?: (target: WorkTarget, event: DragEvent<HTMLElement>) => void;
   onDragEnd?: () => void;
+  moveOptions?: TargetMoveOption[];
+  onMove?: (target: WorkTarget, lane: TargetMoveLane) => void;
 };
 
 const priorityClasses: Record<WorkTarget["priority"], string> = {
@@ -66,6 +74,8 @@ export function TargetCard({
   draggable = false,
   onDragStart,
   onDragEnd,
+  moveOptions = [],
+  onMove,
 }: TargetCardProps) {
   const claimant = memberName(target.claimedById, members);
   const canClaim = canClaimTarget(currentMember, target);
@@ -143,6 +153,29 @@ export function TargetCard({
             >
               {busy ? "..." : primaryLabel}
             </button>
+            {moveOptions.length > 0 ? (
+              <select
+                aria-label={`Move ${target.title}`}
+                defaultValue=""
+                disabled={busy}
+                onChange={(event) => {
+                  const lane = event.currentTarget.value as TargetMoveLane;
+                  if (!lane) return;
+                  onMove?.(target, lane);
+                  event.currentTarget.value = "";
+                }}
+                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="" disabled>
+                  Move
+                </option>
+                {moveOptions.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            ) : null}
           </div>
         </div>
 
