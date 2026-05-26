@@ -22,6 +22,16 @@ const repeatDayLabels: Record<RepeatWeekday, string> = {
   sun: "S",
 };
 
+const repeatDayIndexes: Record<RepeatWeekday, number> = {
+  sun: 0,
+  mon: 1,
+  tue: 2,
+  wed: 3,
+  thu: 4,
+  fri: 5,
+  sat: 6,
+};
+
 export function isManagerRole(role: TeamRole | null | undefined) {
   return role === "owner" || role === "admin";
 }
@@ -142,6 +152,27 @@ export function formatRepeatLabel(target: WorkTarget) {
   const dayLabel = repeatDays.map((day) => repeatDayLabels[day]).join(" ");
 
   return `${count}x/week ${dayLabel}`;
+}
+
+export function getNextRepeatDueDate(target: WorkTarget, now = new Date()) {
+  const repeatDays = target.repeatDays ?? [];
+  if (!repeatDays.length) return undefined;
+
+  const selectedDays = new Set(repeatDays.map((day) => repeatDayIndexes[day]));
+  const dueDate = parseLocalDate(target.dueDate);
+  const today = parseLocalDate(todayISO(now));
+  const baseDate = Number.isNaN(dueDate.getTime()) || dueDate < today ? today : dueDate;
+
+  for (let offset = 1; offset <= 14; offset += 1) {
+    const candidate = new Date(baseDate);
+    candidate.setDate(baseDate.getDate() + offset);
+
+    if (selectedDays.has(candidate.getDay())) {
+      return todayISO(candidate);
+    }
+  }
+
+  return undefined;
 }
 
 function parseLocalDate(date: string | undefined) {

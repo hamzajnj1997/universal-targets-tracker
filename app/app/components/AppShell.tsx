@@ -42,6 +42,7 @@ import {
   filterTargetsForSearch,
   formatDateLabel,
   formatRelativeTime,
+  getNextRepeatDueDate,
   getTargetDueState,
   isManagerRole,
   memberName,
@@ -676,6 +677,34 @@ export function AppShell({ children }: AppShellProps) {
     }
   }
 
+  async function createNextRepeatTarget(target: WorkTarget) {
+    const nextDueDate = getNextRepeatDueDate(target);
+    if (!nextDueDate || !target.repeatDays?.length) return null;
+
+    try {
+      const nextTarget = await createTarget({
+        teamId: target.teamId,
+        title: target.title,
+        description: target.description,
+        priority: target.priority,
+        dueDate: nextDueDate,
+        repeatDays: target.repeatDays,
+      });
+
+      mergeTargetIntoBoard(nextTarget);
+      setMessage(`Completed. Next repeat scheduled for ${formatDateLabel(nextDueDate)}.`);
+
+      return nextTarget;
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Completed, but the next repeat was not scheduled: ${error.message}`
+          : "Completed, but the next repeat was not scheduled."
+      );
+      return null;
+    }
+  }
+
   async function runTargetAction(
     action: TargetDrawerAction,
     target: WorkTarget,
@@ -698,6 +727,9 @@ export function AppShell({ children }: AppShellProps) {
       if (action === "archive") updatedTarget = await archiveTarget(target.id);
 
       if (updatedTarget) mergeTargetIntoBoard(updatedTarget);
+      if (action === "complete" && updatedTarget) {
+        await createNextRepeatTarget(target);
+      }
       await refreshBoard(target.teamId);
       if (updatedTarget) mergeTargetIntoBoard(updatedTarget);
     } catch (error) {
@@ -752,6 +784,9 @@ export function AppShell({ children }: AppShellProps) {
       }
 
       mergeTargetIntoBoard(updatedTarget);
+      if (lane === "completed") {
+        await createNextRepeatTarget(target);
+      }
       await refreshBoard(target.teamId);
       mergeTargetIntoBoard(updatedTarget);
     } catch (error) {
