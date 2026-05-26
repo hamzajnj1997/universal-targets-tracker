@@ -1762,7 +1762,7 @@ export function AppShell({ children }: AppShellProps) {
             <form
               onSubmit={submitTarget}
               noValidate
-              className="mb-4 grid gap-2 rounded-lg border border-sky-200 bg-white p-3 shadow-sm xl:grid-cols-[minmax(0,1fr)_150px_150px_auto_auto]"
+              className="mx-auto mb-4 grid w-full max-w-3xl gap-4 rounded-lg border border-sky-200 bg-white p-4 shadow-sm"
             >
               <label className="block text-sm font-semibold text-slate-700">
                 Title
@@ -1776,49 +1776,6 @@ export function AppShell({ children }: AppShellProps) {
                 />
               </label>
               <label className="block text-sm font-semibold text-slate-700">
-                Priority
-                <select
-                  value={targetForm.priority}
-                  onChange={(event) =>
-                    setTargetForm((form) => ({
-                      ...form,
-                      priority: event.target.value as TargetPriority,
-                    }))
-                  }
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </label>
-              <label className="block text-sm font-semibold text-slate-700">
-                Due date
-                <input
-                  value={targetForm.dueDate}
-                  onChange={(event) =>
-                    setTargetForm((form) => ({ ...form, dueDate: event.target.value }))
-                  }
-                  type="date"
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-                />
-              </label>
-              <button
-                type="submit"
-                disabled={isCreatingTarget || !targetForm.title.trim()}
-                className="self-end rounded-md bg-emerald-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isCreatingTarget ? "Creating..." : "Create"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsCreateOpen(false)}
-                className="self-end rounded-md border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <label className="block text-sm font-semibold text-slate-700 xl:col-span-5">
                 Finish line
                 <textarea
                   value={targetForm.description}
@@ -1833,6 +1790,53 @@ export function AppShell({ children }: AppShellProps) {
                   placeholder="What counts as done?"
                 />
               </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-sm font-semibold text-slate-700">
+                  Priority
+                  <select
+                    value={targetForm.priority}
+                    onChange={(event) =>
+                      setTargetForm((form) => ({
+                        ...form,
+                        priority: event.target.value as TargetPriority,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </label>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Due date
+                  <input
+                    value={targetForm.dueDate}
+                    onChange={(event) =>
+                      setTargetForm((form) => ({ ...form, dueDate: event.target.value }))
+                    }
+                    type="date"
+                    className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                  />
+                </label>
+              </div>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="rounded-md border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingTarget || !targetForm.title.trim()}
+                  className="rounded-md bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isCreatingTarget ? "Creating..." : "Create"}
+                </button>
+              </div>
             </form>
           ) : null}
 
