@@ -783,6 +783,36 @@ export function AppShell({ children }: AppShellProps) {
         className: "border-emerald-200 bg-emerald-50 text-emerald-800",
       },
     ];
+    const commandActions = [
+      {
+        label: "Review blockers",
+        count: metrics.blockedTargets,
+        detail: "Blocked work",
+        focus: "blocked" as const,
+        className: "border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-300",
+      },
+      {
+        label: "Due now",
+        count: metrics.overdueTargets + metrics.dueTodayTargets,
+        detail: "Overdue and today",
+        focus: "today" as const,
+        className: "border-rose-200 bg-rose-50 text-rose-900 hover:border-rose-300",
+      },
+      {
+        label: "Check stale claims",
+        count: metrics.staleClaimedTargets,
+        detail: `Over ${STALE_CLAIM_HOURS}h claimed`,
+        focus: "all" as const,
+        className: "border-violet-200 bg-violet-50 text-violet-900 hover:border-violet-300",
+      },
+      {
+        label: "Assign available",
+        count: metrics.availableTargets,
+        detail: "Ready to claim",
+        focus: "all" as const,
+        className: "border-cyan-200 bg-cyan-50 text-cyan-900 hover:border-cyan-300",
+      },
+    ].filter((action) => action.count > 0);
 
     return (
       <div className="space-y-6">
@@ -838,6 +868,46 @@ export function AppShell({ children }: AppShellProps) {
                 <p className="mt-1 text-3xl font-black">{item.value}</p>
               </div>
             ))}
+          </div>
+
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-black uppercase tracking-[0.12em] text-slate-700">
+                Action queue
+              </h3>
+              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600">
+                {commandActions.length}
+              </span>
+            </div>
+            {commandActions.length === 0 ? (
+              <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                No immediate action needed.
+              </p>
+            ) : (
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {commandActions.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => {
+                      setBoardFocus(action.focus);
+                      router.push("/app/board");
+                    }}
+                    className={`rounded-md border px-3 py-2 text-left transition ${action.className}`}
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-bold">{action.label}</span>
+                      <span className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-black">
+                        {action.count}
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-xs font-semibold opacity-75">
+                      {action.detail}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
