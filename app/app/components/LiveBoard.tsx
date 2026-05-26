@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, type DragEvent } from "react";
 import type { TeamMember, WorkTarget } from "../../../lib/workOwnershipTypes";
 import {
   filterTargetsForSearch,
@@ -8,6 +9,7 @@ import {
 import { TargetCard } from "./TargetCard";
 
 type BoardMode = "board" | "my-work" | "completed";
+type BoardLaneKey = "available" | "my-work" | "claimed-others" | "blocked" | "completed";
 
 type LiveBoardProps = {
   mode: BoardMode;
@@ -20,10 +22,11 @@ type LiveBoardProps = {
   onComplete: (target: WorkTarget) => void;
   onOpenTarget: (target: WorkTarget) => void;
   onCreateTarget?: () => void;
+  onMoveTarget?: (target: WorkTarget, lane: BoardLaneKey) => void;
 };
 
 type Section = {
-  key: string;
+  key: BoardLaneKey;
   title: string;
   targets: WorkTarget[];
   accent: string;
@@ -44,13 +47,65 @@ export function LiveBoard({
   onComplete,
   onOpenTarget,
   onCreateTarget,
+  onMoveTarget,
 }: LiveBoardProps) {
+  const [draggingTargetId, setDraggingTargetId] = useState<string | null>(null);
+  const [dragOverLane, setDragOverLane] = useState<BoardLaneKey | null>(null);
   const isSearching = searchQuery.trim().length > 0;
   const filteredTargets = filterTargetsForSearch(targets, searchQuery);
   const split = splitBoardTargets(filteredTargets, currentMember);
   const claimedByMeTargets = split.myWork.filter(
     (target) => target.status === "claimed"
   );
+  const draggingTarget =
+    filteredTargets.find((target) => target.id === draggingTargetId) ?? null;
+  const isManager =
+    currentMember?.role === "owner" || currentMember?.role === "admin";
+
+  function canDropInLane(target: WorkTarget | null, lane: BoardLaneKey) {
+    if (!target || mode !== "board" || !onMoveTarget) return false;
+    if (lane === "claimed-others" || lane === "blocked") return false;
+    if (lane === "my-work") {
+      return target.status === "available" || (target.status === "completed" && isManager);
+    }
+    if (lane === "available") {
+      if (target.status === "completed" || target.status === "blocked") return isManager;
+      return target.status === "claimed" && (target.claimedById === currentMember?.id || isManager);
+    }
+    return (
+      (target.status === "claimed" || target.status === "blocked") &&
+      (target.claimedById === currentMember?.id || isManager)
+    );
+  }
+
+  function handleDragStart(target: WorkTarget, event: DragEvent<HTMLElement>) {
+    if (mode !== "board") return;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", target.id);
+    setDraggingTargetId(target.id);
+  }
+
+  function handleDragOver(lane: BoardLaneKey, event: DragEvent<HTMLElement>) {
+    if (!canDropInLane(draggingTarget, lane)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragOverLane(lane);
+  }
+
+  function handleDrop(lane: BoardLaneKey, event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    const targetId = event.dataTransfer.getData("text/plain") || draggingTargetId;
+    const target = filteredTargets.find((item) => item.id === targetId) ?? null;
+    setDragOverLane(null);
+    setDraggingTargetId(null);
+    if (!target || !canDropInLane(target, lane)) return;
+    onMoveTarget?.(target, lane);
+  }
+
+  function handleDragEnd() {
+    setDragOverLane(null);
+    setDraggingTargetId(null);
+  }
 
   const sections: Section[] =
     mode === "my-work"
@@ -141,7 +196,10 @@ export function LiveBoard({
       {sections.map((section) => (
         <section
           key={section.key}
-          className={`min-w-0 rounded-lg border p-2 shadow-sm ${section.shell} ${sectionScrollClass} ${sectionLayoutClass}`}
+          onDragOver={(event) => handleDragOver(section.key, event)}
+          onDragLeave={() => setDragOverLane((lane) => (lane === section.key ? null : lane))}
+          onDrop={(event) => handleDrop(section.key, event)}
+          className={`min-w-0 rounded-lg border p-2 shadow-sm transition ${section.shell} ${sectionScrollClass} ${sectionLayoutClass} ${dragOverLane === section.key ? "ring-2 ring-sky-500 ring-offset-2" : ""}`}
         >
           <div className={`mb-2 flex items-center justify-between gap-3 ${sectionHeaderClass}`}>
             <div>
@@ -187,6 +245,9 @@ export function LiveBoard({
                   onClaim={onClaim}
                   onComplete={onComplete}
                   onOpen={onOpenTarget}
+                  draggable={mode === "board"}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
                 />
               ))}
             </div>

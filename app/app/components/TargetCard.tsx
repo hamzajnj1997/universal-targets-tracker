@@ -1,5 +1,6 @@
 "use client";
 
+import type { DragEvent } from "react";
 import type { TeamMember, WorkTarget } from "../../../lib/workOwnershipTypes";
 import {
   canClaimTarget,
@@ -18,6 +19,9 @@ type TargetCardProps = {
   onClaim: (target: WorkTarget) => void;
   onComplete: (target: WorkTarget) => void;
   onOpen: (target: WorkTarget) => void;
+  draggable?: boolean;
+  onDragStart?: (target: WorkTarget, event: DragEvent<HTMLElement>) => void;
+  onDragEnd?: () => void;
 };
 
 const priorityClasses: Record<WorkTarget["priority"], string> = {
@@ -59,6 +63,9 @@ export function TargetCard({
   onClaim,
   onComplete,
   onOpen,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
 }: TargetCardProps) {
   const claimant = memberName(target.claimedById, members);
   const canClaim = canClaimTarget(currentMember, target);
@@ -89,7 +96,11 @@ export function TargetCard({
 
   return (
     <article
-      className={`group relative overflow-hidden rounded-md border border-slate-200 bg-white px-2 py-1.5 pl-3 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md ${statusAccentClasses[target.status]}`}
+      draggable={draggable && !busy}
+      onDragStart={(event) => onDragStart?.(target, event)}
+      onDragEnd={onDragEnd}
+      title={draggable ? "Drag to move between lanes" : undefined}
+      className={`group relative overflow-hidden rounded-md border border-slate-200 bg-white px-2 py-1.5 pl-3 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${statusAccentClasses[target.status]}`}
     >
       <div className="grid gap-1.5">
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">

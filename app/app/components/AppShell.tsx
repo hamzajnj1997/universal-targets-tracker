@@ -78,6 +78,7 @@ type TargetForm = {
 };
 
 type BoardFocus = "all" | "today" | "next7" | "waiting" | "blocked";
+type BoardMoveLane = "available" | "my-work" | "claimed-others" | "blocked" | "completed";
 
 function createDefaultTargetForm(): TargetForm {
   return {
@@ -492,6 +493,60 @@ export function AppShell({ children }: AppShellProps) {
       if (updatedTarget) mergeTargetIntoBoard(updatedTarget);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Target action failed.");
+    } finally {
+      setBusyTargetId(null);
+    }
+  }
+
+  async function moveTargetToLane(target: WorkTarget, lane: BoardMoveLane) {
+    if (lane === "claimed-others" || lane === "blocked") return;
+
+    setBusyTargetId(target.id);
+    setMessage("");
+
+    try {
+      let updatedTarget: WorkTarget | null = null;
+      const moveReason = "Moved from the Live Board.";
+      const isManager = isManagerRole(currentMember?.role);
+
+      if (lane === "my-work") {
+        if (target.status === "available") {
+          updatedTarget = await claimTarget(target.id);
+        } else if (target.status === "completed") {
+          updatedTarget = await reopenTarget(target.id);
+          mergeTargetIntoBoard(updatedTarget);
+          updatedTarget = await claimTarget(target.id);
+        }
+      }
+
+      if (lane === "available") {
+        if (target.status === "completed") {
+          updatedTarget = await reopenTarget(target.id);
+        } else if (target.status === "claimed" && target.claimedById === currentMember?.id) {
+          updatedTarget = await releaseTarget(target.id, moveReason);
+        } else if (
+          (target.status === "claimed" || target.status === "blocked") &&
+          isManager
+        ) {
+          updatedTarget = await forceReleaseTarget(target.id, moveReason);
+        }
+      }
+
+      if (lane === "completed") {
+        if (target.status === "claimed" || target.status === "blocked") {
+          updatedTarget = await completeTarget(target.id);
+        }
+      }
+
+      if (!updatedTarget) {
+        throw new Error("That move is not available for this target.");
+      }
+
+      mergeTargetIntoBoard(updatedTarget);
+      await refreshBoard(target.teamId);
+      mergeTargetIntoBoard(updatedTarget);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Target move failed.");
     } finally {
       setBusyTargetId(null);
     }
@@ -1173,6 +1228,7 @@ export function AppShell({ children }: AppShellProps) {
         onComplete={(target) => void runTargetAction("complete", target)}
         onOpenTarget={(target) => setSelectedTargetId(target.id)}
         onCreateTarget={canCreateTarget(currentMember) ? toggleCreateTargetForm : undefined}
+        onMoveTarget={(target, lane) => void moveTargetToLane(target, lane)}
       />
     );
   }
