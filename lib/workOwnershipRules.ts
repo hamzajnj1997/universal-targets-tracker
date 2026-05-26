@@ -1,6 +1,7 @@
 import type {
   BoardData,
   DashboardMetrics,
+  RepeatWeekday,
   TargetPriority,
   TargetStatus,
   TeamMember,
@@ -10,6 +11,16 @@ import type {
 
 export const STALE_CLAIM_HOURS = 24;
 export type TargetDueState = "overdue" | "today" | "soon" | "later" | "none";
+
+const repeatDayLabels: Record<RepeatWeekday, string> = {
+  mon: "M",
+  tue: "T",
+  wed: "W",
+  thu: "T",
+  fri: "F",
+  sat: "S",
+  sun: "S",
+};
 
 export function isManagerRole(role: TeamRole | null | undefined) {
   return role === "owner" || role === "admin";
@@ -121,6 +132,16 @@ export function formatDateLabel(date: string | undefined) {
     month: "short",
     year: "numeric",
   }).format(parsed);
+}
+
+export function formatRepeatLabel(target: WorkTarget) {
+  const repeatDays = target.repeatDays ?? [];
+  if (!repeatDays.length) return "";
+
+  const count = target.repeatCountPerWeek ?? repeatDays.length;
+  const dayLabel = repeatDays.map((day) => repeatDayLabels[day]).join(" ");
+
+  return `${count}x/week ${dayLabel}`;
 }
 
 function parseLocalDate(date: string | undefined) {

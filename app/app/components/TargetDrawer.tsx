@@ -16,6 +16,7 @@ import {
   canReleaseTarget,
   canReopenTarget,
   formatDateLabel,
+  formatRepeatLabel,
   formatRelativeTime,
   getTargetDueState,
   memberName,
@@ -64,6 +65,7 @@ export function TargetDrawer({
   const targetActivities = activities.filter((activity) => activity.targetId === target.id);
   const targetNotes = notes.filter((note) => note.targetId === target.id);
   const dueState = getTargetDueState(target);
+  const repeatLabel = formatRepeatLabel(target);
   const canRelease = canReleaseTarget(currentMember, target);
   const canForceRelease = canForceReleaseTarget(currentMember, target);
   const canBlock = capabilities.supportsBlockers && canBlockTarget(currentMember, target);
@@ -126,6 +128,11 @@ export function TargetDrawer({
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">
                 Due {formatDateLabel(target.dueDate)}
               </span>
+              {repeatLabel ? (
+                <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                  {repeatLabel}
+                </span>
+              ) : null}
             </div>
           </div>
           <button
@@ -151,6 +158,12 @@ export function TargetDrawer({
             <dt className="text-slate-500">Due date</dt>
             <dd className="font-semibold text-slate-950">{formatDateLabel(target.dueDate)}</dd>
           </div>
+          {repeatLabel ? (
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Repeat</dt>
+              <dd className="text-right font-semibold text-slate-950">{repeatLabel}</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between gap-3">
             <dt className="text-slate-500">Claimed by</dt>
             <dd className="text-right font-semibold text-slate-950">

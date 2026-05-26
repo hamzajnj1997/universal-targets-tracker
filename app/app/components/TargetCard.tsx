@@ -6,6 +6,7 @@ import {
   canClaimTarget,
   canCompleteTarget,
   formatDateLabel,
+  formatRepeatLabel,
   formatRelativeTime,
   getTargetDueState,
   memberName,
@@ -85,6 +86,7 @@ export function TargetCard({
   const claimAgeLabel = target.claimedAt
     ? `Claimed ${formatRelativeTime(target.claimedAt)}`
     : "Unclaimed";
+  const repeatLabel = formatRepeatLabel(target);
   const primaryButtonClass = canComplete
     ? "bg-emerald-500 text-white hover:bg-emerald-600"
     : canClaim
@@ -131,6 +133,12 @@ export function TargetCard({
               <span className="truncate">{claimant}</span>
               <span className="text-slate-300">|</span>
               <span>Due {formatDateLabel(target.dueDate)}</span>
+              {repeatLabel ? (
+                <>
+                  <span className="text-slate-300">|</span>
+                  <span>{repeatLabel}</span>
+                </>
+              ) : null}
               <span className="text-slate-300">|</span>
               <span>{claimAgeLabel}</span>
             </div>

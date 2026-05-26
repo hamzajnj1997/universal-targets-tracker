@@ -9,6 +9,7 @@ export type TargetStatus =
   | "completed"
   | "archived";
 export type TargetPriority = "low" | "medium" | "high" | "urgent";
+export type RepeatWeekday = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 export type TargetActivityAction =
   | "target_created"
   | "target_updated"
@@ -60,6 +61,8 @@ export type WorkTarget = {
   completedById?: string;
   completedAt?: string;
   dueDate?: string;
+  repeatDays?: RepeatWeekday[];
+  repeatCountPerWeek?: number;
   archivedAt?: string;
   createdAt?: string;
   updatedAt?: string;

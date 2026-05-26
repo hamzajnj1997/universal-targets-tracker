@@ -26,6 +26,7 @@ import {
 } from "../../../lib/workOwnershipApi";
 import type {
   BoardData,
+  RepeatWeekday,
   TargetPriority,
   Team,
   TeamMember,
@@ -78,6 +79,7 @@ type TargetForm = {
   description: string;
   priority: TargetPriority;
   dueDate: string;
+  repeatDays: RepeatWeekday[];
 };
 
 type BoardFocus =
@@ -96,8 +98,19 @@ function createDefaultTargetForm(): TargetForm {
     description: "",
     priority: "medium",
     dueDate: todayISO(),
+    repeatDays: [],
   };
 }
+
+const repeatWeekdayOptions: { value: RepeatWeekday; label: string; name: string }[] = [
+  { value: "mon", label: "M", name: "Monday" },
+  { value: "tue", label: "T", name: "Tuesday" },
+  { value: "wed", label: "W", name: "Wednesday" },
+  { value: "thu", label: "T", name: "Thursday" },
+  { value: "fri", label: "F", name: "Friday" },
+  { value: "sat", label: "S", name: "Saturday" },
+  { value: "sun", label: "S", name: "Sunday" },
+];
 
 const navItems = [
   {
@@ -649,6 +662,7 @@ export function AppShell({ children }: AppShellProps) {
         description: targetForm.description,
         priority: targetForm.priority,
         dueDate: targetForm.dueDate || undefined,
+        repeatDays: targetForm.repeatDays,
       });
       mergeTargetIntoBoard(createdTarget);
       setTargetForm(createDefaultTargetForm());
@@ -1821,6 +1835,45 @@ export function AppShell({ children }: AppShellProps) {
                   />
                 </label>
               </div>
+              <fieldset className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                <legend className="text-sm font-semibold text-slate-700">Repeat</legend>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className="text-xs font-bold text-slate-500">
+                    {targetForm.repeatDays.length
+                      ? `${targetForm.repeatDays.length} times/week`
+                      : "One-time"}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {repeatWeekdayOptions.map((day) => {
+                    const isSelected = targetForm.repeatDays.includes(day.value);
+
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        aria-label={`Repeat on ${day.name}`}
+                        aria-pressed={isSelected}
+                        onClick={() =>
+                          setTargetForm((form) => ({
+                            ...form,
+                            repeatDays: form.repeatDays.includes(day.value)
+                              ? form.repeatDays.filter((value) => value !== day.value)
+                              : [...form.repeatDays, day.value],
+                          }))
+                        }
+                        className={
+                          isSelected
+                            ? "grid h-9 w-9 place-items-center rounded-full bg-sky-600 text-sm font-black text-white shadow-sm transition hover:bg-sky-700"
+                            : "grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-sm font-black text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
+                        }
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"

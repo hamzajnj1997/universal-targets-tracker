@@ -3,6 +3,7 @@ import { getSupabaseClient } from "./supabaseClient";
 import { todayISO } from "./workOwnershipRules";
 import type {
   BoardData,
+  RepeatWeekday,
   TargetActivity,
   TargetActivityAction,
   TargetNote,
@@ -16,7 +17,7 @@ import type {
 } from "./workOwnershipTypes";
 
 type RowRecord = Record<string, unknown>;
-type RpcArgs = Record<string, string | number | boolean | null | undefined>;
+type RpcArgs = Record<string, string | number | boolean | string[] | null | undefined>;
 type SupabaseLikeError = { message?: string; code?: string } | null;
 type LegacyProgressLog = {
   id: string;
@@ -28,12 +29,31 @@ type LegacyProgressLog = {
   submittedById?: string;
 };
 
+const repeatWeekdays: RepeatWeekday[] = [
+  "mon",
+  "tue",
+  "wed",
+  "thu",
+  "fri",
+  "sat",
+  "sun",
+];
+
+const repeatWeekdaySet = new Set<string>(repeatWeekdays);
+
+const modernTargetSelect =
+  "id,workspace_id,title,description,status,priority,frequency,target_amount,unit,created_by_member_id,claimed_by_member_id,claimed_at,blocked_reason,blocked_at,completed_by_member_id,completed_at,due_date,archived_at,created_at,updated_at,is_archived";
+
+const legacyTargetSelect =
+  "id,workspace_id,owner_member_id,title,description,category,priority,frequency,target_amount,unit,start_date,is_archived,claimed_by_member_id,claimed_at,created_at";
+
 export type CreateTargetInput = {
   teamId: string;
   title: string;
   description?: string;
   priority: TargetPriority;
   dueDate?: string;
+  repeatDays?: RepeatWeekday[];
 };
 
 export type TeamInviteInput = {
@@ -137,6 +157,32 @@ function normalizePriority(value: unknown): TargetPriority {
   return "medium";
 }
 
+function normalizeRepeatDays(value: unknown): RepeatWeekday[] {
+  const rawDays = Array.isArray(value)
+    ? value
+    : typeof value === "string" && value.startsWith("days:")
+      ? value.slice(5).split(",")
+      : [];
+
+  return rawDays
+    .map((day) => String(day).trim().toLowerCase())
+    .filter((day, index, days) => repeatWeekdaySet.has(day) && days.indexOf(day) === index)
+    .map((day) => day as RepeatWeekday);
+}
+
+function buildRepeatFields(input: Pick<CreateTargetInput, "repeatDays">) {
+  const repeatDays = normalizeRepeatDays(input.repeatDays);
+  const repeatsWeekly = repeatDays.length > 0;
+
+  return {
+    repeatsWeekly,
+    repeatDays,
+    repeatCountPerWeek: repeatsWeekly ? repeatDays.length : 1,
+    frequency: repeatsWeekly ? "weekly" : "once",
+    unit: repeatsWeekly ? `days:${repeatDays.join(",")}` : "task",
+  };
+}
+
 function normalizeAction(value: unknown): TargetActivityAction {
   const validActions: TargetActivityAction[] = [
     "target_created",
@@ -195,6 +241,11 @@ function toMember(row: RowRecord): TeamMember {
 }
 
 function toTarget(row: RowRecord): WorkTarget {
+  const repeatDays = normalizeRepeatDays(row.unit);
+  const frequency = readOptionalString(row, "frequency");
+  const targetAmount = readNumber(row, "target_amount", repeatDays.length);
+  const repeatsWeekly = frequency === "weekly" && repeatDays.length > 0;
+
   return {
     id: readString(row, "id"),
     teamId: readString(row, "workspace_id", readString(row, "team_id")),
@@ -210,6 +261,8 @@ function toTarget(row: RowRecord): WorkTarget {
     completedById: readOptionalString(row, "completed_by_member_id"),
     completedAt: readOptionalString(row, "completed_at"),
     dueDate: readOptionalString(row, "due_date") ?? readOptionalString(row, "start_date"),
+    repeatDays: repeatsWeekly ? repeatDays : [],
+    repeatCountPerWeek: repeatsWeekly ? targetAmount || repeatDays.length : undefined,
     archivedAt: readOptionalString(row, "archived_at"),
     createdAt: readOptionalString(row, "created_at"),
     updatedAt: readOptionalString(row, "updated_at") ?? readOptionalString(row, "created_at"),
@@ -348,9 +401,7 @@ async function fetchMembers(supabase: SupabaseClient, teamId: string) {
 async function fetchTargets(supabase: SupabaseClient, teamId: string) {
   const modern = await supabase
     .from("targets")
-    .select(
-      "id,workspace_id,title,description,status,priority,created_by_member_id,claimed_by_member_id,claimed_at,blocked_reason,blocked_at,completed_by_member_id,completed_at,due_date,archived_at,created_at,updated_at,is_archived"
-    )
+    .select(modernTargetSelect)
     .eq("workspace_id", teamId)
     .order("updated_at", { ascending: false });
 
@@ -364,9 +415,7 @@ async function fetchTargets(supabase: SupabaseClient, teamId: string) {
 
   const legacy = await supabase
     .from("targets")
-    .select(
-      "id,workspace_id,owner_member_id,title,description,category,priority,frequency,target_amount,unit,start_date,is_archived,claimed_by_member_id,claimed_at,created_at"
-    )
+    .select(legacyTargetSelect)
     .eq("workspace_id", teamId)
     .order("created_at", { ascending: false });
 
@@ -511,9 +560,7 @@ async function getLegacyTargetById(
 ): Promise<WorkTarget> {
   const modern = await supabase
     .from("targets")
-    .select(
-      "id,workspace_id,title,description,status,priority,created_by_member_id,claimed_by_member_id,claimed_at,blocked_reason,blocked_at,completed_by_member_id,completed_at,due_date,archived_at,created_at,updated_at,is_archived"
-    )
+    .select(modernTargetSelect)
     .eq("id", targetId)
     .single();
 
@@ -522,9 +569,7 @@ async function getLegacyTargetById(
 
   const legacy = await supabase
     .from("targets")
-    .select(
-      "id,workspace_id,owner_member_id,title,description,category,priority,frequency,target_amount,unit,start_date,is_archived,claimed_by_member_id,claimed_at,created_at"
-    )
+    .select(legacyTargetSelect)
     .eq("id", targetId)
     .single();
 
@@ -772,19 +817,82 @@ async function runTargetRpc(name: string, args: RpcArgs): Promise<WorkTarget> {
   return toTarget(row);
 }
 
+async function persistTargetRepeatFields(
+  supabase: SupabaseClient,
+  targetId: string,
+  repeat: ReturnType<typeof buildRepeatFields>
+) {
+  const { data, error } = await supabase
+    .from("targets")
+    .update({
+      frequency: repeat.frequency,
+      target_amount: repeat.repeatCountPerWeek,
+      unit: repeat.unit,
+    })
+    .eq("id", targetId)
+    .select(modernTargetSelect)
+    .single();
+
+  if (!error && isRowRecord(data)) return toTarget(data);
+  if (isSchemaGap(error)) {
+    const fallback = await supabase
+      .from("targets")
+      .update({
+        frequency: repeat.frequency,
+        target_amount: repeat.repeatCountPerWeek,
+        unit: repeat.unit,
+      })
+      .eq("id", targetId)
+      .select(legacyTargetSelect)
+      .single();
+
+    if (!fallback.error && isRowRecord(fallback.data)) {
+      return toTarget(fallback.data);
+    }
+  }
+
+  return null;
+}
+
 export async function createTarget(input: CreateTargetInput): Promise<WorkTarget> {
+  const repeat = buildRepeatFields(input);
+  const baseRpcArgs = {
+    team_id: input.teamId,
+    target_title: input.title.trim(),
+    target_description: input.description?.trim() ?? "",
+    target_priority: input.priority,
+    target_due_date: input.dueDate || null,
+  };
+
   try {
     return await runTargetRpc("create_target", {
-      team_id: input.teamId,
-      target_title: input.title.trim(),
-      target_description: input.description?.trim() ?? "",
-      target_priority: input.priority,
-      target_due_date: input.dueDate || null,
+      ...baseRpcArgs,
+      target_repeats_weekly: repeat.repeatsWeekly,
+      target_repeat_count_per_week: repeat.repeatCountPerWeek,
+      target_repeat_days: repeat.repeatDays,
     });
   } catch (error) {
     if (!isSchemaGapThrown(error)) throw error;
 
     const supabase = requireSupabaseClient();
+
+    try {
+      const target = await runTargetRpc("create_target", baseRpcArgs);
+      const persistedTarget = repeat.repeatsWeekly
+        ? await persistTargetRepeatFields(supabase, target.id, repeat)
+        : null;
+
+      if (persistedTarget) return persistedTarget;
+
+      return {
+        ...target,
+        repeatDays: repeat.repeatsWeekly ? repeat.repeatDays : [],
+        repeatCountPerWeek: repeat.repeatsWeekly ? repeat.repeatCountPerWeek : undefined,
+      };
+    } catch (legacyRpcError) {
+      if (!isSchemaGapThrown(legacyRpcError)) throw legacyRpcError;
+    }
+
     const { data, error: insertError } = await supabase
       .from("targets")
       .insert({
@@ -794,17 +902,15 @@ export async function createTarget(input: CreateTargetInput): Promise<WorkTarget
         description: input.description?.trim() ?? "",
         category: "",
         priority: input.priority,
-        frequency: "once",
-        target_amount: 1,
-        unit: "task",
+        frequency: repeat.frequency,
+        target_amount: repeat.repeatCountPerWeek,
+        unit: repeat.unit,
         start_date: input.dueDate || todayISO(),
         is_archived: false,
         claimed_by_member_id: null,
         claimed_at: null,
       })
-      .select(
-        "id,workspace_id,owner_member_id,title,description,category,priority,frequency,target_amount,unit,start_date,is_archived,claimed_by_member_id,claimed_at,created_at"
-      )
+      .select(legacyTargetSelect)
       .single();
 
     throwSupabaseError(insertError);
@@ -866,9 +972,7 @@ export async function blockTarget(
         blocked_at: new Date().toISOString(),
       })
       .eq("id", targetId)
-      .select(
-        "id,workspace_id,title,description,status,priority,created_by_member_id,claimed_by_member_id,claimed_at,blocked_reason,blocked_at,completed_by_member_id,completed_at,due_date,archived_at,created_at,updated_at,is_archived"
-      )
+      .select(modernTargetSelect)
       .single();
 
     if (isSchemaGap(updateError)) {
@@ -918,9 +1022,7 @@ export async function archiveTarget(targetId: string): Promise<WorkTarget> {
       .from("targets")
       .update({ is_archived: true })
       .eq("id", targetId)
-      .select(
-        "id,workspace_id,owner_member_id,title,description,category,priority,frequency,target_amount,unit,start_date,is_archived,claimed_by_member_id,claimed_at,created_at"
-      )
+      .select(legacyTargetSelect)
       .single();
 
     throwSupabaseError(updateError);
