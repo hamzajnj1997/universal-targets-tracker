@@ -77,7 +77,14 @@ type TargetForm = {
   dueDate: string;
 };
 
-type BoardFocus = "all" | "today" | "next7" | "waiting" | "blocked";
+type BoardFocus =
+  | "all"
+  | "available"
+  | "today"
+  | "next7"
+  | "waiting"
+  | "blocked"
+  | "stale";
 type BoardMoveLane = "available" | "my-work" | "claimed-others" | "blocked" | "completed";
 
 function createDefaultTargetForm(): TargetForm {
@@ -156,9 +163,23 @@ function isOpenTarget(target: WorkTarget) {
   return target.status !== "completed" && target.status !== "archived";
 }
 
-function targetMatchesBoardFocus(target: WorkTarget, focus: BoardFocus) {
+function isStaleClaimTarget(target: WorkTarget, now = new Date()) {
+  if (target.status !== "claimed" || !target.claimedAt) return false;
+  const claimedAt = new Date(target.claimedAt).getTime();
+  const staleThreshold = now.getTime() - STALE_CLAIM_HOURS * 60 * 60 * 1000;
+
+  return !Number.isNaN(claimedAt) && claimedAt < staleThreshold;
+}
+
+function targetMatchesBoardFocus(
+  target: WorkTarget,
+  focus: BoardFocus,
+  now = new Date()
+) {
   if (focus === "all") return target.status !== "archived";
+  if (focus === "available") return target.status === "available";
   if (focus === "blocked") return target.status === "blocked";
+  if (focus === "stale") return isStaleClaimTarget(target, now);
   if (!isOpenTarget(target)) return false;
 
   const dueState = getTargetDueState(target);
@@ -232,15 +253,18 @@ export function AppShell({ children }: AppShellProps) {
   );
   const focusOptions = useMemo(() => {
     const activeTargets = boardData.targets.filter((target) => target.status !== "archived");
+    const now = new Date();
     const countFocus = (focus: BoardFocus) =>
-      boardData.targets.filter((target) => targetMatchesBoardFocus(target, focus)).length;
+      boardData.targets.filter((target) => targetMatchesBoardFocus(target, focus, now)).length;
 
     return [
       { key: "all" as const, label: "All", count: activeTargets.length },
+      { key: "available" as const, label: "Available", count: countFocus("available") },
       { key: "today" as const, label: "Today", count: countFocus("today") },
       { key: "next7" as const, label: "Next 7", count: countFocus("next7") },
       { key: "waiting" as const, label: "Waiting", count: countFocus("waiting") },
       { key: "blocked" as const, label: "Blocked", count: countFocus("blocked") },
+      { key: "stale" as const, label: "Stale", count: countFocus("stale") },
     ];
   }, [boardData.targets]);
   const sidebarTextClass = "lg:hidden lg:group-hover:block lg:group-focus-within:block";
@@ -802,14 +826,14 @@ export function AppShell({ children }: AppShellProps) {
         label: "Check stale claims",
         count: metrics.staleClaimedTargets,
         detail: `Over ${STALE_CLAIM_HOURS}h claimed`,
-        focus: "all" as const,
+        focus: "stale" as const,
         className: "border-violet-200 bg-violet-50 text-violet-900 hover:border-violet-300",
       },
       {
         label: "Assign available",
         count: metrics.availableTargets,
         detail: "Ready to claim",
-        focus: "all" as const,
+        focus: "available" as const,
         className: "border-cyan-200 bg-cyan-50 text-cyan-900 hover:border-cyan-300",
       },
     ].filter((action) => action.count > 0);
