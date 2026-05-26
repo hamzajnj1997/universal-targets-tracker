@@ -242,6 +242,7 @@ export function AppShell({ children }: AppShellProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreatingTarget, setIsCreatingTarget] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isRepeatOpen, setIsRepeatOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [busyTargetId, setBusyTargetId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
@@ -486,9 +487,21 @@ export function AppShell({ children }: AppShellProps) {
         event.defaultPrevented ||
         event.altKey ||
         event.ctrlKey ||
-        event.metaKey ||
-        isTypingShortcutTarget(event.target)
+        event.metaKey
       ) {
+        return;
+      }
+
+      if (isCreateOpen) {
+        if (event.key === "Escape" && !isCreatingTarget) {
+          event.preventDefault();
+          setIsCreateOpen(false);
+          setIsRepeatOpen(false);
+        }
+        return;
+      }
+
+      if (isTypingShortcutTarget(event.target)) {
         return;
       }
 
@@ -508,6 +521,7 @@ export function AppShell({ children }: AppShellProps) {
         event.preventDefault();
         setSearchQuery("");
         setTargetForm(createDefaultTargetForm());
+        setIsRepeatOpen(false);
         setIsCreateOpen(true);
         return;
       }
@@ -573,6 +587,8 @@ export function AppShell({ children }: AppShellProps) {
   }, [
     busyTargetId,
     currentMember,
+    isCreateOpen,
+    isCreatingTarget,
     isBoardFocusRoute,
     selectedTargetId,
     visibleTargets,
@@ -639,9 +655,17 @@ export function AppShell({ children }: AppShellProps) {
   function toggleCreateTargetForm() {
     setIsCreateOpen((value) => {
       const nextValue = !value;
-      if (nextValue) setTargetForm(createDefaultTargetForm());
+      if (nextValue) {
+        setTargetForm(createDefaultTargetForm());
+        setIsRepeatOpen(false);
+      }
       return nextValue;
     });
+  }
+
+  function closeCreateTargetForm() {
+    setIsCreateOpen(false);
+    setIsRepeatOpen(false);
   }
 
   async function submitTarget(event: React.FormEvent<HTMLFormElement>) {
@@ -667,7 +691,7 @@ export function AppShell({ children }: AppShellProps) {
       });
       mergeTargetIntoBoard(createdTarget);
       setTargetForm(createDefaultTargetForm());
-      setIsCreateOpen(false);
+      closeCreateTargetForm();
       await refreshBoard(activeTeam.id);
       mergeTargetIntoBoard(createdTarget);
     } catch (error) {
@@ -1807,127 +1831,6 @@ export function AppShell({ children }: AppShellProps) {
 
           <DatabaseModeBanner mode={boardData.capabilities} />
 
-          {isCreateOpen ? (
-            <form
-              onSubmit={submitTarget}
-              noValidate
-              className="mx-auto mb-4 grid w-full max-w-3xl gap-4 rounded-lg border border-sky-200 bg-white p-4 shadow-sm"
-            >
-              <label className="block text-sm font-semibold text-slate-700">
-                Title
-                <input
-                  value={targetForm.title}
-                  onChange={(event) =>
-                    setTargetForm((form) => ({ ...form, title: event.target.value }))
-                  }
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-                  placeholder="Prepare weekly report"
-                />
-              </label>
-              <label className="block text-sm font-semibold text-slate-700">
-                Finish line
-                <textarea
-                  value={targetForm.description}
-                  onChange={(event) =>
-                    setTargetForm((form) => ({
-                      ...form,
-                      description: event.target.value,
-                    }))
-                  }
-                  rows={2}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-                  placeholder="What counts as done?"
-                />
-              </label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block text-sm font-semibold text-slate-700">
-                  Priority
-                  <select
-                    value={targetForm.priority}
-                    onChange={(event) =>
-                      setTargetForm((form) => ({
-                        ...form,
-                        priority: event.target.value as TargetPriority,
-                      }))
-                    }
-                    className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </label>
-                <label className="block text-sm font-semibold text-slate-700">
-                  Due date
-                  <input
-                    value={targetForm.dueDate}
-                    onChange={(event) =>
-                      setTargetForm((form) => ({ ...form, dueDate: event.target.value }))
-                    }
-                    type="date"
-                    className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-                  />
-                </label>
-              </div>
-              <fieldset className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                <legend className="text-sm font-semibold text-slate-700">Repeat</legend>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <span className="text-xs font-bold text-slate-500">
-                    {targetForm.repeatDays.length
-                      ? `${targetForm.repeatDays.length} times/week`
-                      : "One-time"}
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {repeatWeekdayOptions.map((day) => {
-                    const isSelected = targetForm.repeatDays.includes(day.value);
-
-                    return (
-                      <button
-                        key={day.value}
-                        type="button"
-                        aria-label={`Repeat on ${day.name}`}
-                        aria-pressed={isSelected}
-                        onClick={() =>
-                          setTargetForm((form) => ({
-                            ...form,
-                            repeatDays: form.repeatDays.includes(day.value)
-                              ? form.repeatDays.filter((value) => value !== day.value)
-                              : [...form.repeatDays, day.value],
-                          }))
-                        }
-                        className={
-                          isSelected
-                            ? "grid h-9 w-9 place-items-center rounded-full bg-sky-600 text-sm font-black text-white shadow-sm transition hover:bg-sky-700"
-                            : "grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-sm font-black text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
-                        }
-                      >
-                        {day.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </fieldset>
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateOpen(false)}
-                  className="rounded-md border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreatingTarget || !targetForm.title.trim()}
-                  className="rounded-md bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isCreatingTarget ? "Creating..." : "Create"}
-                </button>
-              </div>
-            </form>
-          ) : null}
-
           {currentMember ? renderContent() : (
             <div className="rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
               Your team membership is not active. Ask an owner/admin to invite you, or join with an invite code.
@@ -1935,6 +1838,201 @@ export function AppShell({ children }: AppShellProps) {
           )}
         </section>
       </div>
+
+      {isCreateOpen ? (
+        <div
+          className="fixed inset-0 z-40 grid place-items-center bg-slate-950/30 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-target-title"
+        >
+          <button
+            type="button"
+            aria-label="Close create target"
+            disabled={isCreatingTarget}
+            onClick={closeCreateTargetForm}
+            className="absolute inset-0 h-full w-full cursor-default disabled:cursor-not-allowed"
+          />
+          <form
+            onSubmit={submitTarget}
+            noValidate
+            className="relative z-10 grid max-h-[calc(100vh-2rem)] w-full max-w-2xl gap-4 overflow-y-auto rounded-xl border border-sky-200 bg-white p-5 shadow-2xl"
+          >
+            <div className="-mx-5 -mt-5 rounded-t-xl border-b border-sky-100 bg-sky-50 px-5 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-600">
+                    New work
+                  </p>
+                  <h2 id="create-target-title" className="mt-1 text-xl font-black text-slate-950">
+                    Create target
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeCreateTargetForm}
+                  disabled={isCreatingTarget}
+                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <label className="block text-sm font-semibold text-slate-700">
+              Title
+              <input
+                value={targetForm.title}
+                onChange={(event) =>
+                  setTargetForm((form) => ({ ...form, title: event.target.value }))
+                }
+                className="mt-1 w-full rounded-md border border-slate-200 bg-sky-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                placeholder="Prepare weekly report"
+                autoFocus
+              />
+            </label>
+
+            <label className="block text-sm font-semibold text-slate-700">
+              Finish line
+              <textarea
+                value={targetForm.description}
+                onChange={(event) =>
+                  setTargetForm((form) => ({
+                    ...form,
+                    description: event.target.value,
+                  }))
+                }
+                rows={3}
+                className="mt-1 w-full rounded-md border border-slate-200 bg-sky-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                placeholder="What counts as done?"
+              />
+            </label>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                Priority
+                <select
+                  value={targetForm.priority}
+                  onChange={(event) =>
+                    setTargetForm((form) => ({
+                      ...form,
+                      priority: event.target.value as TargetPriority,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-emerald-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </label>
+              <label className="block text-sm font-semibold text-slate-700">
+                Due date
+                <input
+                  value={targetForm.dueDate}
+                  onChange={(event) =>
+                    setTargetForm((form) => ({ ...form, dueDate: event.target.value }))
+                  }
+                  type="date"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-amber-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                />
+              </label>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsRepeatOpen((value) => !value)}
+                  aria-expanded={isRepeatOpen}
+                  className="text-sm font-black text-sky-700 transition hover:text-sky-900"
+                >
+                  {isRepeatOpen
+                    ? "Hide repeat schedule"
+                    : targetForm.repeatDays.length
+                      ? "Edit repeat schedule"
+                      : "+ Add repeat schedule"}
+                </button>
+                <span className="text-xs font-bold text-slate-500">
+                  {targetForm.repeatDays.length
+                    ? `${targetForm.repeatDays.length} times/week`
+                    : "One-time"}
+                </span>
+              </div>
+
+              {isRepeatOpen ? (
+                <fieldset className="mt-3 rounded-md border border-sky-100 bg-white px-3 py-3">
+                  <legend className="px-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                    Days
+                  </legend>
+                  <div className="flex flex-wrap gap-2">
+                    {repeatWeekdayOptions.map((day) => {
+                      const isSelected = targetForm.repeatDays.includes(day.value);
+
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          aria-label={`Repeat on ${day.name}`}
+                          aria-pressed={isSelected}
+                          onClick={() =>
+                            setTargetForm((form) => ({
+                              ...form,
+                              repeatDays: form.repeatDays.includes(day.value)
+                                ? form.repeatDays.filter((value) => value !== day.value)
+                                : [...form.repeatDays, day.value],
+                            }))
+                          }
+                          className={
+                            isSelected
+                              ? "grid h-9 w-9 place-items-center rounded-full bg-sky-600 text-sm font-black text-white shadow-sm transition hover:bg-sky-700"
+                              : "grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-sky-50 text-sm font-black text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
+                          }
+                        >
+                          {day.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {targetForm.repeatDays.length ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTargetForm((form) => ({
+                          ...form,
+                          repeatDays: [],
+                        }))
+                      }
+                      className="mt-3 text-xs font-bold text-slate-500 transition hover:text-rose-600"
+                    >
+                      Remove repeat
+                    </button>
+                  ) : null}
+                </fieldset>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeCreateTargetForm}
+                disabled={isCreatingTarget}
+                className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isCreatingTarget || !targetForm.title.trim()}
+                className="rounded-md bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isCreatingTarget ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
       {selectedTarget ? (
         <TargetDrawer
