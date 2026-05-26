@@ -106,11 +106,15 @@ export function TargetCard({
 
   return (
     <article
+      data-target-card="true"
+      data-target-id={target.id}
+      tabIndex={0}
+      aria-label={`${target.title}. Press Space for ${primaryLabel}.`}
       draggable={draggable && !busy}
       onDragStart={(event) => onDragStart?.(target, event)}
       onDragEnd={onDragEnd}
       title={draggable ? "Drag to move between lanes" : undefined}
-      className={`group relative overflow-hidden rounded-md border border-slate-200 bg-white px-2 py-1.5 pl-3 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${statusAccentClasses[target.status]}`}
+      className={`group relative overflow-hidden rounded-md border border-slate-200 bg-white px-2 py-1.5 pl-3 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${statusAccentClasses[target.status]}`}
     >
       <div className="grid gap-1.5">
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">

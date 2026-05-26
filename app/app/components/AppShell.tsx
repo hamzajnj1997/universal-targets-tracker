@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   addTargetNote,
@@ -35,6 +35,8 @@ import type {
 import {
   STALE_CLAIM_HOURS,
   calculateDashboardMetrics,
+  canClaimTarget,
+  canCompleteTarget,
   canCreateTarget,
   filterTargetsForSearch,
   formatDateLabel,
@@ -189,9 +191,33 @@ function targetMatchesBoardFocus(
   return dueState === "later" || dueState === "none";
 }
 
+function isTypingShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName.toLowerCase();
+
+  return (
+    target.isContentEditable ||
+    tagName === "input" ||
+    tagName === "textarea" ||
+    tagName === "select"
+  );
+}
+
+function getBoardCardElements() {
+  if (typeof document === "undefined") return [];
+
+  return Array.from(
+    document.querySelectorAll<HTMLElement>("[data-target-card='true']")
+  );
+}
+
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const runTargetActionRef = useRef<
+    ((action: TargetDrawerAction, target: WorkTarget, reason?: string) => Promise<void>) | null
+  >(null);
   const [user, setUser] = useState<User | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [activeTeamId, setActiveTeamId] = useState("");
@@ -434,6 +460,108 @@ export function AppShell({ children }: AppShellProps) {
     boardData.capabilities.supportsActivityLog,
     boardData.capabilities.supportsNotes,
     refreshBoard,
+  ]);
+
+  useEffect(() => {
+    runTargetActionRef.current = runTargetAction;
+  });
+
+  useEffect(() => {
+    function handleKeyboardShortcuts(event: KeyboardEvent) {
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        isTypingShortcutTarget(event.target)
+      ) {
+        return;
+      }
+
+      if (event.key === "/") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (
+        event.key.toLowerCase() === "c" &&
+        isBoardFocusRoute &&
+        !selectedTargetId &&
+        canCreateTarget(currentMember)
+      ) {
+        event.preventDefault();
+        setSearchQuery("");
+        setTargetForm(createDefaultTargetForm());
+        setIsCreateOpen(true);
+        return;
+      }
+
+      if (!isBoardFocusRoute || selectedTargetId) return;
+
+      if (
+        event.key === "ArrowDown" ||
+        event.key === "ArrowRight" ||
+        event.key === "ArrowUp" ||
+        event.key === "ArrowLeft"
+      ) {
+        const cards = getBoardCardElements();
+        if (cards.length === 0) return;
+
+        event.preventDefault();
+        const activeCard =
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement.closest<HTMLElement>("[data-target-card='true']")
+            : null;
+        const currentIndex = activeCard ? cards.indexOf(activeCard) : -1;
+        const direction =
+          event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1;
+        const nextIndex =
+          currentIndex === -1
+            ? 0
+            : (currentIndex + direction + cards.length) % cards.length;
+        cards[nextIndex]?.focus();
+        return;
+      }
+
+      if (event.key === " " || event.code === "Space") {
+        if (busyTargetId) return;
+        const activeElement = document.activeElement;
+        if (
+          !(activeElement instanceof HTMLElement) ||
+          activeElement.dataset.targetCard !== "true"
+        ) {
+          return;
+        }
+
+        const targetId = activeElement.dataset.targetId;
+        const target = visibleTargets.find((item) => item.id === targetId);
+        if (!target) return;
+
+        event.preventDefault();
+        if (canClaimTarget(currentMember, target)) {
+          void runTargetActionRef.current?.("claim", target);
+          return;
+        }
+
+        if (canCompleteTarget(currentMember, target)) {
+          void runTargetActionRef.current?.("complete", target);
+          return;
+        }
+
+        setSelectedTargetId(target.id);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyboardShortcuts);
+    return () => window.removeEventListener("keydown", handleKeyboardShortcuts);
+  }, [
+    busyTargetId,
+    currentMember,
+    isBoardFocusRoute,
+    selectedTargetId,
+    visibleTargets,
   ]);
 
   async function switchTeam(teamId: string) {
@@ -1570,6 +1698,7 @@ export function AppShell({ children }: AppShellProps) {
 
               <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto_auto]">
                 <input
+                  ref={searchInputRef}
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   type="search"
