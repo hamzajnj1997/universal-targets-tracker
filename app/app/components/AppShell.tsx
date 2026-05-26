@@ -78,6 +78,8 @@ type TargetForm = {
   dueDate: string;
 };
 
+type BoardFocus = "all" | "today" | "next7" | "waiting" | "blocked";
+
 function createDefaultTargetForm(): TargetForm {
   return {
     title: "",
@@ -150,6 +152,21 @@ function DatabaseModeBanner({
   );
 }
 
+function isOpenTarget(target: WorkTarget) {
+  return target.status !== "completed" && target.status !== "archived";
+}
+
+function targetMatchesBoardFocus(target: WorkTarget, focus: BoardFocus) {
+  if (focus === "all") return true;
+  if (focus === "blocked") return target.status === "blocked";
+  if (!isOpenTarget(target)) return false;
+
+  const dueState = getTargetDueState(target);
+  if (focus === "today") return dueState === "overdue" || dueState === "today";
+  if (focus === "next7") return dueState === "soon";
+  return dueState === "later" || dueState === "none";
+}
+
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -168,6 +185,7 @@ export function AppShell({ children }: AppShellProps) {
   const [hasLoadedSidebarPin, setHasLoadedSidebarPin] = useState(false);
   const [busyTargetId, setBusyTargetId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
+  const [boardFocus, setBoardFocus] = useState<BoardFocus>("all");
   const [targetForm, setTargetForm] = useState<TargetForm>(createDefaultTargetForm);
   const [dashboardTimestamp, setDashboardTimestamp] = useState(() => Date.now());
   const [inviteEmail, setInviteEmail] = useState("");
@@ -197,14 +215,36 @@ export function AppShell({ children }: AppShellProps) {
   const selectedTarget =
     boardData.targets.find((target) => target.id === selectedTargetId) ?? null;
   const metrics = useMemo(() => calculateDashboardMetrics(boardData), [boardData]);
+  const isBoardFocusRoute =
+    pathname.startsWith("/app/board") || pathname.startsWith("/app/my-work");
+  const focusedTargets = useMemo(
+    () =>
+      isBoardFocusRoute
+        ? boardData.targets.filter((target) => targetMatchesBoardFocus(target, boardFocus))
+        : boardData.targets,
+    [boardData.targets, boardFocus, isBoardFocusRoute]
+  );
   const visibleTargets = useMemo(
-    () => filterTargetsForSearch(boardData.targets, searchQuery),
-    [boardData.targets, searchQuery]
+    () => filterTargetsForSearch(focusedTargets, searchQuery),
+    [focusedTargets, searchQuery]
   );
   const splitTargets = useMemo(
     () => splitBoardTargets(visibleTargets, currentMember),
     [currentMember, visibleTargets]
   );
+  const focusOptions = useMemo(() => {
+    const openTargets = boardData.targets.filter(isOpenTarget);
+    const countFocus = (focus: BoardFocus) =>
+      boardData.targets.filter((target) => targetMatchesBoardFocus(target, focus)).length;
+
+    return [
+      { key: "all" as const, label: "All", count: openTargets.length },
+      { key: "today" as const, label: "Today", count: countFocus("today") },
+      { key: "next7" as const, label: "Next 7", count: countFocus("next7") },
+      { key: "waiting" as const, label: "Waiting", count: countFocus("waiting") },
+      { key: "blocked" as const, label: "Blocked", count: countFocus("blocked") },
+    ];
+  }, [boardData.targets]);
   const sidebarTextClass = isSidebarPinned
     ? "lg:block"
     : "lg:hidden lg:group-hover:block lg:group-focus-within:block";
@@ -1122,7 +1162,7 @@ export function AppShell({ children }: AppShellProps) {
       return (
         <LiveBoard
           mode="my-work"
-          targets={boardData.targets}
+          targets={focusedTargets}
           members={boardData.members}
           currentMember={currentMember}
           searchQuery={searchQuery}
@@ -1153,7 +1193,7 @@ export function AppShell({ children }: AppShellProps) {
     return (
       <LiveBoard
         mode="board"
-        targets={boardData.targets}
+        targets={focusedTargets}
         members={boardData.members}
         currentMember={currentMember}
         searchQuery={searchQuery}
@@ -1369,6 +1409,28 @@ export function AppShell({ children }: AppShellProps) {
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
+              {isBoardFocusRoute
+                ? focusOptions.map((option) => {
+                    const isActive = boardFocus === option.key;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setBoardFocus(option.key)}
+                        className={
+                          isActive
+                            ? "rounded-full border border-slate-950 bg-slate-950 px-3 py-1.5 text-xs font-bold text-white"
+                            : "rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-sky-300 hover:text-slate-950"
+                        }
+                      >
+                        {option.label}
+                        <span className={isActive ? "ml-2 text-sky-100" : "ml-2 text-slate-400"}>
+                          {option.count}
+                        </span>
+                      </button>
+                    );
+                  })
+                : null}
               {commandStats.map((stat) => (
                 <div
                   key={stat.label}
