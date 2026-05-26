@@ -42,6 +42,9 @@ const repeatWeekdays: RepeatWeekday[] = [
 const repeatWeekdaySet = new Set<string>(repeatWeekdays);
 
 const modernTargetSelect =
+  "id,workspace_id,title,description,status,priority,frequency,target_amount,unit,created_by_member_id,claimed_by_member_id,claimed_at,blocked_reason,blocked_at,completed_by_member_id,completed_at,due_date,repeat_start_date,repeat_end_date,archived_at,created_at,updated_at,is_archived";
+
+const modernTargetBaseSelect =
   "id,workspace_id,title,description,status,priority,frequency,target_amount,unit,created_by_member_id,claimed_by_member_id,claimed_at,blocked_reason,blocked_at,completed_by_member_id,completed_at,due_date,archived_at,created_at,updated_at,is_archived";
 
 const legacyTargetSelect =
@@ -54,6 +57,8 @@ export type CreateTargetInput = {
   priority: TargetPriority;
   dueDate?: string;
   repeatDays?: RepeatWeekday[];
+  repeatStartDate?: string;
+  repeatEndDate?: string;
 };
 
 export type TeamInviteInput = {
@@ -157,12 +162,30 @@ function normalizePriority(value: unknown): TargetPriority {
   return "medium";
 }
 
+function parseRepeatUnit(value: unknown) {
+  const parsed = {
+    repeatDays: [] as RepeatWeekday[],
+    repeatStartDate: undefined as string | undefined,
+    repeatEndDate: undefined as string | undefined,
+  };
+  if (typeof value !== "string" || !value.startsWith("days:")) return parsed;
+
+  const [rawDays = "", ...rawParts] = value.slice(5).split(";");
+  parsed.repeatDays = normalizeRepeatDays(rawDays.split(","));
+
+  rawParts.forEach((part) => {
+    const [key, rawValue] = part.split(":");
+    const itemValue = rawValue?.trim();
+    if (!itemValue) return;
+    if (key === "start") parsed.repeatStartDate = itemValue;
+    if (key === "end") parsed.repeatEndDate = itemValue;
+  });
+
+  return parsed;
+}
+
 function normalizeRepeatDays(value: unknown): RepeatWeekday[] {
-  const rawDays = Array.isArray(value)
-    ? value
-    : typeof value === "string" && value.startsWith("days:")
-      ? value.slice(5).split(",")
-      : [];
+  const rawDays = Array.isArray(value) ? value : [];
 
   return rawDays
     .map((day) => String(day).trim().toLowerCase())
@@ -170,16 +193,31 @@ function normalizeRepeatDays(value: unknown): RepeatWeekday[] {
     .map((day) => day as RepeatWeekday);
 }
 
-function buildRepeatFields(input: Pick<CreateTargetInput, "repeatDays">) {
+function buildRepeatFields(
+  input: Pick<CreateTargetInput, "dueDate" | "repeatDays" | "repeatStartDate" | "repeatEndDate">
+) {
   const repeatDays = normalizeRepeatDays(input.repeatDays);
   const repeatsWeekly = repeatDays.length > 0;
+  const repeatStartDate = repeatsWeekly
+    ? input.repeatStartDate || input.dueDate || todayISO()
+    : null;
+  const repeatEndDate = repeatsWeekly && input.repeatEndDate ? input.repeatEndDate : null;
+  const unitParts = repeatsWeekly
+    ? [
+        `days:${repeatDays.join(",")}`,
+        repeatStartDate ? `start:${repeatStartDate}` : "",
+        repeatEndDate ? `end:${repeatEndDate}` : "",
+      ].filter(Boolean)
+    : [];
 
   return {
     repeatsWeekly,
     repeatDays,
     repeatCountPerWeek: repeatsWeekly ? repeatDays.length : 1,
+    repeatStartDate,
+    repeatEndDate,
     frequency: repeatsWeekly ? "weekly" : "once",
-    unit: repeatsWeekly ? `days:${repeatDays.join(",")}` : "task",
+    unit: repeatsWeekly ? unitParts.join(";") : "task",
   };
 }
 
@@ -241,7 +279,8 @@ function toMember(row: RowRecord): TeamMember {
 }
 
 function toTarget(row: RowRecord): WorkTarget {
-  const repeatDays = normalizeRepeatDays(row.unit);
+  const repeatUnit = parseRepeatUnit(row.unit);
+  const repeatDays = repeatUnit.repeatDays;
   const frequency = readOptionalString(row, "frequency");
   const targetAmount = readNumber(row, "target_amount", repeatDays.length);
   const repeatsWeekly = frequency === "weekly" && repeatDays.length > 0;
@@ -263,6 +302,15 @@ function toTarget(row: RowRecord): WorkTarget {
     dueDate: readOptionalString(row, "due_date") ?? readOptionalString(row, "start_date"),
     repeatDays: repeatsWeekly ? repeatDays : [],
     repeatCountPerWeek: repeatsWeekly ? targetAmount || repeatDays.length : undefined,
+    repeatStartDate: repeatsWeekly
+      ? readOptionalString(row, "repeat_start_date") ??
+        repeatUnit.repeatStartDate ??
+        readOptionalString(row, "start_date") ??
+        readOptionalString(row, "due_date")
+      : undefined,
+    repeatEndDate: repeatsWeekly
+      ? readOptionalString(row, "repeat_end_date") ?? repeatUnit.repeatEndDate
+      : undefined,
     archivedAt: readOptionalString(row, "archived_at"),
     createdAt: readOptionalString(row, "created_at"),
     updatedAt: readOptionalString(row, "updated_at") ?? readOptionalString(row, "created_at"),
@@ -412,6 +460,20 @@ async function fetchTargets(supabase: SupabaseClient, teamId: string) {
     };
   }
   if (!isSchemaGap(modern.error)) throwSupabaseError(modern.error);
+
+  const modernBase = await supabase
+    .from("targets")
+    .select(modernTargetBaseSelect)
+    .eq("workspace_id", teamId)
+    .order("updated_at", { ascending: false });
+
+  if (!modernBase.error) {
+    return {
+      targets: rows(modernBase.data).map(toTarget),
+      supportsBlockers: true,
+    };
+  }
+  if (!isSchemaGap(modernBase.error)) throwSupabaseError(modernBase.error);
 
   const legacy = await supabase
     .from("targets")
@@ -566,6 +628,15 @@ async function getLegacyTargetById(
 
   if (!modern.error) return toTarget(modern.data as RowRecord);
   if (!isSchemaGap(modern.error)) throwSupabaseError(modern.error);
+
+  const modernBase = await supabase
+    .from("targets")
+    .select(modernTargetBaseSelect)
+    .eq("id", targetId)
+    .single();
+
+  if (!modernBase.error) return toTarget(modernBase.data as RowRecord);
+  if (!isSchemaGap(modernBase.error)) throwSupabaseError(modernBase.error);
 
   const legacy = await supabase
     .from("targets")
@@ -828,6 +899,8 @@ async function persistTargetRepeatFields(
       frequency: repeat.frequency,
       target_amount: repeat.repeatCountPerWeek,
       unit: repeat.unit,
+      repeat_start_date: repeat.repeatStartDate,
+      repeat_end_date: repeat.repeatEndDate,
     })
     .eq("id", targetId)
     .select(modernTargetSelect)
@@ -870,6 +943,8 @@ export async function createTarget(input: CreateTargetInput): Promise<WorkTarget
       target_repeats_weekly: repeat.repeatsWeekly,
       target_repeat_count_per_week: repeat.repeatCountPerWeek,
       target_repeat_days: repeat.repeatDays,
+      target_repeat_start_date: repeat.repeatStartDate,
+      target_repeat_end_date: repeat.repeatEndDate,
     });
   } catch (error) {
     if (!isSchemaGapThrown(error)) throw error;
@@ -888,6 +963,8 @@ export async function createTarget(input: CreateTargetInput): Promise<WorkTarget
         ...target,
         repeatDays: repeat.repeatsWeekly ? repeat.repeatDays : [],
         repeatCountPerWeek: repeat.repeatsWeekly ? repeat.repeatCountPerWeek : undefined,
+        repeatStartDate: repeat.repeatStartDate ?? undefined,
+        repeatEndDate: repeat.repeatEndDate ?? undefined,
       };
     } catch (legacyRpcError) {
       if (!isSchemaGapThrown(legacyRpcError)) throw legacyRpcError;
@@ -905,7 +982,7 @@ export async function createTarget(input: CreateTargetInput): Promise<WorkTarget
         frequency: repeat.frequency,
         target_amount: repeat.repeatCountPerWeek,
         unit: repeat.unit,
-        start_date: input.dueDate || todayISO(),
+        start_date: repeat.repeatStartDate || input.dueDate || todayISO(),
         is_archived: false,
         claimed_by_member_id: null,
         claimed_at: null,
@@ -964,16 +1041,29 @@ export async function blockTarget(
   } catch (error) {
     if (!isSchemaGapThrown(error)) throw error;
     const supabase = requireSupabaseClient();
+    const updatePayload = {
+      status: "blocked",
+      blocked_reason: reason.trim(),
+      blocked_at: new Date().toISOString(),
+    };
     const { data, error: updateError } = await supabase
       .from("targets")
-      .update({
-        status: "blocked",
-        blocked_reason: reason.trim(),
-        blocked_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", targetId)
       .select(modernTargetSelect)
       .single();
+
+    if (isSchemaGap(updateError)) {
+      const fallback = await supabase
+        .from("targets")
+        .update(updatePayload)
+        .eq("id", targetId)
+        .select(modernTargetBaseSelect)
+        .single();
+
+      if (!fallback.error) return toTarget(fallback.data as RowRecord);
+      if (!isSchemaGap(fallback.error)) throwSupabaseError(fallback.error);
+    }
 
     if (isSchemaGap(updateError)) {
       throw new Error(

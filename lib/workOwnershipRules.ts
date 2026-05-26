@@ -154,6 +154,39 @@ export function formatRepeatLabel(target: WorkTarget) {
   return `${count}x/week ${dayLabel}`;
 }
 
+export function formatRepeatWindowLabel(target: WorkTarget) {
+  if (!target.repeatDays?.length) return "";
+  const start = target.repeatStartDate ? formatDateLabel(target.repeatStartDate) : "No start";
+  const end = target.repeatEndDate ? formatDateLabel(target.repeatEndDate) : "No end";
+
+  return `${start} to ${end}`;
+}
+
+export function getFirstRepeatDueDate(
+  repeatDays: RepeatWeekday[],
+  startDate: string | undefined,
+  now = new Date()
+) {
+  if (!repeatDays.length) return undefined;
+
+  const selectedDays = new Set(repeatDays.map((day) => repeatDayIndexes[day]));
+  const parsedStart = parseLocalDate(startDate);
+  const today = parseLocalDate(todayISO(now));
+  const baseDate =
+    Number.isNaN(parsedStart.getTime()) || parsedStart < today ? today : parsedStart;
+
+  for (let offset = 0; offset <= 13; offset += 1) {
+    const candidate = new Date(baseDate);
+    candidate.setDate(baseDate.getDate() + offset);
+
+    if (selectedDays.has(candidate.getDay())) {
+      return todayISO(candidate);
+    }
+  }
+
+  return undefined;
+}
+
 export function getNextRepeatDueDate(target: WorkTarget, now = new Date()) {
   const repeatDays = target.repeatDays ?? [];
   if (!repeatDays.length) return undefined;
@@ -168,7 +201,12 @@ export function getNextRepeatDueDate(target: WorkTarget, now = new Date()) {
     candidate.setDate(baseDate.getDate() + offset);
 
     if (selectedDays.has(candidate.getDay())) {
-      return todayISO(candidate);
+      const candidateDate = todayISO(candidate);
+      if (target.repeatEndDate && candidateDate > target.repeatEndDate) {
+        return undefined;
+      }
+
+      return candidateDate;
     }
   }
 

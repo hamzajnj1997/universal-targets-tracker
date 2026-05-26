@@ -17,6 +17,7 @@ import {
   canReopenTarget,
   formatDateLabel,
   formatRepeatLabel,
+  formatRepeatWindowLabel,
   formatRelativeTime,
   getTargetDueState,
   memberName,
@@ -66,6 +67,7 @@ export function TargetDrawer({
   const targetNotes = notes.filter((note) => note.targetId === target.id);
   const dueState = getTargetDueState(target);
   const repeatLabel = formatRepeatLabel(target);
+  const repeatWindowLabel = formatRepeatWindowLabel(target);
   const canRelease = canReleaseTarget(currentMember, target);
   const canForceRelease = canForceReleaseTarget(currentMember, target);
   const canBlock = capabilities.supportsBlockers && canBlockTarget(currentMember, target);
@@ -162,6 +164,14 @@ export function TargetDrawer({
             <div className="flex justify-between gap-3">
               <dt className="text-slate-500">Repeat</dt>
               <dd className="text-right font-semibold text-slate-950">{repeatLabel}</dd>
+            </div>
+          ) : null}
+          {repeatWindowLabel ? (
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Repeat window</dt>
+              <dd className="text-right font-semibold text-slate-950">
+                {repeatWindowLabel}
+              </dd>
             </div>
           ) : null}
           <div className="flex justify-between gap-3">

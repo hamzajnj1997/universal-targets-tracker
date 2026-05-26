@@ -63,6 +63,8 @@ export type WorkTarget = {
   dueDate?: string;
   repeatDays?: RepeatWeekday[];
   repeatCountPerWeek?: number;
+  repeatStartDate?: string;
+  repeatEndDate?: string;
   archivedAt?: string;
   createdAt?: string;
   updatedAt?: string;

@@ -42,6 +42,7 @@ import {
   filterTargetsForSearch,
   formatDateLabel,
   formatRelativeTime,
+  getFirstRepeatDueDate,
   getNextRepeatDueDate,
   getTargetDueState,
   isManagerRole,
@@ -81,6 +82,8 @@ type TargetForm = {
   priority: TargetPriority;
   dueDate: string;
   repeatDays: RepeatWeekday[];
+  repeatStartDate: string;
+  repeatEndDate: string;
 };
 
 type BoardFocus =
@@ -100,6 +103,8 @@ function createDefaultTargetForm(): TargetForm {
     priority: "medium",
     dueDate: todayISO(),
     repeatDays: [],
+    repeatStartDate: "",
+    repeatEndDate: "",
   };
 }
 
@@ -681,13 +686,39 @@ export function AppShell({ children }: AppShellProps) {
     setMessage("");
 
     try {
+      const hasRepeat = targetForm.repeatDays.length > 0;
+      const repeatStartDate =
+        hasRepeat ? targetForm.repeatStartDate || targetForm.dueDate || todayISO() : "";
+      const repeatEndDate = hasRepeat ? targetForm.repeatEndDate : "";
+
+      if (repeatEndDate && repeatEndDate < repeatStartDate) {
+        setMessage("Repeat end date must be on or after the start date.");
+        return;
+      }
+
+      const firstRepeatDueDate = hasRepeat
+        ? getFirstRepeatDueDate(targetForm.repeatDays, repeatStartDate)
+        : undefined;
+
+      if (hasRepeat && !firstRepeatDueDate) {
+        setMessage("Choose at least one repeat day.");
+        return;
+      }
+
+      if (firstRepeatDueDate && repeatEndDate && firstRepeatDueDate > repeatEndDate) {
+        setMessage("No selected repeat day falls inside the start and end dates.");
+        return;
+      }
+
       const createdTarget = await createTarget({
         teamId: activeTeam.id,
         title: targetForm.title,
         description: targetForm.description,
         priority: targetForm.priority,
-        dueDate: targetForm.dueDate || undefined,
+        dueDate: (firstRepeatDueDate ?? targetForm.dueDate) || undefined,
         repeatDays: targetForm.repeatDays,
+        repeatStartDate: hasRepeat ? repeatStartDate : undefined,
+        repeatEndDate: repeatEndDate || undefined,
       });
       mergeTargetIntoBoard(createdTarget);
       setTargetForm(createDefaultTargetForm());
@@ -703,7 +734,11 @@ export function AppShell({ children }: AppShellProps) {
 
   async function createNextRepeatTarget(target: WorkTarget) {
     const nextDueDate = getNextRepeatDueDate(target);
-    if (!nextDueDate || !target.repeatDays?.length) return null;
+    if (!target.repeatDays?.length) return null;
+    if (!nextDueDate) {
+      setMessage("Completed. Repeat schedule ended.");
+      return null;
+    }
 
     try {
       const nextTarget = await createTarget({
@@ -713,6 +748,8 @@ export function AppShell({ children }: AppShellProps) {
         priority: target.priority,
         dueDate: nextDueDate,
         repeatDays: target.repeatDays,
+        repeatStartDate: target.repeatStartDate,
+        repeatEndDate: target.repeatEndDate,
       });
 
       mergeTargetIntoBoard(nextTarget);
@@ -1944,7 +1981,13 @@ export function AppShell({ children }: AppShellProps) {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsRepeatOpen((value) => !value)}
+                  onClick={() => {
+                    setIsRepeatOpen((value) => !value);
+                    setTargetForm((form) => ({
+                      ...form,
+                      repeatStartDate: form.repeatStartDate || form.dueDate || todayISO(),
+                    }));
+                  }}
                   aria-expanded={isRepeatOpen}
                   className="text-sm font-black text-sky-700 transition hover:text-sky-900"
                 >
@@ -1964,8 +2007,39 @@ export function AppShell({ children }: AppShellProps) {
               {isRepeatOpen ? (
                 <fieldset className="mt-3 rounded-md border border-sky-100 bg-white px-3 py-3">
                   <legend className="px-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                    Days
+                    Schedule
                   </legend>
+                  <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                    <label className="block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+                      Start
+                      <input
+                        type="date"
+                        value={targetForm.repeatStartDate}
+                        onChange={(event) =>
+                          setTargetForm((form) => ({
+                            ...form,
+                            repeatStartDate: event.target.value,
+                          }))
+                        }
+                        className="mt-1 w-full rounded-md border border-slate-200 bg-sky-50/70 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                      />
+                    </label>
+                    <label className="block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+                      End
+                      <input
+                        type="date"
+                        value={targetForm.repeatEndDate}
+                        min={targetForm.repeatStartDate || undefined}
+                        onChange={(event) =>
+                          setTargetForm((form) => ({
+                            ...form,
+                            repeatEndDate: event.target.value,
+                          }))
+                        }
+                        className="mt-1 w-full rounded-md border border-slate-200 bg-rose-50/60 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                      />
+                    </label>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {repeatWeekdayOptions.map((day) => {
                       const isSelected = targetForm.repeatDays.includes(day.value);
@@ -1979,6 +2053,7 @@ export function AppShell({ children }: AppShellProps) {
                           onClick={() =>
                             setTargetForm((form) => ({
                               ...form,
+                              repeatStartDate: form.repeatStartDate || form.dueDate || todayISO(),
                               repeatDays: form.repeatDays.includes(day.value)
                                 ? form.repeatDays.filter((value) => value !== day.value)
                                 : [...form.repeatDays, day.value],
@@ -2002,6 +2077,7 @@ export function AppShell({ children }: AppShellProps) {
                         setTargetForm((form) => ({
                           ...form,
                           repeatDays: [],
+                          repeatEndDate: "",
                         }))
                       }
                       className="mt-3 text-xs font-bold text-slate-500 transition hover:text-rose-600"
