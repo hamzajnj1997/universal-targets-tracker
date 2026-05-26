@@ -15,6 +15,7 @@ export function OnboardingScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inviteFromUrl = searchParams.get("invite")?.trim() ?? "";
+  const isCreateMode = searchParams.get("create") === "1";
   const [teamName, setTeamName] = useState("");
   const [inviteCode, setInviteCode] = useState(inviteFromUrl);
   const [message, setMessage] = useState("");
@@ -31,7 +32,7 @@ export function OnboardingScreen() {
           return;
         }
 
-        if (inviteFromUrl) return;
+        if (inviteFromUrl || isCreateMode) return;
 
         const teams = await listTeams();
         if (!isMounted || teams.length === 0) return;
@@ -48,7 +49,7 @@ export function OnboardingScreen() {
     return () => {
       isMounted = false;
     };
-  }, [inviteFromUrl, router]);
+  }, [inviteFromUrl, isCreateMode, router]);
 
   async function createNewTeam(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

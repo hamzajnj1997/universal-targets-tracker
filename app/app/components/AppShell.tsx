@@ -52,7 +52,6 @@ import {
 } from "./TargetDrawer";
 
 const ACTIVE_TEAM_KEY = "work-ownership-active-team";
-const SIDEBAR_PIN_KEY = "work-ownership-sidebar-pinned";
 
 const emptyBoardData: BoardData = {
   members: [],
@@ -157,7 +156,7 @@ function isOpenTarget(target: WorkTarget) {
 }
 
 function targetMatchesBoardFocus(target: WorkTarget, focus: BoardFocus) {
-  if (focus === "all") return true;
+  if (focus === "all") return target.status !== "archived";
   if (focus === "blocked") return target.status === "blocked";
   if (!isOpenTarget(target)) return false;
 
@@ -181,8 +180,6 @@ export function AppShell({ children }: AppShellProps) {
   const [isCreatingTarget, setIsCreatingTarget] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isSidebarPinned, setIsSidebarPinned] = useState(false);
-  const [hasLoadedSidebarPin, setHasLoadedSidebarPin] = useState(false);
   const [busyTargetId, setBusyTargetId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [boardFocus, setBoardFocus] = useState<BoardFocus>("all");
@@ -233,27 +230,23 @@ export function AppShell({ children }: AppShellProps) {
     [currentMember, visibleTargets]
   );
   const focusOptions = useMemo(() => {
-    const openTargets = boardData.targets.filter(isOpenTarget);
+    const activeTargets = boardData.targets.filter((target) => target.status !== "archived");
     const countFocus = (focus: BoardFocus) =>
       boardData.targets.filter((target) => targetMatchesBoardFocus(target, focus)).length;
 
     return [
-      { key: "all" as const, label: "All", count: openTargets.length },
+      { key: "all" as const, label: "All", count: activeTargets.length },
       { key: "today" as const, label: "Today", count: countFocus("today") },
       { key: "next7" as const, label: "Next 7", count: countFocus("next7") },
       { key: "waiting" as const, label: "Waiting", count: countFocus("waiting") },
       { key: "blocked" as const, label: "Blocked", count: countFocus("blocked") },
     ];
   }, [boardData.targets]);
-  const sidebarTextClass = isSidebarPinned
-    ? "lg:block"
-    : "lg:hidden lg:group-hover:block lg:group-focus-within:block";
-  const sidebarLabelClass = isSidebarPinned
-    ? "lg:opacity-100"
-    : "lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100";
-  const sidebarHoverPanelClass = isSidebarPinned
-    ? ""
-    : "lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100";
+  const sidebarTextClass = "lg:hidden lg:group-hover:block lg:group-focus-within:block";
+  const sidebarLabelClass =
+    "lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100";
+  const sidebarHoverPanelClass =
+    "lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100";
   const commandStats = [
     {
       label: "Ready",
@@ -346,21 +339,6 @@ export function AppShell({ children }: AppShellProps) {
       isMounted = false;
     };
   }, [router]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const frameId = window.requestAnimationFrame(() => {
-      setIsSidebarPinned(window.localStorage.getItem(SIDEBAR_PIN_KEY) === "true");
-      setHasLoadedSidebarPin(true);
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !hasLoadedSidebarPin) return;
-    window.localStorage.setItem(SIDEBAR_PIN_KEY, String(isSidebarPinned));
-  }, [hasLoadedSidebarPin, isSidebarPinned]);
 
   useEffect(() => {
     if (!activeTeamId) return;
@@ -813,9 +791,94 @@ export function AppShell({ children }: AppShellProps) {
       .filter((item): item is AttentionItem => item !== null)
       .sort((a, b) => a.rank - b.rank)
       .slice(0, 8);
+    const completionRatePercent =
+      metrics.completionRate === null ? 0 : Math.round(metrics.completionRate);
+    const atRiskCount =
+      metrics.blockedTargets + metrics.overdueTargets + metrics.staleClaimedTargets;
+    const pulseTone =
+      atRiskCount > 0
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-emerald-200 bg-emerald-50 text-emerald-800";
+    const pipelineItems = [
+      {
+        label: "Available",
+        value: metrics.availableTargets,
+        className: "border-cyan-200 bg-cyan-50 text-cyan-800",
+      },
+      {
+        label: "Claimed",
+        value: metrics.claimedTargets,
+        className: "border-sky-200 bg-sky-50 text-sky-800",
+      },
+      {
+        label: "Blocked",
+        value: metrics.blockedTargets,
+        className: "border-amber-200 bg-amber-50 text-amber-800",
+      },
+      {
+        label: "Completed today",
+        value: metrics.completedToday,
+        className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+      },
+    ];
 
     return (
       <div className="space-y-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-950">Operations pulse</h2>
+                <span className={`rounded-full border px-3 py-1 text-xs font-bold ${pulseTone}`}>
+                  {atRiskCount > 0 ? `${atRiskCount} at risk` : "On track"}
+                </span>
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-emerald-400"
+                  style={{ width: `${Math.max(4, completionRatePercent)}%` }}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-2xl font-black text-slate-950">
+                  {completionRatePercent}%
+                </p>
+                <p className="text-xs font-bold text-slate-500">Complete</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-2xl font-black text-slate-950">
+                  {metrics.completedThisWeek}
+                </p>
+                <p className="text-xs font-bold text-slate-500">Week</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-2xl font-black text-slate-950">
+                  {metrics.averageCompletionHours === null
+                    ? "-"
+                    : metrics.averageCompletionHours.toFixed(1)}
+                </p>
+                <p className="text-xs font-bold text-slate-500">Avg hrs</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {pipelineItems.map((item) => (
+              <div
+                key={item.label}
+                className={`rounded-md border px-4 py-3 ${item.className}`}
+              >
+                <p className="text-xs font-bold uppercase tracking-[0.12em] opacity-80">
+                  {item.label}
+                </p>
+                <p className="mt-1 text-3xl font-black">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {metricCards.map((card) => (
             <div
@@ -1221,8 +1284,8 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <main className="min-h-screen bg-[#f4f7fb] text-slate-950">
       <div className="hidden">{children}</div>
-      <div className={`mx-auto grid w-full max-w-[1900px] gap-0 ${isSidebarPinned ? "lg:grid-cols-[288px_1fr]" : "lg:grid-cols-[84px_1fr]"}`}>
-        <aside className={`group border-b border-slate-200 bg-[#132346] p-4 text-white lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:overflow-hidden lg:border-b-0 lg:border-r lg:border-r-slate-200 lg:transition-[width] lg:duration-200 ${isSidebarPinned ? "lg:w-[288px]" : "lg:w-[84px] lg:hover:w-[288px] lg:focus-within:w-[288px]"}`}>
+      <div className="mx-auto grid w-full max-w-[1900px] gap-0 lg:grid-cols-[84px_1fr]">
+        <aside className="group border-b border-slate-200 bg-[#132346] p-4 text-white lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:w-[84px] lg:overflow-hidden lg:border-b-0 lg:border-r lg:border-r-slate-200 lg:transition-[width] lg:duration-200 lg:hover:w-[288px] lg:focus-within:w-[288px]">
           <div className="flex items-center justify-between gap-3 lg:block">
             <Link href="/app/board" className="block">
               <p className={`text-sm font-semibold uppercase tracking-[0.22em] text-sky-200 lg:whitespace-nowrap ${sidebarTextClass}`}>
@@ -1231,11 +1294,9 @@ export function AppShell({ children }: AppShellProps) {
               <h1 className={`mt-2 text-xl font-bold leading-6 text-white lg:whitespace-nowrap ${sidebarTextClass}`}>
                 Live ownership
               </h1>
-              {!isSidebarPinned ? (
-                <span className="hidden h-9 w-9 items-center justify-center rounded-lg bg-sky-100 text-sm font-black text-[#102045] lg:flex lg:group-hover:hidden lg:group-focus-within:hidden">
-                  W
-                </span>
-              ) : null}
+              <span className="hidden h-9 w-9 items-center justify-center rounded-lg bg-sky-100 text-sm font-black text-[#102045] lg:flex lg:group-hover:hidden lg:group-focus-within:hidden">
+                W
+              </span>
             </Link>
 
             <button
@@ -1246,29 +1307,9 @@ export function AppShell({ children }: AppShellProps) {
               <span className={sidebarLabelClass}>
                 {activeTeam?.name ?? "Team"}
               </span>
-              {!isSidebarPinned ? (
-                <span className="hidden lg:inline lg:group-hover:hidden lg:group-focus-within:hidden">
-                  {activeTeam?.name?.charAt(0).toUpperCase() ?? "T"}
-                </span>
-              ) : null}
-            </button>
-
-            <button
-              type="button"
-              aria-pressed={isSidebarPinned}
-              aria-label={isSidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
-              title={isSidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
-              onClick={() => setIsSidebarPinned((value) => !value)}
-              className="mt-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-sky-200 hover:bg-white/10 lg:w-full lg:overflow-hidden lg:whitespace-nowrap"
-            >
-              <span className={sidebarLabelClass}>
-                {isSidebarPinned ? "Pinned" : "Pin sidebar"}
+              <span className="hidden lg:inline lg:group-hover:hidden lg:group-focus-within:hidden">
+                {activeTeam?.name?.charAt(0).toUpperCase() ?? "T"}
               </span>
-              {!isSidebarPinned ? (
-                <span className="hidden lg:inline lg:group-hover:hidden lg:group-focus-within:hidden">
-                  P
-                </span>
-              ) : null}
             </button>
           </div>
 
@@ -1290,7 +1331,7 @@ export function AppShell({ children }: AppShellProps) {
                 ))}
               </select>
               <div className="mt-3 grid gap-2 text-sm">
-                <Link href="/onboarding" className="rounded-md px-2 py-2 hover:bg-white/10">
+                <Link href="/onboarding?create=1" className="rounded-md px-2 py-2 hover:bg-white/10">
                   Create team
                 </Link>
                 <button

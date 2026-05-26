@@ -102,9 +102,9 @@ export function LiveBoard({
               emptyTitle: "Clear.",
             },
             {
-              key: "completed-today",
-              title: "Completed Today",
-              targets: split.completedToday,
+              key: "completed",
+              title: "Completed",
+              targets: split.completed,
               accent: "bg-emerald-300",
               shell: "border-emerald-100 bg-emerald-50/80",
               emptyTitle: "None.",
@@ -112,19 +112,21 @@ export function LiveBoard({
           ];
   const boardGridClass =
     mode === "board"
-      ? "grid gap-3 xl:grid-cols-2 2xl:grid-cols-5"
+      ? "flex gap-3 overflow-x-auto pb-3"
       : "grid gap-4";
   const sectionScrollClass =
     mode === "board" ? "xl:max-h-[calc(100vh-190px)] xl:overflow-y-auto" : "";
   const sectionHeaderClass =
     mode === "board" ? "sticky top-0 z-10 -mx-2 -mt-2 bg-inherit px-3 pt-2" : "px-1";
+  const sectionLayoutClass =
+    mode === "board" ? "min-h-[360px] min-w-[280px] flex-1 basis-[280px] xl:min-w-[300px]" : "";
 
   return (
     <div className={boardGridClass}>
       {sections.map((section) => (
         <section
           key={section.key}
-          className={`min-w-0 rounded-lg border p-2 shadow-sm ${section.shell} ${sectionScrollClass}`}
+          className={`min-w-0 rounded-lg border p-2 shadow-sm ${section.shell} ${sectionScrollClass} ${sectionLayoutClass}`}
         >
           <div className={`mb-2 flex items-center justify-between gap-3 ${sectionHeaderClass}`}>
             <div>
