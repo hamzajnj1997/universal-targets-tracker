@@ -233,15 +233,24 @@ export function AppShell({ children }: AppShellProps) {
   }, [activeTeam, boardData.members, user]);
   const selectedTarget =
     boardData.targets.find((target) => target.id === selectedTargetId) ?? null;
-  const metrics = useMemo(() => calculateDashboardMetrics(boardData), [boardData]);
+  const boardNow = useMemo(
+    () => new Date(dashboardTimestamp),
+    [dashboardTimestamp]
+  );
+  const metrics = useMemo(
+    () => calculateDashboardMetrics(boardData, boardNow),
+    [boardData, boardNow]
+  );
   const isBoardFocusRoute =
     pathname.startsWith("/app/board") || pathname.startsWith("/app/my-work");
   const focusedTargets = useMemo(
     () =>
       isBoardFocusRoute
-        ? boardData.targets.filter((target) => targetMatchesBoardFocus(target, boardFocus))
+        ? boardData.targets.filter((target) =>
+            targetMatchesBoardFocus(target, boardFocus, boardNow)
+          )
         : boardData.targets,
-    [boardData.targets, boardFocus, isBoardFocusRoute]
+    [boardData.targets, boardFocus, boardNow, isBoardFocusRoute]
   );
   const visibleTargets = useMemo(
     () => filterTargetsForSearch(focusedTargets, searchQuery),
@@ -253,9 +262,9 @@ export function AppShell({ children }: AppShellProps) {
   );
   const focusOptions = useMemo(() => {
     const activeTargets = boardData.targets.filter((target) => target.status !== "archived");
-    const now = new Date();
     const countFocus = (focus: BoardFocus) =>
-      boardData.targets.filter((target) => targetMatchesBoardFocus(target, focus, now)).length;
+      boardData.targets.filter((target) => targetMatchesBoardFocus(target, focus, boardNow))
+        .length;
 
     return [
       { key: "all" as const, label: "All", count: activeTargets.length },
@@ -266,7 +275,7 @@ export function AppShell({ children }: AppShellProps) {
       { key: "blocked" as const, label: "Blocked", count: countFocus("blocked") },
       { key: "stale" as const, label: "Stale", count: countFocus("stale") },
     ];
-  }, [boardData.targets]);
+  }, [boardData.targets, boardNow]);
   const sidebarTextClass = "lg:hidden lg:group-hover:block lg:group-focus-within:block";
   const sidebarLabelClass =
     "lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100";
@@ -710,7 +719,7 @@ export function AppShell({ children }: AppShellProps) {
       rank: number;
     };
     const staleThreshold =
-      dashboardTimestamp - STALE_CLAIM_HOURS * 60 * 60 * 1000;
+      boardNow.getTime() - STALE_CLAIM_HOURS * 60 * 60 * 1000;
     const attentionItems = boardData.targets
       .filter((target) => target.status !== "completed" && target.status !== "archived")
       .map<AttentionItem | null>((target) => {
