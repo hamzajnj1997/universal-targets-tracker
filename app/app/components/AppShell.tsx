@@ -957,6 +957,7 @@ export function AppShell({ children }: AppShellProps) {
                     key={action.label}
                     type="button"
                     onClick={() => {
+                      setSearchQuery("");
                       setBoardFocus(action.focus);
                       router.push("/app/board");
                     }}
