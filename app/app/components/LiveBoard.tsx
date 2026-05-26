@@ -19,6 +19,7 @@ type LiveBoardProps = {
   onClaim: (target: WorkTarget) => void;
   onComplete: (target: WorkTarget) => void;
   onOpenTarget: (target: WorkTarget) => void;
+  onCreateTarget?: () => void;
 };
 
 type Section = {
@@ -28,6 +29,8 @@ type Section = {
   accent: string;
   shell: string;
   emptyTitle: string;
+  emptyBody: string;
+  emptyActionLabel?: string;
 };
 
 export function LiveBoard({
@@ -40,6 +43,7 @@ export function LiveBoard({
   onClaim,
   onComplete,
   onOpenTarget,
+  onCreateTarget,
 }: LiveBoardProps) {
   const isSearching = searchQuery.trim().length > 0;
   const filteredTargets = filterTargetsForSearch(targets, searchQuery);
@@ -54,7 +58,8 @@ export function LiveBoard({
             targets: split.myWork,
             accent: "bg-cyan-300",
             shell: "border-sky-100 bg-sky-50/80",
-            emptyTitle: "Clear.",
+            emptyTitle: "No work assigned.",
+            emptyBody: "Claim a target from Available when you are ready for the next job.",
           },
         ]
       : mode === "completed"
@@ -65,7 +70,8 @@ export function LiveBoard({
               targets: split.completed,
               accent: "bg-emerald-300",
               shell: "border-emerald-100 bg-emerald-50/80",
-              emptyTitle: "None.",
+              emptyTitle: "No completed work yet.",
+              emptyBody: "Completed targets will collect here after the team finishes them.",
             },
           ]
         : [
@@ -73,41 +79,47 @@ export function LiveBoard({
               key: "available",
               title: "Available",
               targets: split.available,
-              accent: "bg-cyan-300",
-              shell: "border-cyan-100 bg-cyan-50/80",
-              emptyTitle: "Clear.",
+              accent: "bg-cyan-500",
+              shell: "border-cyan-200 bg-cyan-50",
+              emptyTitle: "No targets available.",
+              emptyBody: "Create the next target to get the team moving.",
+              emptyActionLabel: "Create target",
             },
             {
               key: "my-work",
               title: "My Work",
               targets: split.myWork,
-              accent: "bg-sky-300",
-              shell: "border-sky-100 bg-sky-50/80",
-              emptyTitle: "Clear.",
+              accent: "bg-sky-500",
+              shell: "border-sky-200 bg-sky-50",
+              emptyTitle: "Nothing claimed.",
+              emptyBody: "Claim a target from Available to start working.",
             },
             {
               key: "claimed-others",
               title: "Claimed by Others",
               targets: split.claimedByOthers,
-              accent: "bg-violet-300",
-              shell: "border-violet-100 bg-violet-50/80",
-              emptyTitle: "Clear.",
+              accent: "bg-violet-500",
+              shell: "border-violet-200 bg-violet-50",
+              emptyTitle: "No one else is holding work.",
+              emptyBody: "Claimed targets from other team members appear here.",
             },
             {
               key: "blocked",
               title: "Blocked",
               targets: split.blocked,
-              accent: "bg-amber-300",
-              shell: "border-amber-100 bg-amber-50/80",
-              emptyTitle: "Clear.",
+              accent: "bg-amber-500",
+              shell: "border-amber-200 bg-amber-50",
+              emptyTitle: "No blockers.",
+              emptyBody: "Blocked work appears here with its reason.",
             },
             {
               key: "completed",
               title: "Completed",
               targets: split.completed,
-              accent: "bg-emerald-300",
-              shell: "border-emerald-100 bg-emerald-50/80",
-              emptyTitle: "None.",
+              accent: "bg-emerald-500",
+              shell: "border-emerald-200 bg-emerald-50",
+              emptyTitle: "Nothing completed yet.",
+              emptyBody: "Finished targets move here after completion.",
             },
           ];
   const boardGridClass =
@@ -141,10 +153,24 @@ export function LiveBoard({
           </div>
 
           {section.targets.length === 0 ? (
-            <div className="rounded-md border border-dashed border-slate-200 bg-white/75 px-3 py-2">
-              <p className="text-xs font-semibold text-slate-500">
+            <div className="rounded-md border border-dashed border-slate-300 bg-white px-3 py-3">
+              <p className="text-sm font-bold text-slate-800">
                 {isSearching ? "No matches." : section.emptyTitle}
               </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {isSearching
+                  ? "Try a different title, owner, priority, or due date."
+                  : section.emptyBody}
+              </p>
+              {!isSearching && section.emptyActionLabel && onCreateTarget ? (
+                <button
+                  type="button"
+                  onClick={onCreateTarget}
+                  className="mt-3 rounded-md bg-sky-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-sky-600"
+                >
+                  {section.emptyActionLabel}
+                </button>
+              ) : null}
             </div>
           ) : (
             <div className={mode === "board" ? "grid gap-2" : "grid gap-2 lg:grid-cols-2 2xl:grid-cols-3"}>

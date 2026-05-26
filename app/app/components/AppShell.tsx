@@ -247,29 +247,6 @@ export function AppShell({ children }: AppShellProps) {
     "lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100";
   const sidebarHoverPanelClass =
     "lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100";
-  const commandStats = [
-    {
-      label: "Ready",
-      value: splitTargets.available.length,
-      className: "border-cyan-200 bg-cyan-50 text-cyan-800",
-    },
-    {
-      label: "My queue",
-      value: splitTargets.myWork.length,
-      className: "border-sky-200 bg-sky-50 text-sky-800",
-    },
-    {
-      label: "Blocked",
-      value: splitTargets.blocked.length,
-      className: "border-amber-200 bg-amber-50 text-amber-800",
-    },
-    {
-      label: "Today",
-      value: metrics.dueTodayTargets,
-      className: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    },
-  ];
-
   const refreshBoard = useCallback(
     async (teamId = activeTeamId) => {
       if (!teamId) return;
@@ -578,76 +555,6 @@ export function AppShell({ children }: AppShellProps) {
     } catch {
       setMessage(`Invite code: ${activeTeam.inviteCode}`);
     }
-  }
-
-  function renderNextStep() {
-    if (
-      !currentMember ||
-      pathname.startsWith("/app/dashboard") ||
-      pathname.startsWith("/app/settings") ||
-      pathname.startsWith("/app/completed")
-    ) {
-      return null;
-    }
-
-    const blockedTarget = splitTargets.blocked[0];
-    const ownedTarget = splitTargets.myWork[0];
-    const availableTarget = splitTargets.available[0];
-    const guidance = blockedTarget
-      ? {
-          title: "Review blocked work",
-          button: "Open blocker",
-          className: "border-amber-200 bg-amber-50",
-          textClassName: "text-amber-700",
-          action: () => setSelectedTargetId(blockedTarget.id),
-        }
-      : ownedTarget
-        ? {
-            title: "Finish your queue",
-            button: "Open my next target",
-            className: "border-sky-200 bg-sky-50",
-            textClassName: "text-sky-700",
-            action: () => setSelectedTargetId(ownedTarget.id),
-          }
-        : availableTarget
-          ? {
-              title: "Pick up available work",
-              button: "Open ready work",
-              className: "border-cyan-200 bg-cyan-50",
-              textClassName: "text-cyan-700",
-              action: () => setSelectedTargetId(availableTarget.id),
-            }
-          : canCreateTarget(currentMember) && !isCreateOpen
-            ? {
-                title: "Create the next target",
-                button: "Create target",
-                className: "border-emerald-200 bg-emerald-50",
-                textClassName: "text-emerald-700",
-                action: toggleCreateTargetForm,
-              }
-            : null;
-
-    if (!guidance) return null;
-
-    return (
-      <section className={`mb-3 rounded-lg border px-3 py-2 ${guidance.className}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="min-w-0 text-sm font-bold text-slate-950">
-            <span className={`mr-2 uppercase tracking-[0.12em] ${guidance.textClassName}`}>
-              Next
-            </span>
-            {guidance.title}
-          </p>
-          <button
-            type="button"
-            onClick={guidance.action}
-            className="rounded-md bg-slate-950 px-3 py-1.5 text-sm font-bold text-white transition hover:bg-slate-800"
-          >
-            {guidance.button}
-          </button>
-        </div>
-      </section>
-    );
   }
 
   function renderDashboard() {
@@ -1233,6 +1140,7 @@ export function AppShell({ children }: AppShellProps) {
           onClaim={(target) => void runTargetAction("claim", target)}
           onComplete={(target) => void runTargetAction("complete", target)}
           onOpenTarget={(target) => setSelectedTargetId(target.id)}
+          onCreateTarget={canCreateTarget(currentMember) ? toggleCreateTargetForm : undefined}
         />
       );
     }
@@ -1264,6 +1172,7 @@ export function AppShell({ children }: AppShellProps) {
         onClaim={(target) => void runTargetAction("claim", target)}
         onComplete={(target) => void runTargetAction("complete", target)}
         onOpenTarget={(target) => setSelectedTargetId(target.id)}
+        onCreateTarget={canCreateTarget(currentMember) ? toggleCreateTargetForm : undefined}
       />
     );
   }
@@ -1368,6 +1277,8 @@ export function AppShell({ children }: AppShellProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  title={item.label}
+                  aria-label={item.label}
                   className={
                     isActive
                       ? "rounded-md border border-sky-300 bg-sky-100 px-3 py-2 text-sm font-bold text-[#102045] shadow-sm"
@@ -1384,11 +1295,17 @@ export function AppShell({ children }: AppShellProps) {
           </nav>
 
           <div className="mt-5 grid grid-cols-2 gap-2 text-sm lg:grid-cols-1">
-            <div className="rounded-lg border border-cyan-200/30 bg-cyan-200/10 p-3 lg:overflow-hidden lg:whitespace-nowrap">
+            <div
+              className="rounded-lg border border-cyan-200/30 bg-cyan-200/10 p-3 lg:overflow-hidden lg:whitespace-nowrap"
+              title="Available targets"
+            >
               <p className={`text-cyan-100/80 ${sidebarLabelClass}`}>Ready</p>
               <p className="mt-1 text-2xl font-bold text-white">{splitTargets.available.length}</p>
             </div>
-            <div className="rounded-lg border border-sky-200/30 bg-sky-200/10 p-3 lg:overflow-hidden lg:whitespace-nowrap">
+            <div
+              className="rounded-lg border border-sky-200/30 bg-sky-200/10 p-3 lg:overflow-hidden lg:whitespace-nowrap"
+              title="My claimed targets"
+            >
               <p className={`text-sky-100/80 ${sidebarLabelClass}`}>Mine</p>
               <p className="mt-1 text-2xl font-bold text-white">{splitTargets.myWork.length}</p>
             </div>
@@ -1460,27 +1377,18 @@ export function AppShell({ children }: AppShellProps) {
                         onClick={() => setBoardFocus(option.key)}
                         className={
                           isActive
-                            ? "rounded-full border border-slate-950 bg-slate-950 px-3 py-1.5 text-xs font-bold text-white"
-                            : "rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-sky-300 hover:text-slate-950"
+                            ? "rounded-full border border-sky-700 bg-sky-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm"
+                            : "rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-sky-400 hover:text-slate-950"
                         }
                       >
                         {option.label}
-                        <span className={isActive ? "ml-2 text-sky-100" : "ml-2 text-slate-400"}>
+                        <span className={isActive ? "ml-2 text-sky-100" : "ml-2 text-slate-500"}>
                           {option.count}
                         </span>
                       </button>
                     );
                   })
                 : null}
-              {commandStats.map((stat) => (
-                <div
-                  key={stat.label}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-bold ${stat.className}`}
-                >
-                  <span className="opacity-80">{stat.label}</span>
-                  <span className="ml-2 text-slate-950">{stat.value}</span>
-                </div>
-              ))}
             </div>
           </header>
 
@@ -1491,8 +1399,6 @@ export function AppShell({ children }: AppShellProps) {
           ) : null}
 
           <DatabaseModeBanner mode={boardData.capabilities} />
-
-          {renderNextStep()}
 
           {isCreateOpen ? (
             <form
