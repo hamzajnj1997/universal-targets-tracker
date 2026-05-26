@@ -11,6 +11,7 @@ import {
   claimTarget,
   completeTarget,
   createTarget,
+  createTeam,
   forceReleaseTarget,
   getClientForRealtime,
   getCurrentUser,
@@ -209,6 +210,8 @@ export function AppShell({ children }: AppShellProps) {
   const [dashboardTimestamp, setDashboardTimestamp] = useState(() => Date.now());
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamRole>("member");
+  const [newTeamName, setNewTeamName] = useState("");
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false);
 
   const activeTeam = teams.find((team) => team.id === activeTeamId) ?? null;
   const currentMember: TeamMember | null = useMemo(() => {
@@ -438,6 +441,37 @@ export function AppShell({ children }: AppShellProps) {
     window.localStorage.setItem(ACTIVE_TEAM_KEY, teamId);
     await refreshBoard(teamId);
     setIsMenuOpen(false);
+  }
+
+  async function createTeamFromMenu(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedTeamName = newTeamName.trim();
+    if (normalizedTeamName.length < 2) {
+      setMessage("Team name must be at least 2 characters.");
+      return;
+    }
+
+    setIsCreatingTeam(true);
+    setMessage("");
+
+    try {
+      const createdTeam = await createTeam(normalizedTeamName);
+      setTeams((currentTeams) => [
+        createdTeam,
+        ...currentTeams.filter((team) => team.id !== createdTeam.id),
+      ]);
+      setActiveTeamId(createdTeam.id);
+      window.localStorage.setItem(ACTIVE_TEAM_KEY, createdTeam.id);
+      setNewTeamName("");
+      setIsMenuOpen(false);
+      router.push("/app/board");
+      await refreshBoard(createdTeam.id);
+      setMessage(`Created ${createdTeam.name}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Team creation failed.");
+    } finally {
+      setIsCreatingTeam(false);
+    }
   }
 
   function mergeTargetIntoBoard(updatedTarget: WorkTarget) {
@@ -1399,9 +1433,32 @@ export function AppShell({ children }: AppShellProps) {
                 ))}
               </select>
               <div className="mt-3 grid gap-2 text-sm">
-                <Link href="/onboarding?create=1" className="rounded-md px-2 py-2 hover:bg-white/10">
-                  Create team
-                </Link>
+                <form
+                  onSubmit={createTeamFromMenu}
+                  noValidate
+                  className="grid gap-2 rounded-md border border-white/10 bg-white/5 p-2"
+                >
+                  <label className="text-xs font-semibold text-slate-300" htmlFor="sidebar-team-name">
+                    Create team
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto] lg:grid-cols-1">
+                    <input
+                      id="sidebar-team-name"
+                      value={newTeamName}
+                      onChange={(event) => setNewTeamName(event.target.value)}
+                      autoComplete="organization"
+                      placeholder="Team name"
+                      className="min-w-0 rounded-md border border-white/15 bg-[#0e1a36] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-400 focus:border-cyan-300"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isCreatingTeam || newTeamName.trim().length < 2}
+                      className="rounded-md bg-cyan-300 px-3 py-2 text-sm font-bold text-[#102045] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isCreatingTeam ? "Creating" : "Create"}
+                    </button>
+                  </div>
+                </form>
                 <button
                   type="button"
                   onClick={copyInviteLink}
