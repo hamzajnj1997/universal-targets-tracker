@@ -1233,6 +1233,25 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </dl>
 
+          <div className="mt-5 rounded-lg border border-sky-200 bg-sky-50 p-3">
+            <p className="text-sm font-bold text-slate-950">Invite link</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+              <code className="min-w-0 overflow-hidden text-ellipsis rounded-md border border-sky-100 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
+                {activeTeam?.inviteCode
+                  ? `/onboarding?invite=${activeTeam.inviteCode}`
+                  : "Apply migration to enable invite links"}
+              </code>
+              <button
+                type="button"
+                onClick={copyInviteLink}
+                disabled={!activeTeam?.inviteCode}
+                className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+              >
+                Copy link
+              </button>
+            </div>
+          </div>
+
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[
               ["Blockers", boardData.capabilities.supportsBlockers],
@@ -1261,13 +1280,6 @@ export function AppShell({ children }: AppShellProps) {
             </p>
           ) : null}
 
-          <button
-            type="button"
-            onClick={copyInviteLink}
-            className="mt-5 rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600"
-          >
-            Copy invite link
-          </button>
         </section>
       );
     }
