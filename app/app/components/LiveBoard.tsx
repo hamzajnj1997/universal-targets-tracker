@@ -10,7 +10,6 @@ import { TargetCard } from "./TargetCard";
 
 type BoardMode = "board" | "my-work" | "completed";
 type BoardLaneKey = "available" | "my-work" | "claimed-others" | "blocked" | "completed";
-type ActionableMoveLane = "available" | "my-work" | "completed";
 
 type LiveBoardProps = {
   mode: BoardMode;
@@ -36,18 +35,6 @@ type Section = {
   emptyBody: string;
   emptyActionLabel?: string;
 };
-
-const moveLaneLabels: Record<ActionableMoveLane, string> = {
-  available: "Available",
-  "my-work": "My Work",
-  completed: "Completed",
-};
-
-const actionableMoveLanes: ActionableMoveLane[] = [
-  "available",
-  "my-work",
-  "completed",
-];
 
 export function LiveBoard({
   mode,
@@ -89,17 +76,6 @@ export function LiveBoard({
       (target.status === "claimed" || target.status === "blocked") &&
       (target.claimedById === currentMember?.id || isManager)
     );
-  }
-
-  function getMoveOptions(target: WorkTarget, currentLane: BoardLaneKey) {
-    if (mode !== "board" || !onMoveTarget) return [];
-
-    return actionableMoveLanes
-      .filter((lane) => lane !== currentLane && canDropInLane(target, lane))
-      .map((lane) => ({
-        key: lane,
-        label: moveLaneLabels[lane],
-      }));
   }
 
   function handleDragStart(target: WorkTarget, event: DragEvent<HTMLElement>) {
@@ -272,8 +248,6 @@ export function LiveBoard({
                   draggable={mode === "board"}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
-                  moveOptions={getMoveOptions(target, section.key)}
-                  onMove={(nextTarget, lane) => onMoveTarget?.(nextTarget, lane)}
                 />
               ))}
             </div>
