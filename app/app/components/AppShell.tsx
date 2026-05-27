@@ -47,7 +47,6 @@ import {
   getTargetDueState,
   isManagerRole,
   memberName,
-  splitBoardTargets,
   statusLabel,
   todayISO,
 } from "../../../lib/workOwnershipRules";
@@ -118,26 +117,114 @@ const repeatWeekdayOptions: { value: RepeatWeekday; label: string; name: string 
   { value: "sun", label: "S", name: "Sunday" },
 ];
 
+type ShellIconProps = {
+  className?: string;
+};
+
+function ShellIconBase({
+  className = "h-4 w-4",
+  children,
+}: ShellIconProps & { children: ReactNode }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function BoardIcon(props: ShellIconProps) {
+  return (
+    <ShellIconBase {...props}>
+      <path d="M4 5h5v14H4z" />
+      <path d="M15 5h5v8h-5z" />
+      <path d="M15 17h5v2h-5z" />
+    </ShellIconBase>
+  );
+}
+
+function MyWorkIcon(props: ShellIconProps) {
+  return (
+    <ShellIconBase {...props}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+      <circle cx="9.5" cy="7" r="4" />
+      <path d="m16 11 2 2 4-4" />
+    </ShellIconBase>
+  );
+}
+
+function CompletedIcon(props: ShellIconProps) {
+  return (
+    <ShellIconBase {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12 2.5 2.5L16 9" />
+    </ShellIconBase>
+  );
+}
+
+function AnalyticsIcon(props: ShellIconProps) {
+  return (
+    <ShellIconBase {...props}>
+      <path d="M4 19V5" />
+      <path d="M4 19h16" />
+      <path d="M8 16v-5" />
+      <path d="M12 16V8" />
+      <path d="M16 16v-3" />
+    </ShellIconBase>
+  );
+}
+
+function SettingsIcon(props: ShellIconProps) {
+  return (
+    <ShellIconBase {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 19.4 9c.2.6.8 1 1.6 1h.1a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.6 1Z" />
+    </ShellIconBase>
+  );
+}
+
+function BellIcon(props: ShellIconProps) {
+  return (
+    <ShellIconBase {...props}>
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+      <path d="M10 21h4" />
+    </ShellIconBase>
+  );
+}
+
 const navItems = [
   {
     href: "/app/board",
     label: "Live Board",
-    dot: "bg-cyan-300",
+    icon: BoardIcon,
   },
   {
     href: "/app/my-work",
     label: "My Work",
-    dot: "bg-sky-300",
+    icon: MyWorkIcon,
   },
   {
     href: "/app/completed",
     label: "Completed",
-    dot: "bg-emerald-300",
+    icon: CompletedIcon,
   },
   {
     href: "/app/dashboard",
-    label: "Dashboard",
-    dot: "bg-violet-300",
+    label: "Analytics",
+    icon: AnalyticsIcon,
+  },
+  {
+    href: "/app/settings/team",
+    label: "Workspace Settings",
+    icon: SettingsIcon,
   },
 ];
 
@@ -290,6 +377,14 @@ export function AppShell({ children }: AppShellProps) {
     () => calculateDashboardMetrics(boardData, boardNow),
     [boardData, boardNow]
   );
+  const attentionCount = metrics.blockedTargets + metrics.staleClaimedTargets;
+  const accountName = currentMember?.name || user?.email || "Account";
+  const accountMeta = currentMember
+    ? currentMember.role
+    : user?.email
+      ? "signed in"
+      : "loading";
+  const accountInitial = accountName.trim().charAt(0).toUpperCase() || "U";
   const isBoardFocusRoute =
     pathname.startsWith("/app/board") || pathname.startsWith("/app/my-work");
   const focusedTargets = useMemo(
@@ -304,10 +399,6 @@ export function AppShell({ children }: AppShellProps) {
   const visibleTargets = useMemo(
     () => filterTargetsForSearch(focusedTargets, searchQuery),
     [focusedTargets, searchQuery]
-  );
-  const splitTargets = useMemo(
-    () => splitBoardTargets(visibleTargets, currentMember),
-    [currentMember, visibleTargets]
   );
   const focusOptions = useMemo(() => {
     const activeTargets = boardData.targets.filter((target) => target.status !== "archived");
@@ -1638,7 +1729,7 @@ export function AppShell({ children }: AppShellProps) {
     <main className="min-h-screen bg-[#f4f7fb] text-slate-950">
       <div className="hidden">{children}</div>
       <div className="mx-auto grid w-full max-w-[1900px] gap-0 lg:grid-cols-[84px_1fr]">
-        <aside className="group border-b border-slate-200 bg-[#132346] p-4 text-white lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:w-[84px] lg:overflow-hidden lg:border-b-0 lg:border-r lg:border-r-slate-200 lg:transition-[width] lg:duration-200 lg:hover:w-[288px] lg:focus-within:w-[288px]">
+        <aside className="group border-b border-slate-200 bg-[#132346] p-4 text-white lg:sticky lg:top-0 lg:z-30 lg:flex lg:h-screen lg:w-[84px] lg:flex-col lg:overflow-hidden lg:border-b-0 lg:border-r lg:border-r-slate-200 lg:transition-[width] lg:duration-200 lg:hover:w-[288px] lg:focus-within:w-[288px]">
           <div className="flex items-center justify-between gap-3 lg:block">
             <Link href="/app/board" className="block">
               <p className={`text-sm font-semibold uppercase tracking-[0.22em] text-sky-200 lg:whitespace-nowrap ${sidebarTextClass}`}>
@@ -1723,23 +1814,16 @@ export function AppShell({ children }: AppShellProps) {
                 <Link href="/app/settings/team" className="rounded-md px-2 py-2 hover:bg-white/10">
                   Team settings
                 </Link>
-                <Link href="/app/settings/profile" className="rounded-md px-2 py-2 hover:bg-white/10">
-                  Profile
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => void logout()}
-                  className="rounded-md px-2 py-2 text-left text-rose-100 hover:bg-rose-500/10"
-                >
-                  Logout
-                </button>
               </div>
             </div>
           ) : null}
 
           <nav className="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-1">
             {navItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const isActive = item.href.startsWith("/app/settings")
+                ? pathname.startsWith("/app/settings")
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const NavIcon = item.icon;
               return (
                 <Link
                   key={item.href}
@@ -1753,7 +1837,7 @@ export function AppShell({ children }: AppShellProps) {
                   }
                 >
                   <span className="flex items-center gap-2 lg:whitespace-nowrap">
-                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${isActive ? "bg-slate-950" : item.dot}`} />
+                    <NavIcon className="h-4 w-4 shrink-0" />
                     <span className={sidebarLabelClass}>{item.label}</span>
                   </span>
                 </Link>
@@ -1761,21 +1845,47 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
 
-          <div className="mt-5 grid grid-cols-2 gap-2 text-sm lg:grid-cols-1">
-            <div
-              className="rounded-lg border border-cyan-200/30 bg-cyan-200/10 p-3 lg:overflow-hidden lg:whitespace-nowrap"
-              title="Available targets"
+          <div className="mt-5">
+            <Link
+              href="/app/dashboard"
+              title="Notifications and attention"
+              aria-label={`${attentionCount} items need attention`}
+              className="relative flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 hover:text-white lg:whitespace-nowrap"
             >
-              <p className={`text-cyan-100/80 ${sidebarLabelClass}`}>Ready</p>
-              <p className="mt-1 text-2xl font-bold text-white">{splitTargets.available.length}</p>
-            </div>
+              <BellIcon className="h-4 w-4 shrink-0" />
+              <span className={sidebarLabelClass}>Needs attention</span>
+              {attentionCount > 0 ? (
+                <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-rose-400 px-1.5 py-0.5 text-[10px] font-black text-white">
+                  {attentionCount}
+                </span>
+              ) : null}
+            </Link>
+          </div>
+
+          <div className="mt-5 border-t border-white/10 pt-4 lg:mt-auto">
             <div
-              className="rounded-lg border border-sky-200/30 bg-sky-200/10 p-3 lg:overflow-hidden lg:whitespace-nowrap"
-              title="My claimed targets"
+              className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-2"
+              title={`${accountName} - ${accountMeta}`}
             >
-              <p className={`text-sky-100/80 ${sidebarLabelClass}`}>Mine</p>
-              <p className="mt-1 text-2xl font-bold text-white">{splitTargets.myWork.length}</p>
+              <Link
+                href="/app/settings/profile"
+                aria-label="Open profile settings"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sm font-black text-[#102045]"
+              >
+                {accountInitial}
+              </Link>
+              <div className={`min-w-0 ${sidebarLabelClass}`}>
+                <p className="truncate text-sm font-bold text-white">{accountName}</p>
+                <p className="truncate text-xs capitalize text-slate-300">{accountMeta}</p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className={`mt-2 w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-rose-100 transition hover:bg-rose-500/10 lg:whitespace-nowrap ${sidebarLabelClass}`}
+            >
+              Logout
+            </button>
           </div>
         </aside>
 
@@ -1798,11 +1908,6 @@ export function AppShell({ children }: AppShellProps) {
                             ? "Completed"
                             : "Live Board"}
                   </h2>
-                  <p className="pb-1 text-xs font-semibold text-slate-500">
-                    {currentMember
-                      ? `${currentMember.name} (${currentMember.role})`
-                      : user?.email ?? "Loading"}
-                  </p>
                 </div>
               </div>
 
