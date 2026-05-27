@@ -377,7 +377,11 @@ export function AppShell({ children }: AppShellProps) {
     () => calculateDashboardMetrics(boardData, boardNow),
     [boardData, boardNow]
   );
-  const attentionCount = metrics.blockedTargets + metrics.staleClaimedTargets;
+  const attentionCount =
+    metrics.blockedTargets +
+    metrics.overdueTargets +
+    metrics.staleClaimedTargets +
+    metrics.highPriorityOpenTargets;
   const accountName = currentMember?.name || user?.email || "Account";
   const accountMeta = currentMember
     ? currentMember.role
