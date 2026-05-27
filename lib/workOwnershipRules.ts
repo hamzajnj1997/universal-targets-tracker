@@ -147,6 +147,7 @@ export function formatDateLabel(date: string | undefined) {
 export function formatRepeatLabel(target: WorkTarget) {
   const repeatDays = target.repeatDays ?? [];
   if (!repeatDays.length) return "";
+  if (new Set(repeatDays).size === 7) return "Daily";
 
   const count = target.repeatCountPerWeek ?? repeatDays.length;
   const dayLabel = repeatDays.map((day) => repeatDayLabels[day]).join(" ");

@@ -2107,9 +2107,11 @@ export function AppShell({ children }: AppShellProps) {
                       : "+ Add repeat schedule"}
                 </button>
                 <span className="text-xs font-bold text-slate-500">
-                  {targetForm.repeatDays.length
-                    ? `${targetForm.repeatDays.length} times/week`
-                    : "One-time"}
+                  {targetForm.repeatDays.length === 7
+                    ? "Daily"
+                    : targetForm.repeatDays.length
+                      ? `${targetForm.repeatDays.length} times/week`
+                      : "One-time"}
                 </span>
               </div>
 
