@@ -206,14 +206,14 @@ export function LiveBoard({
           ];
   const boardGridClass =
     mode === "board"
-      ? "flex gap-3 overflow-x-auto pb-3"
+      ? "flex gap-3 overflow-x-auto pb-4"
       : "grid gap-4";
   const sectionScrollClass =
     mode === "board" ? "xl:max-h-[calc(100vh-190px)] xl:overflow-y-auto" : "";
   const sectionHeaderClass =
     mode === "board" ? "sticky top-0 z-10 -mx-2 -mt-2 bg-inherit px-3 pt-2" : "px-1";
   const sectionLayoutClass =
-    mode === "board" ? "min-h-[360px] min-w-[280px] flex-1 basis-[280px] xl:min-w-[300px]" : "";
+    mode === "board" ? "min-h-[360px] min-w-[320px] shrink-0 basis-[320px] xl:min-w-[340px] xl:basis-[340px]" : "";
 
   return (
     <div className={boardGridClass}>
@@ -228,7 +228,7 @@ export function LiveBoard({
           <div className={`mb-2 flex items-center justify-between gap-3 ${sectionHeaderClass}`}>
             <div>
               <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${section.accent}`} />
+                <span className={`h-1.5 w-1.5 rounded-full ${section.accent}`} />
                 <h2 className="text-base font-bold text-slate-950">{section.title}</h2>
               </div>
             </div>

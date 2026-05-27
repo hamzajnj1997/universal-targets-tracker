@@ -116,43 +116,35 @@ export function TargetCard({
       onDragStart={(event) => onDragStart?.(target, event)}
       onDragEnd={onDragEnd}
       title={draggable ? "Drag to move between lanes" : undefined}
-      className={`group relative overflow-hidden rounded-md border border-slate-200 bg-white px-2 py-1.5 pl-3 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${statusAccentClasses[target.status]}`}
+      className={`group relative overflow-hidden rounded-md border border-slate-200 bg-white px-3 py-2 pl-3.5 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-0.5 hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${statusAccentClasses[target.status]}`}
     >
-      <div className="grid gap-1.5">
-        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-          <button
-            type="button"
-            onClick={() => onOpen(target)}
-            className="min-w-0 text-left"
-            aria-label={`Open ${target.title}`}
-          >
-            <h3 className="truncate text-sm font-bold leading-5 text-slate-950 transition group-hover:text-sky-700">
-              {target.title}
-            </h3>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-semibold text-slate-500">
-              <span className="truncate">{claimant}</span>
-              <span className="text-slate-300">|</span>
-              <span>Due {formatDateLabel(target.dueDate)}</span>
-              {repeatLabel ? (
-                <>
-                  <span className="text-slate-300">|</span>
-                  <span>{repeatLabel}</span>
-                </>
-              ) : null}
-              <span className="text-slate-300">|</span>
-              <span>{claimAgeLabel}</span>
-            </div>
-          </button>
+      <div className="flex min-w-0 flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => onOpen(target)}
+          className="block min-w-0 text-left"
+          aria-label={`Open ${target.title}`}
+        >
+          <h3 className="line-clamp-2 break-words text-sm font-bold leading-5 text-slate-950 transition group-hover:text-sky-700">
+            {target.title}
+          </h3>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-500">
+            <span className="max-w-full truncate">{claimant}</span>
+            <span className="whitespace-nowrap">Due {formatDateLabel(target.dueDate)}</span>
+            {repeatLabel ? <span className="whitespace-nowrap">{repeatLabel}</span> : null}
+            <span className="whitespace-nowrap">{claimAgeLabel}</span>
+          </div>
+        </button>
 
-          <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize ${priorityClasses[target.priority]}`}
+              className={`inline-flex h-5 shrink-0 items-center rounded-full border px-1.5 text-[9px] font-bold capitalize leading-none ${priorityClasses[target.priority]}`}
             >
               {target.priority}
             </span>
             {dueState !== "none" ? (
               <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${dueStateClasses[dueState]}`}
+                className={`inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-full border px-1.5 text-[9px] font-bold leading-none ${dueStateClasses[dueState]}`}
               >
                 {dueStateLabels[dueState]}
               </span>
@@ -161,7 +153,7 @@ export function TargetCard({
               type="button"
               onClick={primaryAction}
               disabled={busy}
-              className={`shrink-0 rounded-md px-2.5 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
+              className={`inline-flex h-8 shrink-0 items-center rounded-md px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
             >
               {busy ? "..." : primaryLabel}
             </button>
@@ -176,7 +168,7 @@ export function TargetCard({
                   onMove?.(target, lane);
                   event.currentTarget.value = "";
                 }}
-                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-8 min-w-[92px] shrink-0 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="" disabled>
                   Move
@@ -188,7 +180,6 @@ export function TargetCard({
                 ))}
               </select>
             ) : null}
-          </div>
         </div>
 
         {target.status === "blocked" ? (
