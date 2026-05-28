@@ -67,6 +67,15 @@ export type TeamInviteInput = {
   role: TeamRole;
 };
 
+export type TeamSettingsInput = {
+  teamId: string;
+  name: string;
+  logoDataUrl?: string;
+  timezone: string;
+  workingDays: RepeatWeekday[];
+  dateFormat: Team["dateFormat"];
+};
+
 export type AuthMode = "login" | "signup" | "forgot";
 
 export function normalizeEmail(email: string) {
@@ -255,6 +264,21 @@ function toTeam(row: RowRecord): Team {
     name: readString(row, "name", "Untitled team"),
     ownerId: readString(row, "owner_id", readString(row, "ownerId")),
     inviteCode: readString(row, "invite_code", readString(row, "inviteCode")),
+    logoDataUrl: readOptionalString(row, "logo_data_url") ?? undefined,
+    timezone: readOptionalString(row, "timezone") ?? undefined,
+    workingDays: normalizeRepeatDays(
+      Array.isArray(row.working_days)
+        ? row.working_days
+        : typeof row.working_days === "string"
+          ? row.working_days.split(",")
+          : []
+    ),
+    dateFormat:
+      row.date_format === "dd/mm/yyyy" ||
+      row.date_format === "mm/dd/yyyy" ||
+      row.date_format === "yyyy-mm-dd"
+        ? row.date_format
+        : undefined,
   };
 }
 
@@ -820,6 +844,50 @@ export async function createTeam(name: string): Promise<Team> {
   const row = Array.isArray(data) ? data[0] : data;
   if (!isRowRecord(row)) throw new Error("Team creation returned no team.");
   return toTeam(row);
+}
+
+export async function updateTeamSettings(input: TeamSettingsInput): Promise<Team> {
+  const supabase = requireSupabaseClient();
+  const { data, error } = await supabase.rpc("update_workspace_settings", {
+    target_workspace_id: input.teamId,
+    team_name: input.name.trim(),
+    team_logo_data_url: input.logoDataUrl || null,
+    team_timezone: input.timezone,
+    team_working_days: input.workingDays,
+    team_date_format: input.dateFormat,
+  });
+  throwSupabaseError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!isRowRecord(row)) throw new Error("Team settings update returned no team.");
+  return toTeam(row);
+}
+
+export async function transferTeamOwnership(teamId: string, memberId: string): Promise<Team> {
+  const supabase = requireSupabaseClient();
+  const { data, error } = await supabase.rpc("transfer_team_ownership", {
+    target_workspace_id: teamId,
+    new_owner_member_id: memberId,
+  });
+  throwSupabaseError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!isRowRecord(row)) throw new Error("Transfer ownership returned no team.");
+  return toTeam(row);
+}
+
+export async function leaveTeam(teamId: string): Promise<void> {
+  const supabase = requireSupabaseClient();
+  const { error } = await supabase.rpc("leave_team", {
+    target_workspace_id: teamId,
+  });
+  throwSupabaseError(error);
+}
+
+export async function deleteTeam(teamId: string): Promise<void> {
+  const supabase = requireSupabaseClient();
+  const { error } = await supabase.rpc("delete_team", {
+    target_workspace_id: teamId,
+  });
+  throwSupabaseError(error);
 }
 
 export async function joinTeamByInviteCode(inviteCode: string): Promise<Team> {

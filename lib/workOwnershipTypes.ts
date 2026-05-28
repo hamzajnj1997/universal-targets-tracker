@@ -31,6 +31,10 @@ export type Team = {
   name: string;
   ownerId: string;
   inviteCode: string;
+  logoDataUrl?: string;
+  timezone?: string;
+  workingDays?: RepeatWeekday[];
+  dateFormat?: "dd/mm/yyyy" | "mm/dd/yyyy" | "yyyy-mm-dd";
 };
 
 export type TeamMember = {

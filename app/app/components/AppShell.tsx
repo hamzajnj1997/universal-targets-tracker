@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   addTargetNote,
@@ -12,17 +20,21 @@ import {
   completeTarget,
   createTarget,
   createTeam,
+  deleteTeam,
   forceReleaseTarget,
   getClientForRealtime,
   getCurrentUser,
   inviteMemberByEmail,
   isValidEmailAddress,
+  leaveTeam,
   listTeams,
   loadBoardData,
   normalizeEmail,
   releaseTarget,
   reopenTarget,
   signOut,
+  transferTeamOwnership,
+  updateTeamSettings,
 } from "../../../lib/workOwnershipApi";
 import type {
   BoardData,
@@ -85,6 +97,14 @@ type TargetForm = {
   repeatEndDate: string;
 };
 
+type TeamSettingsForm = {
+  name: string;
+  logoDataUrl: string;
+  timezone: string;
+  workingDays: RepeatWeekday[];
+  dateFormat: NonNullable<Team["dateFormat"]>;
+};
+
 type BoardFocus =
   | "all"
   | "available"
@@ -107,6 +127,16 @@ function createDefaultTargetForm(): TargetForm {
   };
 }
 
+function createDefaultTeamSettingsForm(team: Team | null): TeamSettingsForm {
+  return {
+    name: team?.name ?? "",
+    logoDataUrl: team?.logoDataUrl ?? "",
+    timezone: team?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC",
+    workingDays: team?.workingDays?.length ? team.workingDays : ["mon", "tue", "wed", "thu", "fri"],
+    dateFormat: team?.dateFormat ?? "dd/mm/yyyy",
+  };
+}
+
 const repeatWeekdayOptions: { value: RepeatWeekday; label: string; name: string }[] = [
   { value: "mon", label: "M", name: "Monday" },
   { value: "tue", label: "T", name: "Tuesday" },
@@ -115,6 +145,22 @@ const repeatWeekdayOptions: { value: RepeatWeekday; label: string; name: string 
   { value: "fri", label: "F", name: "Friday" },
   { value: "sat", label: "S", name: "Saturday" },
   { value: "sun", label: "S", name: "Sunday" },
+];
+
+const timezoneOptions = [
+  "UTC",
+  "Asia/Karachi",
+  "Asia/Dubai",
+  "Europe/London",
+  "America/New_York",
+  "America/Chicago",
+  "America/Los_Angeles",
+];
+
+const dateFormatOptions: { value: NonNullable<Team["dateFormat"]>; label: string }[] = [
+  { value: "dd/mm/yyyy", label: "DD/MM/YYYY" },
+  { value: "mm/dd/yyyy", label: "MM/DD/YYYY" },
+  { value: "yyyy-mm-dd", label: "YYYY-MM-DD" },
 ];
 
 type ShellIconProps = {
@@ -345,6 +391,12 @@ export function AppShell({ children }: AppShellProps) {
   const [inviteRole, setInviteRole] = useState<TeamRole>("member");
   const [newTeamName, setNewTeamName] = useState("");
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
+  const [teamSettingsForm, setTeamSettingsForm] = useState<TeamSettingsForm>(() =>
+    createDefaultTeamSettingsForm(null)
+  );
+  const [isSavingTeamSettings, setIsSavingTeamSettings] = useState(false);
+  const [transferOwnerMemberId, setTransferOwnerMemberId] = useState("");
+  const [isRunningDangerAction, setIsRunningDangerAction] = useState(false);
 
   const activeTeam = teams.find((team) => team.id === activeTeamId) ?? null;
   const currentMember: TeamMember | null = useMemo(() => {
@@ -389,6 +441,13 @@ export function AppShell({ children }: AppShellProps) {
       ? "signed in"
       : "loading";
   const accountInitial = accountName.trim().charAt(0).toUpperCase() || "U";
+  const activeMembers = boardData.members.filter((member) => member.status === "active");
+  const transferCandidates = activeMembers.filter(
+    (member) => member.id !== currentMember?.id && Boolean(member.userId)
+  );
+  const canManageTeam = isManagerRole(currentMember?.role);
+  const isOwner = currentMember?.role === "owner";
+  const isSettingsRoute = pathname.startsWith("/app/settings");
   const isBoardFocusRoute =
     pathname.startsWith("/app/board") || pathname.startsWith("/app/my-work");
   const focusedTargets = useMemo(
@@ -474,6 +533,7 @@ export function AppShell({ children }: AppShellProps) {
         const nextTeam =
           accessibleTeams.find((team) => team.id === storedTeamId) ?? accessibleTeams[0];
         setActiveTeamId(nextTeam.id);
+        setTeamSettingsForm(createDefaultTeamSettingsForm(nextTeam));
         if (typeof window !== "undefined") {
           window.localStorage.setItem(ACTIVE_TEAM_KEY, nextTeam.id);
         }
@@ -696,6 +756,10 @@ export function AppShell({ children }: AppShellProps) {
 
   async function switchTeam(teamId: string) {
     setActiveTeamId(teamId);
+    setTeamSettingsForm(
+      createDefaultTeamSettingsForm(teams.find((team) => team.id === teamId) ?? null)
+    );
+    setTransferOwnerMemberId("");
     window.localStorage.setItem(ACTIVE_TEAM_KEY, teamId);
     await refreshBoard(teamId);
     setIsMenuOpen(false);
@@ -719,6 +783,8 @@ export function AppShell({ children }: AppShellProps) {
         ...currentTeams.filter((team) => team.id !== createdTeam.id),
       ]);
       setActiveTeamId(createdTeam.id);
+      setTeamSettingsForm(createDefaultTeamSettingsForm(createdTeam));
+      setTransferOwnerMemberId("");
       window.localStorage.setItem(ACTIVE_TEAM_KEY, createdTeam.id);
       setNewTeamName("");
       setIsMenuOpen(false);
@@ -1009,6 +1075,147 @@ export function AppShell({ children }: AppShellProps) {
       setMessage("Invite link copied.");
     } catch {
       setMessage(`Invite code: ${activeTeam.inviteCode}`);
+    }
+  }
+
+  async function resetTeamsAfterMembershipChange(preferredTeamId?: string) {
+    const accessibleTeams = await listTeams();
+    setTeams(accessibleTeams);
+
+    if (accessibleTeams.length === 0) {
+      setActiveTeamId("");
+      window.localStorage.removeItem(ACTIVE_TEAM_KEY);
+      setBoardData(emptyBoardData);
+      router.replace("/onboarding");
+      return;
+    }
+
+    const nextTeam =
+      accessibleTeams.find((team) => team.id === preferredTeamId) ?? accessibleTeams[0];
+    setActiveTeamId(nextTeam.id);
+    setTeamSettingsForm(createDefaultTeamSettingsForm(nextTeam));
+    setTransferOwnerMemberId("");
+    window.localStorage.setItem(ACTIVE_TEAM_KEY, nextTeam.id);
+    await refreshBoard(nextTeam.id);
+  }
+
+  async function saveTeamSettings(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeTeam || !canManageTeam) return;
+
+    const normalizedName = teamSettingsForm.name.trim();
+    if (normalizedName.length < 2) {
+      setMessage("Team name must be at least 2 characters.");
+      return;
+    }
+
+    setIsSavingTeamSettings(true);
+    setMessage("");
+
+    try {
+      const updatedTeam = await updateTeamSettings({
+        teamId: activeTeam.id,
+        name: normalizedName,
+        logoDataUrl: teamSettingsForm.logoDataUrl,
+        timezone: teamSettingsForm.timezone,
+        workingDays: teamSettingsForm.workingDays,
+        dateFormat: teamSettingsForm.dateFormat,
+      });
+      setTeams((currentTeams) =>
+        currentTeams.map((team) => (team.id === updatedTeam.id ? updatedTeam : team))
+      );
+      setTeamSettingsForm(createDefaultTeamSettingsForm(updatedTeam));
+      setMessage("Workspace settings saved.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Saving team settings failed.");
+    } finally {
+      setIsSavingTeamSettings(false);
+    }
+  }
+
+  function handleTeamLogoUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setMessage("Choose an image file for the workspace logo.");
+      return;
+    }
+    if (file.size > 500_000) {
+      setMessage("Logo image must be under 500 KB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setTeamSettingsForm((form) => ({ ...form, logoDataUrl: reader.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function transferOwnershipAction() {
+    if (!activeTeam || !transferOwnerMemberId || !isOwner) return;
+    const selectedMember = boardData.members.find((member) => member.id === transferOwnerMemberId);
+    if (!selectedMember) return;
+    if (
+      !window.confirm(`Transfer ownership of ${activeTeam.name} to ${selectedMember.name}?`)
+    ) {
+      return;
+    }
+
+    setIsRunningDangerAction(true);
+    setMessage("");
+    try {
+      const updatedTeam = await transferTeamOwnership(activeTeam.id, selectedMember.id);
+      setTeams((currentTeams) =>
+        currentTeams.map((team) => (team.id === updatedTeam.id ? updatedTeam : team))
+      );
+      await refreshBoard(activeTeam.id);
+      setTransferOwnerMemberId("");
+      setMessage("Ownership transferred.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Ownership transfer failed.");
+    } finally {
+      setIsRunningDangerAction(false);
+    }
+  }
+
+  async function leaveTeamAction() {
+    if (!activeTeam || !currentMember) return;
+    if (!window.confirm(`Leave ${activeTeam.name}?`)) return;
+
+    setIsRunningDangerAction(true);
+    setMessage("");
+    try {
+      await leaveTeam(activeTeam.id);
+      await resetTeamsAfterMembershipChange();
+      setMessage("You left the team.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Leaving team failed.");
+    } finally {
+      setIsRunningDangerAction(false);
+    }
+  }
+
+  async function deleteTeamAction() {
+    if (!activeTeam || !isOwner) return;
+    const typedName = window.prompt(`Type "${activeTeam.name}" to delete this team.`);
+    if (typedName !== activeTeam.name) {
+      setMessage("Team deletion cancelled.");
+      return;
+    }
+
+    setIsRunningDangerAction(true);
+    setMessage("");
+    try {
+      await deleteTeam(activeTeam.id);
+      await resetTeamsAfterMembershipChange();
+      setMessage("Team deleted.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Deleting team failed.");
+    } finally {
+      setIsRunningDangerAction(false);
     }
   }
 
@@ -1538,83 +1745,280 @@ export function AppShell({ children }: AppShellProps) {
 
     if (pathname.endsWith("/settings/team")) {
       return (
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-bold text-slate-950">Team settings</h2>
-          <dl className="mt-4 grid gap-3 text-sm">
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">Team</dt>
-              <dd className="font-semibold text-slate-950">{activeTeam?.name ?? "No team"}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">Database mode</dt>
-              <dd className="font-semibold capitalize text-slate-950">
-                {boardData.capabilities.schemaMode === "workOwnership"
-                  ? "Work ownership"
-                  : "Legacy tracker"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">Invite code</dt>
-              <dd className="text-right font-mono font-semibold text-slate-950">
-                {activeTeam?.inviteCode || "Migration required"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">Your role</dt>
-              <dd className="font-semibold capitalize text-slate-950">
-                {currentMember?.role ?? "Unknown"}
-              </dd>
-            </div>
-          </dl>
-
-          <div className="mt-5 rounded-lg border border-sky-200 bg-sky-50 p-3">
-            <p className="text-sm font-bold text-slate-950">Invite link</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-              <code className="min-w-0 overflow-hidden text-ellipsis rounded-md border border-sky-100 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
-                {activeTeam?.inviteCode
-                  ? `/onboarding?invite=${activeTeam.inviteCode}`
-                  : "Apply migration to enable invite links"}
-              </code>
+        <div className="space-y-5">
+          <form
+            onSubmit={saveTeamSettings}
+            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-950">General</h2>
+                <p className="text-sm text-slate-500">Workspace identity and defaults.</p>
+              </div>
               <button
-                type="button"
-                onClick={copyInviteLink}
-                disabled={!activeTeam?.inviteCode}
-                className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                type="submit"
+                disabled={!canManageTeam || isSavingTeamSettings}
+                className="rounded-md bg-sky-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Copy link
+                {isSavingTeamSettings ? "Saving" : "Save changes"}
               </button>
             </div>
-          </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            {[
-              ["Blockers", boardData.capabilities.supportsBlockers],
-              ["Notes", boardData.capabilities.supportsNotes],
-              ["Audit log", boardData.capabilities.supportsActivityLog],
-            ].map(([label, active]) => (
-              <div
-                key={String(label)}
-                className={
-                  active
-                    ? "rounded-lg border border-emerald-200 bg-emerald-50 p-3"
-                    : "rounded-lg border border-slate-200 bg-slate-50 p-3"
-                }
-              >
-                <p className="text-sm font-semibold text-slate-950">{label}</p>
-                <p className={active ? "mt-1 text-xs text-emerald-700" : "mt-1 text-xs text-slate-500"}>
-                  {active ? "Available" : "Needs migration"}
-                </p>
+            <div className="mt-5 grid gap-5 lg:grid-cols-[260px_1fr]">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white text-3xl font-black text-sky-700">
+                  {teamSettingsForm.logoDataUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={teamSettingsForm.logoDataUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    activeTeam?.name?.charAt(0).toUpperCase() ?? "T"
+                  )}
+                </div>
+                <label className="mt-4 block rounded-md border border-dashed border-slate-300 bg-white px-3 py-3 text-center text-sm font-bold text-slate-700 transition hover:border-sky-300 hover:text-sky-700">
+                  Upload logo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={!canManageTeam}
+                    onChange={handleTeamLogoUpload}
+                    className="sr-only"
+                  />
+                </label>
+                {teamSettingsForm.logoDataUrl ? (
+                  <button
+                    type="button"
+                    disabled={!canManageTeam}
+                    onClick={() => setTeamSettingsForm((form) => ({ ...form, logoDataUrl: "" }))}
+                    className="mt-2 w-full rounded-md px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Remove logo
+                  </button>
+                ) : null}
               </div>
-            ))}
-          </div>
 
-          {boardData.capabilities.schemaMode === "legacy" ? (
-            <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
-              Apply <span className="font-mono">supabase/migrations/20260521_work_ownership_tracker.sql</span> with Supabase admin access to enable the full production database.
-            </p>
-          ) : null}
+              <div className="grid gap-4">
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-slate-700">Team name</span>
+                  <input
+                    value={teamSettingsForm.name}
+                    onChange={(event) =>
+                      setTeamSettingsForm((form) => ({ ...form, name: event.target.value }))
+                    }
+                    disabled={!canManageTeam}
+                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                  />
+                </label>
 
-        </section>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <label className="grid gap-2">
+                    <span className="text-sm font-bold text-slate-700">Timezone</span>
+                    <select
+                      value={teamSettingsForm.timezone}
+                      onChange={(event) =>
+                        setTeamSettingsForm((form) => ({ ...form, timezone: event.target.value }))
+                      }
+                      disabled={!canManageTeam}
+                      className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none focus:border-sky-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {timezoneOptions.map((timezone) => (
+                        <option key={timezone} value={timezone}>
+                          {timezone}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-bold text-slate-700">Date format</span>
+                    <select
+                      value={teamSettingsForm.dateFormat}
+                      onChange={(event) =>
+                        setTeamSettingsForm((form) => ({
+                          ...form,
+                          dateFormat: event.target.value as TeamSettingsForm["dateFormat"],
+                        }))
+                      }
+                      disabled={!canManageTeam}
+                      className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none focus:border-sky-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {dateFormatOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="grid gap-2">
+                    <span className="text-sm font-bold text-slate-700">Your role</span>
+                    <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold capitalize text-slate-700">
+                      {currentMember?.role ?? "Unknown"}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-bold text-slate-700">Working days</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {repeatWeekdayOptions.map((day) => {
+                      const selected = teamSettingsForm.workingDays.includes(day.value);
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          disabled={!canManageTeam}
+                          onClick={() =>
+                            setTeamSettingsForm((form) => {
+                              const nextDays = selected
+                                ? form.workingDays.filter((value) => value !== day.value)
+                                : [...form.workingDays, day.value];
+                              return {
+                                ...form,
+                                workingDays: nextDays.length ? nextDays : form.workingDays,
+                              };
+                            })
+                          }
+                          className={
+                            selected
+                              ? "h-9 w-9 rounded-full bg-sky-500 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-70"
+                              : "h-9 w-9 rounded-full border border-slate-200 bg-white text-sm font-black text-slate-500 transition hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
+                          }
+                          aria-label={`Toggle ${day.name}`}
+                        >
+                          {day.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          <section className="grid gap-5 xl:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-950">Invites</h2>
+                  <p className="text-sm text-slate-500">
+                    {activeMembers.length} active member{activeMembers.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <Link
+                  href="/app/settings/members"
+                  className="rounded-md border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Manage members
+                </Link>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+                <code className="min-w-0 overflow-hidden text-ellipsis rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+                  {activeTeam?.inviteCode
+                    ? `/onboarding?invite=${activeTeam.inviteCode}`
+                    : "Invite links unavailable"}
+                </code>
+                <button
+                  type="button"
+                  onClick={copyInviteLink}
+                  disabled={!activeTeam?.inviteCode}
+                  className="rounded-md bg-sky-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                >
+                  Copy link
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-950">Features</h2>
+              <div className="mt-4 grid gap-3">
+                {[
+                  ["Blockers", boardData.capabilities.supportsBlockers],
+                  ["Notes", boardData.capabilities.supportsNotes],
+                  ["Audit log", boardData.capabilities.supportsActivityLog],
+                ].map(([label, active]) => (
+                  <div
+                    key={String(label)}
+                    className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
+                  >
+                    <span className="text-sm font-bold text-slate-800">{label}</span>
+                    <span
+                      aria-label={`${label} ${active ? "enabled" : "unavailable"}`}
+                      className={
+                        active
+                          ? "relative h-6 w-11 rounded-full bg-emerald-500"
+                          : "relative h-6 w-11 rounded-full bg-slate-300"
+                      }
+                    >
+                      <span
+                        className={
+                          active
+                            ? "absolute right-1 top-1 h-4 w-4 rounded-full bg-white shadow"
+                            : "absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow"
+                        }
+                      />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+            <h2 className="text-xl font-bold text-rose-700">Danger Zone</h2>
+            <div className="mt-4 grid gap-3">
+              <div className="grid gap-2 rounded-md border border-rose-100 bg-rose-50/60 p-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                <div>
+                  <p className="text-sm font-bold text-slate-950">Transfer ownership</p>
+                  <select
+                    value={transferOwnerMemberId}
+                    onChange={(event) => setTransferOwnerMemberId(event.target.value)}
+                    disabled={!isOwner || isRunningDangerAction}
+                    className="mt-2 w-full rounded-md border border-rose-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="">Choose active member</option>
+                    {transferCandidates.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void transferOwnershipAction()}
+                  disabled={!isOwner || !transferOwnerMemberId || isRunningDangerAction}
+                  className="rounded-md border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Transfer
+                </button>
+              </div>
+
+              <div className="grid gap-2 rounded-md border border-rose-100 bg-rose-50/60 p-3 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                <p className="text-sm font-bold text-slate-950">Leave or delete this team</p>
+                <button
+                  type="button"
+                  onClick={() => void leaveTeamAction()}
+                  disabled={isRunningDangerAction || isOwner}
+                  className="rounded-md border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Leave team
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void deleteTeamAction()}
+                  disabled={isRunningDangerAction || !isOwner}
+                  className="rounded-md bg-rose-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Delete team
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
       );
     }
 
@@ -1915,32 +2319,34 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto_auto]">
-                <input
-                  ref={searchInputRef}
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  type="search"
-                  placeholder="Search work"
-                  className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => void refreshBoard()}
-                  disabled={!activeTeamId || isRefreshing}
-                  className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isRefreshing ? "Refreshing" : "Refresh"}
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleCreateTargetForm}
-                  disabled={!canCreateTarget(currentMember)}
-                  className="rounded-md bg-sky-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Create target
-                </button>
-              </div>
+              {!isSettingsRoute ? (
+                <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto_auto]">
+                  <input
+                    ref={searchInputRef}
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    type="search"
+                    placeholder="Search work"
+                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void refreshBoard()}
+                    disabled={!activeTeamId || isRefreshing}
+                    className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isRefreshing ? "Refreshing" : "Refresh"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleCreateTargetForm}
+                    disabled={!canCreateTarget(currentMember)}
+                    className="rounded-md bg-sky-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Create target
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
