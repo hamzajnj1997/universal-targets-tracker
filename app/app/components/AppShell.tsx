@@ -271,6 +271,16 @@ function BellIcon(props: ShellIconProps) {
   );
 }
 
+function MessageIcon(props: ShellIconProps) {
+  return (
+    <ShellIconBase {...props}>
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+      <path d="M8 9h8" />
+      <path d="M8 13h5" />
+    </ShellIconBase>
+  );
+}
+
 const navItems = [
   {
     href: "/app/board",
@@ -427,6 +437,7 @@ export function AppShell({ children }: AppShellProps) {
   const [chatBody, setChatBody] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const [isChatLauncherOpen, setIsChatLauncherOpen] = useState(false);
 
   const activeTeam = teams.find((team) => team.id === activeTeamId) ?? null;
   const currentMember: TeamMember | null = useMemo(() => {
@@ -473,6 +484,7 @@ export function AppShell({ children }: AppShellProps) {
   const accountInitial = accountName.trim().charAt(0).toUpperCase() || "U";
   const activeMembers = boardData.members.filter((member) => member.status === "active");
   const chatMember = activeMembers.find((member) => member.id === chatMemberId) ?? null;
+  const chatTargets = activeMembers.filter((member) => member.id !== currentMember?.id);
   const transferCandidates = activeMembers.filter(
     (member) => member.id !== currentMember?.id && Boolean(member.userId)
   );
@@ -1091,6 +1103,7 @@ export function AppShell({ children }: AppShellProps) {
     if (!activeTeamId) return;
     setChatMemberId(memberId);
     setChatBody("");
+    setIsChatLauncherOpen(false);
     setIsChatLoading(true);
     setMessage("");
 
@@ -2750,6 +2763,45 @@ export function AppShell({ children }: AppShellProps) {
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {currentMember && chatTargets.length > 0 ? (
+        <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
+          {isChatLauncherOpen ? (
+            <div className="flex max-h-[52vh] flex-col-reverse items-end gap-2 overflow-y-auto rounded-full bg-white/75 p-2 shadow-lg ring-1 ring-slate-200 backdrop-blur">
+              {chatTargets.map((member) => (
+                <button
+                  key={member.id}
+                  type="button"
+                  onClick={() => void openMemberChat(member.id)}
+                  title={`Chat with ${member.name}`}
+                  aria-label={`Chat with ${member.name}`}
+                  className="group flex items-center gap-2 rounded-full bg-white p-1.5 shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:ring-sky-300"
+                >
+                  <span className="hidden max-w-36 truncate rounded-full bg-slate-950 px-2.5 py-1 text-xs font-bold text-white shadow-sm sm:block">
+                    {member.name}
+                  </span>
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sm font-black text-sky-800 ring-1 ring-sky-200 transition group-hover:bg-sky-500 group-hover:text-white">
+                    {initialsForName(member.name)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => setIsChatLauncherOpen((value) => !value)}
+            aria-expanded={isChatLauncherOpen}
+            aria-label={isChatLauncherOpen ? "Close chats" : "Open chats"}
+            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-sky-500 text-white shadow-xl ring-4 ring-sky-100 transition hover:bg-sky-600 focus:outline-none focus:ring-4 focus:ring-sky-200"
+          >
+            <MessageIcon className="h-6 w-6" />
+            <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-400 px-1 text-[11px] font-black text-slate-950 ring-2 ring-white">
+              {chatTargets.length}
+            </span>
+          </button>
         </div>
       ) : null}
 
