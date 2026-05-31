@@ -82,6 +82,30 @@ export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function cleanInlineText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function cleanMultilineText(value: string) {
+  return value
+    .replace(/[^\S\r\n]+/g, " ")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function capitalizeFirstLetter(value: string) {
+  return value.replace(/^(\s*)([a-z])/, (_, spacing: string, firstLetter: string) =>
+    `${spacing}${firstLetter.toUpperCase()}`
+  );
+}
+
+function cleanTitle(value: string) {
+  return capitalizeFirstLetter(cleanInlineText(value));
+}
+
 export function isValidEmailAddress(email: string) {
   const normalized = normalizeEmail(email);
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) && normalized.length <= 254;
@@ -838,7 +862,7 @@ export async function listTeams(): Promise<Team[]> {
 export async function createTeam(name: string): Promise<Team> {
   const supabase = requireSupabaseClient();
   const { data, error } = await supabase.rpc("create_team", {
-    team_name: name.trim(),
+    team_name: cleanTitle(name),
   });
   throwSupabaseError(error);
   const row = Array.isArray(data) ? data[0] : data;
@@ -850,7 +874,7 @@ export async function updateTeamSettings(input: TeamSettingsInput): Promise<Team
   const supabase = requireSupabaseClient();
   const { data, error } = await supabase.rpc("update_workspace_settings", {
     target_workspace_id: input.teamId,
-    team_name: input.name.trim(),
+    team_name: cleanTitle(input.name),
     team_logo_data_url: input.logoDataUrl || null,
     team_timezone: input.timezone,
     team_working_days: input.workingDays,
@@ -997,10 +1021,12 @@ async function persistTargetRepeatFields(
 
 export async function createTarget(input: CreateTargetInput): Promise<WorkTarget> {
   const repeat = buildRepeatFields(input);
+  const targetTitle = cleanTitle(input.title);
+  const targetDescription = cleanMultilineText(input.description ?? "");
   const baseRpcArgs = {
     team_id: input.teamId,
-    target_title: input.title.trim(),
-    target_description: input.description?.trim() ?? "",
+    target_title: targetTitle,
+    target_description: targetDescription,
     target_priority: input.priority,
     target_due_date: input.dueDate || null,
   };
@@ -1043,8 +1069,8 @@ export async function createTarget(input: CreateTargetInput): Promise<WorkTarget
       .insert({
         workspace_id: input.teamId,
         owner_member_id: null,
-        title: input.title.trim(),
-        description: input.description?.trim() ?? "",
+        title: targetTitle,
+        description: targetDescription,
         category: "",
         priority: input.priority,
         frequency: repeat.frequency,
@@ -1071,10 +1097,11 @@ export async function releaseTarget(
   targetId: string,
   reason: string
 ): Promise<WorkTarget> {
+  const releaseReason = cleanMultilineText(reason);
   try {
     return await runTargetRpc("release_target", {
       target_id: targetId,
-      release_reason: reason.trim() || null,
+      release_reason: releaseReason || null,
     });
   } catch (error) {
     if (!isSchemaGapThrown(error)) throw error;
@@ -1086,10 +1113,11 @@ export async function forceReleaseTarget(
   targetId: string,
   reason: string
 ): Promise<WorkTarget> {
+  const releaseReason = cleanMultilineText(reason);
   try {
     return await runTargetRpc("force_release_target", {
       target_id: targetId,
-      release_reason: reason.trim(),
+      release_reason: releaseReason,
     });
   } catch (error) {
     if (!isSchemaGapThrown(error)) throw error;
@@ -1101,17 +1129,18 @@ export async function blockTarget(
   targetId: string,
   reason: string
 ): Promise<WorkTarget> {
+  const blockReason = cleanMultilineText(reason);
   try {
     return await runTargetRpc("block_target", {
       target_id: targetId,
-      block_reason: reason.trim(),
+      block_reason: blockReason,
     });
   } catch (error) {
     if (!isSchemaGapThrown(error)) throw error;
     const supabase = requireSupabaseClient();
     const updatePayload = {
       status: "blocked",
-      blocked_reason: reason.trim(),
+      blocked_reason: blockReason,
       blocked_at: new Date().toISOString(),
     };
     const { data, error: updateError } = await supabase
@@ -1190,10 +1219,11 @@ export async function archiveTarget(targetId: string): Promise<WorkTarget> {
 
 export async function addTargetNote(targetId: string, body: string): Promise<TargetNote> {
   const supabase = requireSupabaseClient();
+  const noteBody = cleanMultilineText(body);
   try {
     const { data, error } = await supabase.rpc("add_target_note", {
       target_id: targetId,
-      note_body: body.trim(),
+      note_body: noteBody,
     });
     throwSupabaseError(error);
     const row = Array.isArray(data) ? data[0] : data;
@@ -1210,7 +1240,7 @@ export async function addTargetNote(targetId: string, body: string): Promise<Tar
         workspace_id: target.teamId,
         target_id: target.id,
         member_id: member?.id ?? null,
-        body: body.trim(),
+        body: noteBody,
       })
       .select("id,workspace_id,target_id,member_id,body,created_at,updated_at")
       .single();

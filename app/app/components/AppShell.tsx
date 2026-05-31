@@ -137,6 +137,16 @@ function createDefaultTeamSettingsForm(team: Team | null): TeamSettingsForm {
   };
 }
 
+function capitalizeDraftFirstLetter(value: string) {
+  return value.replace(/^(\s*)([a-z])/, (_, spacing: string, firstLetter: string) =>
+    `${spacing}${firstLetter.toUpperCase()}`
+  );
+}
+
+function cleanInlineDraft(value: string) {
+  return capitalizeDraftFirstLetter(value.replace(/\s+/g, " ").trim());
+}
+
 const repeatWeekdayOptions: { value: RepeatWeekday; label: string; name: string }[] = [
   { value: "mon", label: "M", name: "Monday" },
   { value: "tue", label: "T", name: "Tuesday" },
@@ -1806,7 +1816,16 @@ export function AppShell({ children }: AppShellProps) {
                   <input
                     value={teamSettingsForm.name}
                     onChange={(event) =>
-                      setTeamSettingsForm((form) => ({ ...form, name: event.target.value }))
+                      setTeamSettingsForm((form) => ({
+                        ...form,
+                        name: capitalizeDraftFirstLetter(event.target.value),
+                      }))
+                    }
+                    onBlur={() =>
+                      setTeamSettingsForm((form) => ({
+                        ...form,
+                        name: cleanInlineDraft(form.name),
+                      }))
                     }
                     disabled={!canManageTeam}
                     className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-70"
@@ -2195,7 +2214,10 @@ export function AppShell({ children }: AppShellProps) {
                     <input
                       id="sidebar-team-name"
                       value={newTeamName}
-                      onChange={(event) => setNewTeamName(event.target.value)}
+                      onChange={(event) =>
+                        setNewTeamName(capitalizeDraftFirstLetter(event.target.value))
+                      }
+                      onBlur={() => setNewTeamName((value) => cleanInlineDraft(value))}
                       autoComplete="organization"
                       placeholder="Team name"
                       className="min-w-0 rounded-md border border-white/15 bg-[#0e1a36] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-400 focus:border-cyan-300"
@@ -2436,7 +2458,16 @@ export function AppShell({ children }: AppShellProps) {
               <input
                 value={targetForm.title}
                 onChange={(event) =>
-                  setTargetForm((form) => ({ ...form, title: event.target.value }))
+                  setTargetForm((form) => ({
+                    ...form,
+                    title: capitalizeDraftFirstLetter(event.target.value),
+                  }))
+                }
+                onBlur={() =>
+                  setTargetForm((form) => ({
+                    ...form,
+                    title: cleanInlineDraft(form.title),
+                  }))
                 }
                 className="mt-1 w-full rounded-md border border-slate-200 bg-sky-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
                 placeholder="Prepare weekly report"
