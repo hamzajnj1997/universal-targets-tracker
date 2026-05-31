@@ -2807,18 +2807,12 @@ export function AppShell({ children }: AppShellProps) {
 
       {chatMember ? (
         <div
-          className="fixed inset-0 z-50 grid bg-slate-950/35 backdrop-blur-sm lg:grid-cols-[1fr_420px]"
+          className="fixed bottom-24 right-4 z-50 h-[min(620px,calc(100vh-7rem))] w-[calc(100vw-2rem)] max-w-[420px] sm:bottom-5 sm:right-24 sm:h-[min(620px,calc(100vh-2.5rem))] sm:w-[400px]"
           role="dialog"
           aria-modal="true"
           aria-label={`Chat with ${chatMember.name}`}
         >
-          <button
-            type="button"
-            aria-label="Close chat"
-            onClick={closeMemberChat}
-            className="hidden lg:block"
-          />
-          <aside className="flex h-full min-h-0 flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-sky-50 px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500 text-sm font-black text-white">
