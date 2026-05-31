@@ -97,6 +97,16 @@ export type TargetNote = {
   updatedAt?: string;
 };
 
+export type MemberMessage = {
+  id: string;
+  teamId: string;
+  senderMemberId: string;
+  recipientMemberId: string;
+  body: string;
+  createdAt: string;
+  readAt?: string;
+};
+
 export type BoardCapabilities = {
   schemaMode: "workOwnership" | "legacy";
   supportsBlockers: boolean;

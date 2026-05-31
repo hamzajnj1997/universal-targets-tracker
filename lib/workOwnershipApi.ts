@@ -3,6 +3,7 @@ import { getSupabaseClient } from "./supabaseClient";
 import { todayISO } from "./workOwnershipRules";
 import type {
   BoardData,
+  MemberMessage,
   RepeatWeekday,
   TargetActivity,
   TargetActivityAction,
@@ -392,6 +393,18 @@ function toNote(row: RowRecord): TargetNote {
   };
 }
 
+function toMemberMessage(row: RowRecord): MemberMessage {
+  return {
+    id: readString(row, "id"),
+    teamId: readString(row, "workspace_id", readString(row, "team_id")),
+    senderMemberId: readString(row, "sender_member_id"),
+    recipientMemberId: readString(row, "recipient_member_id"),
+    body: readString(row, "body"),
+    createdAt: readString(row, "created_at", new Date().toISOString()),
+    readAt: readOptionalString(row, "read_at"),
+  };
+}
+
 function toProgressLog(row: RowRecord): LegacyProgressLog {
   return {
     id: readString(row, "id"),
@@ -462,6 +475,10 @@ function migrationHint(message: string) {
     lower.includes("relation");
 
   if (!looksLikeSchemaGap) return message;
+
+  if (lower.includes("member_messages")) {
+    return `${message} Apply supabase/migrations/20260531_member_chat.sql to this Supabase project.`;
+  }
 
   return `${message} Apply supabase/migrations/20260521_work_ownership_tracker.sql to this Supabase project.`;
 }
@@ -969,6 +986,62 @@ export async function loadBoardData(teamId: string): Promise<BoardData> {
       supportsActivityLog: activityResult.supportsActivityLog,
     },
   };
+}
+
+export async function listMemberMessages(teamId: string): Promise<MemberMessage[]> {
+  const supabase = requireSupabaseClient();
+  const member = await getCurrentMemberForTeam(supabase, teamId);
+  if (!member) return [];
+
+  const { data, error } = await supabase
+    .from("member_messages")
+    .select("id,workspace_id,sender_member_id,recipient_member_id,body,created_at,read_at")
+    .eq("workspace_id", teamId)
+    .or(`sender_member_id.eq.${member.id},recipient_member_id.eq.${member.id}`)
+    .order("created_at", { ascending: true })
+    .limit(500);
+
+  if (isSchemaGap(error)) {
+    throw new Error(
+      "Member chat needs the chat database migration. Apply supabase/migrations/20260531_member_chat.sql to this Supabase project."
+    );
+  }
+
+  throwSupabaseError(error);
+  return rows(data).map(toMemberMessage);
+}
+
+export async function sendMemberMessage(
+  teamId: string,
+  recipientMemberId: string,
+  body: string
+): Promise<MemberMessage> {
+  const supabase = requireSupabaseClient();
+  const member = await getCurrentMemberForTeam(supabase, teamId);
+  if (!member) throw new Error("You must be an active team member to send messages.");
+
+  const messageBody = cleanMultilineText(body);
+  if (!messageBody) throw new Error("Message cannot be empty.");
+
+  const { data, error } = await supabase
+    .from("member_messages")
+    .insert({
+      workspace_id: teamId,
+      sender_member_id: member.id,
+      recipient_member_id: recipientMemberId,
+      body: messageBody,
+    })
+    .select("id,workspace_id,sender_member_id,recipient_member_id,body,created_at,read_at")
+    .single();
+
+  if (isSchemaGap(error)) {
+    throw new Error(
+      "Member chat needs the chat database migration. Apply supabase/migrations/20260531_member_chat.sql to this Supabase project."
+    );
+  }
+
+  throwSupabaseError(error);
+  return toMemberMessage(data as RowRecord);
 }
 
 async function runTargetRpc(name: string, args: RpcArgs): Promise<WorkTarget> {

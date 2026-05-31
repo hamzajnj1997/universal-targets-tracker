@@ -27,17 +27,20 @@ import {
   inviteMemberByEmail,
   isValidEmailAddress,
   leaveTeam,
+  listMemberMessages,
   listTeams,
   loadBoardData,
   normalizeEmail,
   releaseTarget,
   reopenTarget,
+  sendMemberMessage,
   signOut,
   transferTeamOwnership,
   updateTeamSettings,
 } from "../../../lib/workOwnershipApi";
 import type {
   BoardData,
+  MemberMessage,
   RepeatWeekday,
   TargetPriority,
   Team,
@@ -145,6 +148,18 @@ function capitalizeDraftFirstLetter(value: string) {
 
 function cleanInlineDraft(value: string) {
   return capitalizeDraftFirstLetter(value.replace(/\s+/g, " ").trim());
+}
+
+function initialsForName(value: string) {
+  const words = value
+    .replace(/@.*/, "")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean);
+
+  if (words.length === 0) return "U";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
 }
 
 const repeatWeekdayOptions: { value: RepeatWeekday; label: string; name: string }[] = [
@@ -407,6 +422,11 @@ export function AppShell({ children }: AppShellProps) {
   const [isSavingTeamSettings, setIsSavingTeamSettings] = useState(false);
   const [transferOwnerMemberId, setTransferOwnerMemberId] = useState("");
   const [isRunningDangerAction, setIsRunningDangerAction] = useState(false);
+  const [chatMemberId, setChatMemberId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<MemberMessage[]>([]);
+  const [chatBody, setChatBody] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [isSendingChat, setIsSendingChat] = useState(false);
 
   const activeTeam = teams.find((team) => team.id === activeTeamId) ?? null;
   const currentMember: TeamMember | null = useMemo(() => {
@@ -452,6 +472,7 @@ export function AppShell({ children }: AppShellProps) {
       : "loading";
   const accountInitial = accountName.trim().charAt(0).toUpperCase() || "U";
   const activeMembers = boardData.members.filter((member) => member.status === "active");
+  const chatMember = activeMembers.find((member) => member.id === chatMemberId) ?? null;
   const transferCandidates = activeMembers.filter(
     (member) => member.id !== currentMember?.id && Boolean(member.userId)
   );
@@ -764,6 +785,30 @@ export function AppShell({ children }: AppShellProps) {
     visibleTargets,
   ]);
 
+  useEffect(() => {
+    if (!activeTeamId || !chatMemberId) return;
+
+    let isMounted = true;
+    const refreshChat = async () => {
+      try {
+        const messages = await listMemberMessages(activeTeamId);
+        if (isMounted) setChatMessages(messages);
+      } catch (error) {
+        if (isMounted) {
+          setMessage(error instanceof Error ? error.message : "Unable to load chat.");
+        }
+      }
+    };
+
+    void refreshChat();
+    const intervalId = window.setInterval(refreshChat, 10000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [activeTeamId, chatMemberId]);
+
   async function switchTeam(teamId: string) {
     setActiveTeamId(teamId);
     setTeamSettingsForm(
@@ -1039,6 +1084,48 @@ export function AppShell({ children }: AppShellProps) {
       setMessage(error instanceof Error ? error.message : "Adding note failed.");
     } finally {
       setBusyTargetId(null);
+    }
+  }
+
+  async function openMemberChat(memberId: string) {
+    if (!activeTeamId) return;
+    setChatMemberId(memberId);
+    setChatBody("");
+    setIsChatLoading(true);
+    setMessage("");
+
+    try {
+      const messages = await listMemberMessages(activeTeamId);
+      setChatMessages(messages);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to load chat.");
+    } finally {
+      setIsChatLoading(false);
+    }
+  }
+
+  function closeMemberChat() {
+    setChatMemberId(null);
+    setChatBody("");
+  }
+
+  async function submitMemberMessage(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeTeam || !chatMember || !chatBody.trim()) return;
+
+    setIsSendingChat(true);
+    setMessage("");
+
+    try {
+      const sentMessage = await sendMemberMessage(activeTeam.id, chatMember.id, chatBody);
+      setChatMessages((messages) => [...messages, sentMessage]);
+      setChatBody("");
+      const messages = await listMemberMessages(activeTeam.id);
+      setChatMessages(messages);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Message failed.");
+    } finally {
+      setIsSendingChat(false);
     }
   }
 
@@ -1733,7 +1820,7 @@ export function AppShell({ children }: AppShellProps) {
               {boardData.members.map((member) => (
                 <div
                   key={member.id}
-                  className="grid gap-2 border-b border-slate-200 bg-slate-50/70 p-3 last:border-b-0 sm:grid-cols-[1fr_auto_auto]"
+                  className="grid gap-2 border-b border-slate-200 bg-slate-50/70 p-3 last:border-b-0 sm:grid-cols-[1fr_auto_auto_auto]"
                 >
                   <div>
                     <p className="font-semibold text-slate-950">{member.name}</p>
@@ -1745,6 +1832,14 @@ export function AppShell({ children }: AppShellProps) {
                   <span className="h-fit rounded-full border border-slate-200 bg-white px-3 py-1 text-sm capitalize text-slate-700">
                     {member.status}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => void openMemberChat(member.id)}
+                    disabled={member.id === currentMember?.id || member.status !== "active"}
+                    className="h-fit rounded-full bg-sky-500 px-3 py-1 text-sm font-bold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                  >
+                    Chat
+                  </button>
                 </div>
               ))}
             </div>
@@ -2655,6 +2750,131 @@ export function AppShell({ children }: AppShellProps) {
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {chatMember ? (
+        <div
+          className="fixed inset-0 z-50 grid bg-slate-950/35 backdrop-blur-sm lg:grid-cols-[1fr_420px]"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Chat with ${chatMember.name}`}
+        >
+          <button
+            type="button"
+            aria-label="Close chat"
+            onClick={closeMemberChat}
+            className="hidden lg:block"
+          />
+          <aside className="flex h-full min-h-0 flex-col border-l border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-sky-50 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500 text-sm font-black text-white">
+                  {initialsForName(chatMember.name)}
+                </span>
+                <div className="min-w-0">
+                  <h2 className="truncate text-base font-black text-slate-950">
+                    {chatMember.name}
+                  </h2>
+                  <p className="truncate text-xs font-semibold text-slate-500">
+                    {chatMember.email ?? chatMember.role}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeMemberChat}
+                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4">
+              {isChatLoading ? (
+                <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-500">
+                  Loading chat...
+                </p>
+              ) : null}
+              {chatMessages.filter(
+                (chatMessage) =>
+                  chatMessage.senderMemberId === chatMember.id ||
+                  chatMessage.recipientMemberId === chatMember.id
+              ).length === 0 && !isChatLoading ? (
+                <p className="rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500">
+                  No messages yet. Start the conversation.
+                </p>
+              ) : null}
+              {chatMessages
+                .filter(
+                  (chatMessage) =>
+                    chatMessage.senderMemberId === chatMember.id ||
+                    chatMessage.recipientMemberId === chatMember.id
+                )
+                .map((chatMessage) => {
+                  const isMine = chatMessage.senderMemberId === currentMember?.id;
+                  const senderName = memberName(
+                    chatMessage.senderMemberId,
+                    boardData.members,
+                    "Member"
+                  );
+
+                  return (
+                    <div
+                      key={chatMessage.id}
+                      className={`flex items-end gap-2 ${isMine ? "flex-row-reverse" : ""}`}
+                    >
+                      <span
+                        title={senderName}
+                        className={
+                          isMine
+                            ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-black text-emerald-800 ring-1 ring-emerald-200"
+                            : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-[11px] font-black text-sky-800 ring-1 ring-sky-200"
+                        }
+                      >
+                        {initialsForName(senderName)}
+                      </span>
+                      <div className={`max-w-[78%] ${isMine ? "text-right" : ""}`}>
+                        <div
+                          className={
+                            isMine
+                              ? "rounded-2xl rounded-br-md bg-sky-500 px-3 py-2 text-left text-sm leading-6 text-white shadow-sm"
+                              : "rounded-2xl rounded-bl-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700 shadow-sm"
+                          }
+                        >
+                          <p className="whitespace-pre-wrap break-words">{chatMessage.body}</p>
+                        </div>
+                        <p className="mt-1 px-1 text-[11px] font-semibold text-slate-500">
+                          {formatRelativeTime(chatMessage.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <form
+              onSubmit={submitMemberMessage}
+              className="border-t border-slate-200 bg-white p-3"
+            >
+              <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+                <textarea
+                  value={chatBody}
+                  onChange={(event) => setChatBody(event.target.value)}
+                  rows={2}
+                  className="min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-950 outline-none placeholder:text-slate-400"
+                  placeholder={`Message ${chatMember.name}`}
+                />
+                <button
+                  type="submit"
+                  disabled={isSendingChat || !chatBody.trim()}
+                  className="rounded-full bg-sky-500 px-4 py-2 text-sm font-black text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSendingChat ? "Sending" : "Send"}
+                </button>
+              </div>
+            </form>
+          </aside>
         </div>
       ) : null}
 

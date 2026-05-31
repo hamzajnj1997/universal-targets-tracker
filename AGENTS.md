@@ -13,7 +13,8 @@ This app is the Real-Time Work Ownership Tracker. Keep the product centered on:
 - Claim
 - Release / Block / Complete
 - Audit log
+- Member chat
 - Dashboard
 - Team creation, team switching, invites, members, and settings
 
-Do not expand it into CRM, HR, payroll, accounting, inventory, chat, AI, or general business-management modules.
+Do not expand it into CRM, HR, payroll, accounting, inventory, AI, or general business-management modules.
