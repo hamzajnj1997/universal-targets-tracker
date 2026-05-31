@@ -177,10 +177,10 @@ export function TargetCard({
       className={`group relative overflow-hidden rounded-md border border-slate-200 bg-white px-3 py-2 pl-4 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${priorityAccentClasses[target.priority]}`}
     >
       <div className="flex min-w-0 flex-col gap-2">
-        <div className="flex min-w-0 items-start gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span
             title={claimant}
-            className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-black ring-1 ${
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-black ring-1 ${
               target.claimedById
                 ? "bg-sky-100 text-sky-800 ring-sky-200"
                 : "bg-slate-100 text-slate-500 ring-slate-200"
