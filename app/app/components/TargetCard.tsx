@@ -231,10 +231,17 @@ export function TargetCard({
             </span>
           ) : null}
           <button
+            type="button"
+            onClick={() => onOpen(target)}
+            className="ml-auto inline-flex h-8 shrink-0 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+          >
+            Comments
+          </button>
+          <button
               type="button"
               onClick={primaryAction}
               disabled={busy}
-            className={`ml-auto inline-flex h-8 shrink-0 items-center rounded-md px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
+            className={`inline-flex h-8 shrink-0 items-center rounded-md px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
           >
             {busy ? "..." : primaryLabel}
           </button>
