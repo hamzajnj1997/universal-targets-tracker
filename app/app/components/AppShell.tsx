@@ -2769,7 +2769,7 @@ export function AppShell({ children }: AppShellProps) {
       {currentMember && chatTargets.length > 0 ? (
         <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
           {isChatLauncherOpen ? (
-            <div className="flex max-h-[52vh] flex-col-reverse items-end gap-2 overflow-y-auto rounded-full bg-white/75 p-2 shadow-lg ring-1 ring-slate-200 backdrop-blur">
+            <div className="flex max-h-[52vh] flex-col-reverse items-end gap-2 overflow-y-auto">
               {chatTargets.map((member) => (
                 <button
                   key={member.id}
@@ -2777,12 +2777,12 @@ export function AppShell({ children }: AppShellProps) {
                   onClick={() => void openMemberChat(member.id)}
                   title={`Chat with ${member.name}`}
                   aria-label={`Chat with ${member.name}`}
-                  className="group flex items-center gap-2 rounded-full bg-white p-1.5 shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:ring-sky-300"
+                  className="group flex items-center gap-2 rounded-full transition hover:-translate-y-0.5"
                 >
-                  <span className="hidden max-w-36 truncate rounded-full bg-slate-950 px-2.5 py-1 text-xs font-bold text-white shadow-sm sm:block">
+                  <span className="hidden max-w-36 truncate text-right text-xs font-black text-slate-700 drop-shadow-sm sm:block">
                     {member.name}
                   </span>
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sm font-black text-sky-800 ring-1 ring-sky-200 transition group-hover:bg-sky-500 group-hover:text-white">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sm font-black text-sky-800 shadow-lg ring-2 ring-white transition group-hover:bg-sky-500 group-hover:text-white">
                     {initialsForName(member.name)}
                   </span>
                 </button>
