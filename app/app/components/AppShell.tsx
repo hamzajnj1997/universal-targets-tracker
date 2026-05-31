@@ -36,6 +36,7 @@ import {
   sendMemberMessage,
   signOut,
   transferTeamOwnership,
+  updateMemberOrg,
   updateTeamSettings,
 } from "../../../lib/workOwnershipApi";
 import type {
@@ -438,6 +439,7 @@ export function AppShell({ children }: AppShellProps) {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [isChatLauncherOpen, setIsChatLauncherOpen] = useState(false);
+  const [savingOrgMemberId, setSavingOrgMemberId] = useState<string | null>(null);
 
   const activeTeam = teams.find((team) => team.id === activeTeamId) ?? null;
   const currentMember: TeamMember | null = useMemo(() => {
@@ -485,6 +487,17 @@ export function AppShell({ children }: AppShellProps) {
   const activeMembers = boardData.members.filter((member) => member.status === "active");
   const chatMember = activeMembers.find((member) => member.id === chatMemberId) ?? null;
   const chatTargets = activeMembers.filter((member) => member.id !== currentMember?.id);
+  const topOrgMembers = activeMembers.filter((member) => !member.reportsToMemberId);
+  const directReportsByMemberId = useMemo(() => {
+    const reports = new Map<string, TeamMember[]>();
+    activeMembers.forEach((member) => {
+      if (!member.reportsToMemberId) return;
+      const currentReports = reports.get(member.reportsToMemberId) ?? [];
+      currentReports.push(member);
+      reports.set(member.reportsToMemberId, currentReports);
+    });
+    return reports;
+  }, [activeMembers]);
   const transferCandidates = activeMembers.filter(
     (member) => member.id !== currentMember?.id && Boolean(member.userId)
   );
@@ -1142,6 +1155,29 @@ export function AppShell({ children }: AppShellProps) {
     }
   }
 
+  async function saveMemberOrg(member: TeamMember, formData: FormData) {
+    if (!canManageTeam) return;
+    const designation = String(formData.get("designation") ?? "").trim();
+    const reportsToMemberId = String(formData.get("reportsToMemberId") ?? "").trim();
+
+    setSavingOrgMemberId(member.id);
+    setMessage("");
+
+    try {
+      await updateMemberOrg({
+        memberId: member.id,
+        designation: designation || "Team Member",
+        reportsToMemberId: reportsToMemberId || undefined,
+      });
+      await refreshBoard(member.teamId);
+      setMessage("Organization structure updated.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Organization update failed.");
+    } finally {
+      setSavingOrgMemberId(null);
+    }
+  }
+
   async function inviteMember(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeTeam || !isManagerRole(currentMember?.role)) return;
@@ -1776,8 +1812,67 @@ export function AppShell({ children }: AppShellProps) {
 
   function renderSettings() {
     if (pathname.endsWith("/settings/members")) {
+      const renderOrgMember = (member: TeamMember, level = 0): ReactNode => {
+        const directReports = directReportsByMemberId.get(member.id) ?? [];
+
+        return (
+          <div key={member.id} className="grid gap-2">
+            <div
+              className={`rounded-lg border bg-white p-3 shadow-sm ${
+                level === 0 ? "border-sky-200" : "border-slate-200"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sm font-black text-sky-800 ring-1 ring-sky-200">
+                  {initialsForName(member.name)}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-black text-slate-950">{member.name}</p>
+                  <p className="text-sm font-semibold text-slate-500">
+                    {member.designation ?? (member.role === "owner" ? "Company Head" : "Team Member")}
+                  </p>
+                  <p className="mt-1 text-xs capitalize text-slate-400">{member.role}</p>
+                </div>
+              </div>
+            </div>
+            {directReports.length > 0 ? (
+              <div className="ml-5 grid gap-2 border-l border-slate-200 pl-4">
+                {directReports.map((report) => renderOrgMember(report, level + 1))}
+              </div>
+            ) : null}
+          </div>
+        );
+      };
+
       return (
         <div className="space-y-6">
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-xl font-bold text-slate-950">Organization structure</h2>
+              <p className="text-sm text-slate-500">
+                See leadership, designations, and reporting lines for this team.
+              </p>
+            </div>
+            <div className="mt-5 grid gap-4 lg:grid-cols-[280px_1fr]">
+              <div className="rounded-lg border border-sky-100 bg-sky-50 p-4">
+                <p className="text-sm font-black uppercase tracking-[0.14em] text-sky-700">
+                  Workforce
+                </p>
+                <p className="mt-3 text-4xl font-black text-slate-950">
+                  {activeMembers.length}
+                </p>
+                <p className="text-sm font-semibold text-slate-500">active members</p>
+              </div>
+              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                {topOrgMembers.length === 0 ? (
+                  <p className="text-sm text-slate-500">No active members yet.</p>
+                ) : (
+                  topOrgMembers.map((member) => renderOrgMember(member))
+                )}
+              </div>
+            </div>
+          </section>
+
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -1833,12 +1928,56 @@ export function AppShell({ children }: AppShellProps) {
               {boardData.members.map((member) => (
                 <div
                   key={member.id}
-                  className="grid gap-2 border-b border-slate-200 bg-slate-50/70 p-3 last:border-b-0 sm:grid-cols-[1fr_auto_auto_auto]"
+                  className="grid gap-3 border-b border-slate-200 bg-slate-50/70 p-3 last:border-b-0 xl:grid-cols-[1fr_1.2fr_auto_auto_auto]"
                 >
                   <div>
                     <p className="font-semibold text-slate-950">{member.name}</p>
-                    <p className="text-sm text-slate-500">{member.email ?? member.userId ?? "Pending invite"}</p>
+                    <p className="text-sm text-slate-500">
+                      {member.email ?? member.userId ?? "Pending invite"}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-slate-400">
+                      {member.designation ?? "No designation set"}
+                    </p>
                   </div>
+                  <form
+                    action={(formData) => void saveMemberOrg(member, formData)}
+                    className="grid gap-2 sm:grid-cols-2"
+                  >
+                    <input
+                      name="designation"
+                      defaultValue={
+                        member.designation ??
+                        (member.role === "owner" ? "Company Head" : "Team Member")
+                      }
+                      disabled={!canManageTeam || member.status !== "active"}
+                      className="min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      placeholder="Designation"
+                    />
+                    <select
+                      name="reportsToMemberId"
+                      defaultValue={member.reportsToMemberId ?? ""}
+                      disabled={!canManageTeam || member.status !== "active"}
+                      className="min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="">Reports to nobody</option>
+                      {activeMembers
+                        .filter((manager) => manager.id !== member.id)
+                        .map((manager) => (
+                          <option key={manager.id} value={manager.id}>
+                            {manager.name}
+                          </option>
+                        ))}
+                    </select>
+                    {canManageTeam ? (
+                      <button
+                        type="submit"
+                        disabled={savingOrgMemberId === member.id}
+                        className="rounded-md bg-slate-900 px-3 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2"
+                      >
+                        {savingOrgMemberId === member.id ? "Saving" : "Save org"}
+                      </button>
+                    ) : null}
+                  </form>
                   <span className="h-fit rounded-full border border-slate-200 bg-white px-3 py-1 text-sm capitalize text-slate-700">
                     {member.role}
                   </span>

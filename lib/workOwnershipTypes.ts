@@ -45,6 +45,8 @@ export type TeamMember = {
   email?: string;
   role: TeamRole;
   status: TeamMemberStatus;
+  designation?: string;
+  reportsToMemberId?: string;
   joinedAt?: string;
   createdAt?: string;
   updatedAt?: string;

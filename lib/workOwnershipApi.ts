@@ -77,6 +77,12 @@ export type TeamSettingsInput = {
   dateFormat: Team["dateFormat"];
 };
 
+export type MemberOrgInput = {
+  memberId: string;
+  designation: string;
+  reportsToMemberId?: string;
+};
+
 export type AuthMode = "login" | "signup" | "forgot";
 
 export function normalizeEmail(email: string) {
@@ -321,6 +327,8 @@ function toMember(row: RowRecord): TeamMember {
     email: readOptionalString(row, "email"),
     role: normalizeRole(row.app_role ?? row.role),
     status: normalizeMemberStatus(row.status),
+    designation: readOptionalString(row, "designation") ?? readOptionalString(row, "role_title"),
+    reportsToMemberId: readOptionalString(row, "reports_to_member_id"),
     joinedAt: readOptionalString(row, "joined_at"),
     createdAt: readOptionalString(row, "created_at"),
     updatedAt: readOptionalString(row, "updated_at"),
@@ -480,6 +488,14 @@ function migrationHint(message: string) {
     return `${message} Apply supabase/migrations/20260531_member_chat.sql to this Supabase project.`;
   }
 
+  if (
+    lower.includes("designation") ||
+    lower.includes("reports_to_member_id") ||
+    lower.includes("update_member_org")
+  ) {
+    return `${message} Apply supabase/migrations/20260601_member_org_structure.sql to this Supabase project.`;
+  }
+
   return `${message} Apply supabase/migrations/20260521_work_ownership_tracker.sql to this Supabase project.`;
 }
 
@@ -492,7 +508,7 @@ async function fetchMembers(supabase: SupabaseClient, teamId: string) {
   const modern = await supabase
     .from("workspace_members")
     .select(
-      "id,workspace_id,user_id,email,display_name,role,app_role,status,joined_at,created_at,updated_at"
+      "id,workspace_id,user_id,email,display_name,role,app_role,status,designation,reports_to_member_id,joined_at,created_at,updated_at"
     )
     .eq("workspace_id", teamId)
     .neq("status", "removed")
@@ -500,6 +516,18 @@ async function fetchMembers(supabase: SupabaseClient, teamId: string) {
 
   if (!modern.error) return rows(modern.data).map(toMember);
   if (!isSchemaGap(modern.error)) throwSupabaseError(modern.error);
+
+  const base = await supabase
+    .from("workspace_members")
+    .select(
+      "id,workspace_id,user_id,email,display_name,role,app_role,status,joined_at,created_at,updated_at"
+    )
+    .eq("workspace_id", teamId)
+    .neq("status", "removed")
+    .order("created_at", { ascending: true });
+
+  if (!base.error) return rows(base.data).map(toMember);
+  if (!isSchemaGap(base.error)) throwSupabaseError(base.error);
 
   const legacy = await supabase
     .from("workspace_members")
@@ -953,6 +981,26 @@ export async function inviteMemberByEmail(input: TeamInviteInput): Promise<TeamM
   throwSupabaseError(error);
   const row = Array.isArray(data) ? data[0] : data;
   if (!isRowRecord(row)) throw new Error("Invite returned no member.");
+  return toMember(row);
+}
+
+export async function updateMemberOrg(input: MemberOrgInput): Promise<TeamMember> {
+  const supabase = requireSupabaseClient();
+  const { data, error } = await supabase.rpc("update_member_org", {
+    target_member_id: input.memberId,
+    member_designation: cleanTitle(input.designation || "Team Member"),
+    manager_member_id: input.reportsToMemberId || null,
+  });
+
+  if (isSchemaGap(error)) {
+    throw new Error(
+      "Organization structure needs the member org database migration. Apply supabase/migrations/20260601_member_org_structure.sql to this Supabase project."
+    );
+  }
+
+  throwSupabaseError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!isRowRecord(row)) throw new Error("Member organization update returned no member.");
   return toMember(row);
 }
 
