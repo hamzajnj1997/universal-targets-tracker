@@ -46,6 +46,18 @@ type TargetDrawerProps = {
   onAddNote: (target: WorkTarget, body: string) => void;
 };
 
+function initialsForName(name: string) {
+  const words = name
+    .replace(/@.*/, "")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean);
+
+  if (words.length === 0) return "U";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+}
+
 export function TargetDrawer({
   target,
   members,
@@ -64,7 +76,14 @@ export function TargetDrawer({
   const [noteBody, setNoteBody] = useState("");
 
   const targetActivities = activities.filter((activity) => activity.targetId === target.id);
-  const targetNotes = notes.filter((note) => note.targetId === target.id);
+  const targetNotes = notes
+    .filter((note) => note.targetId === target.id)
+    .toSorted(
+      (firstNote, secondNote) =>
+        new Date(firstNote.createdAt).getTime() - new Date(secondNote.createdAt).getTime()
+    );
+  const currentMemberName = currentMember?.name ?? "You";
+  const currentMemberInitials = initialsForName(currentMemberName);
   const dueState = getTargetDueState(target);
   const repeatLabel = formatRepeatLabel(target);
   const repeatWindowLabel = formatRepeatWindowLabel(target);
@@ -356,52 +375,87 @@ export function TargetDrawer({
           ) : null}
         </section>
 
-        <section className="mt-6">
-          <h3 className="text-sm font-semibold text-slate-950">Notes</h3>
+        <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-bold text-slate-950">Comments</h3>
+            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-500">
+              {targetNotes.length}
+            </span>
+          </div>
           {capabilities.supportsNotes ? (
-            <div className="mt-3 grid gap-2">
-              <textarea
-                value={noteBody}
-                onChange={(event) => setNoteBody(event.target.value)}
-                rows={3}
-                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-950 outline-none focus:border-sky-400 focus:bg-white"
-                placeholder="Add a note"
-              />
-              <button
-                type="button"
-                onClick={submitNote}
-                disabled={busy || !noteBody.trim()}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Add note
-              </button>
+            <div className="mt-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-black text-sky-800 ring-1 ring-sky-200">
+                {currentMemberInitials}
+              </span>
+              <div className="min-w-0 flex-1">
+                <textarea
+                  value={noteBody}
+                  onChange={(event) => setNoteBody(event.target.value)}
+                  rows={2}
+                  className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:bg-white"
+                  placeholder="Write a comment..."
+                />
+                <div className="mt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={submitNote}
+                    disabled={busy || !noteBody.trim()}
+                    className="rounded-full bg-sky-500 px-4 py-2 text-xs font-black text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Post
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
-            <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-500">
+            <p className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-500">
               Notes require the upgraded work ownership database.
             </p>
           )}
 
           <div className="mt-4 space-y-3">
             {targetNotes.length === 0 ? (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-                No notes yet.
+              <p className="rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500">
+                No comments yet.
               </p>
             ) : (
-              targetNotes.map((note) => (
-                <div
-                  key={note.id}
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-3"
-                >
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                    {note.body}
-                  </p>
-                  <p className="mt-2 text-xs text-slate-500">
-                    {memberName(note.userId, members, "Team member")} -{" "}
-                    {formatRelativeTime(note.createdAt)}
-                  </p>
-                </div>
-              ))
+              targetNotes.map((note) => {
+                const authorName = memberName(note.userId, members, "Team member");
+                const authorInitials = initialsForName(authorName);
+                const isMine = currentMember?.id === note.userId;
+
+                return (
+                  <div
+                    key={note.id}
+                    className={`flex items-start gap-2 ${isMine ? "flex-row-reverse" : ""}`}
+                  >
+                    <span
+                      title={authorName}
+                      className={
+                        isMine
+                          ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-black text-emerald-800 ring-1 ring-emerald-200"
+                          : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-black text-slate-600 ring-1 ring-slate-200"
+                      }
+                    >
+                      {authorInitials}
+                    </span>
+                    <div className={`min-w-0 max-w-[82%] ${isMine ? "text-right" : ""}`}>
+                      <div
+                        className={
+                          isMine
+                            ? "rounded-2xl rounded-tr-md bg-sky-500 px-3 py-2 text-left text-sm leading-6 text-white shadow-sm"
+                            : "rounded-2xl rounded-tl-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700 shadow-sm"
+                        }
+                      >
+                        <p className="whitespace-pre-wrap break-words">{note.body}</p>
+                      </div>
+                      <p className="mt-1 px-1 text-[11px] font-semibold text-slate-500">
+                        {authorName} · {formatRelativeTime(note.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </section>
