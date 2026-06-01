@@ -1566,6 +1566,11 @@ export function AppShell({ children }: AppShellProps) {
         className: "border-cyan-200 bg-cyan-50 text-cyan-900 hover:border-cyan-300",
       },
     ].filter((action) => action.count > 0);
+    const busiestWorkloadCount = Math.max(
+      1,
+      ...metrics.memberWorkload.map((entry) => entry.activeTargets + entry.blockedTargets)
+    );
+    const memberById = new Map(boardData.members.map((member) => [member.id, member]));
 
     return (
       <div className="space-y-6">
@@ -1729,28 +1734,89 @@ export function AppShell({ children }: AppShellProps) {
 
         <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-xl font-bold text-slate-950">Member workload</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-bold text-slate-950">Member workload</h2>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+                {metrics.memberWorkload.length} active
+              </span>
+            </div>
             <div className="mt-4 grid gap-3">
               {metrics.memberWorkload.length === 0 ? (
-                <p className="text-sm text-slate-500">No owned work yet.</p>
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-700">No owned work yet.</p>
+                </div>
               ) : (
-                metrics.memberWorkload.map((entry) => (
-                  <div
-                    key={entry.member.id}
-                    className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 sm:grid-cols-[1fr_auto_auto_auto]"
-                  >
-                    <span className="font-semibold text-slate-950">{entry.member.name}</span>
-                    <span className="text-sm text-slate-500">
-                      {entry.activeTargets} active
-                    </span>
-                    <span className="text-sm text-amber-700">
-                      {entry.blockedTargets} blocked
-                    </span>
-                    <span className="text-sm text-emerald-700">
-                      {entry.completedThisWeek} done
-                    </span>
-                  </div>
-                ))
+                metrics.memberWorkload.map((entry) => {
+                  const manager = entry.member.reportsToMemberId
+                    ? memberById.get(entry.member.reportsToMemberId)
+                    : null;
+                  const workloadWidth = Math.max(
+                    8,
+                    ((entry.activeTargets + entry.blockedTargets) / busiestWorkloadCount) * 100
+                  );
+                  const workloadTone =
+                    entry.blockedTargets > 0
+                      ? "bg-amber-400"
+                      : entry.activeTargets >= 4
+                        ? "bg-sky-500"
+                        : "bg-emerald-400";
+
+                  return (
+                    <button
+                      key={entry.member.id}
+                      type="button"
+                      onClick={() => router.push("/app/settings/members")}
+                      className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-left transition hover:border-sky-200 hover:bg-white sm:grid-cols-[minmax(0,1fr)_auto]"
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-black text-sky-800 ring-1 ring-sky-200">
+                          {initialsForName(entry.member.name)}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-black text-slate-950">
+                            {entry.member.name}
+                          </span>
+                          <span className="block truncate text-xs font-semibold text-slate-500">
+                            {entry.member.designation || entry.member.role}
+                            {manager ? ` under ${manager.name}` : ""}
+                          </span>
+                          <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-slate-200">
+                            <span
+                              className={`block h-full rounded-full ${workloadTone}`}
+                              style={{ width: `${workloadWidth}%` }}
+                            />
+                          </span>
+                        </span>
+                      </span>
+                      <span className="grid grid-cols-3 gap-2 text-center">
+                        <span className="rounded-md border border-sky-100 bg-sky-50 px-2 py-1">
+                          <span className="block text-sm font-black text-sky-900">
+                            {entry.activeTargets}
+                          </span>
+                          <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-sky-600">
+                            Active
+                          </span>
+                        </span>
+                        <span className="rounded-md border border-amber-100 bg-amber-50 px-2 py-1">
+                          <span className="block text-sm font-black text-amber-900">
+                            {entry.blockedTargets}
+                          </span>
+                          <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-amber-600">
+                            Blocked
+                          </span>
+                        </span>
+                        <span className="rounded-md border border-emerald-100 bg-emerald-50 px-2 py-1">
+                          <span className="block text-sm font-black text-emerald-900">
+                            {entry.completedThisWeek}
+                          </span>
+                          <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-600">
+                            Done
+                          </span>
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })
               )}
             </div>
           </section>
