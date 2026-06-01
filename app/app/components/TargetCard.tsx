@@ -148,7 +148,7 @@ export function TargetCard({
   const primaryButtonClass = canComplete
     ? "bg-emerald-500 text-white hover:bg-emerald-600"
     : canClaim
-      ? "bg-sky-500 text-white hover:bg-sky-600"
+      ? "bg-indigo-600 text-white hover:bg-indigo-700"
       : "bg-slate-900 text-white hover:bg-slate-800";
   const primaryAction = () => {
     if (canClaim) {
@@ -174,7 +174,7 @@ export function TargetCard({
       onDragStart={(event) => onDragStart?.(target, event)}
       onDragEnd={onDragEnd}
       title={draggable ? "Drag to move between lanes" : undefined}
-      className={`group relative overflow-hidden rounded-md border border-slate-200 bg-white px-3 py-2 pl-4 shadow-sm transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${priorityAccentClasses[target.priority]}`}
+      className={`group relative overflow-hidden rounded-xl bg-white px-3 py-3 pl-4 shadow-[0_8px_22px_rgb(15_23_42_/_0.08)] ring-1 ring-slate-200/70 transition before:absolute before:inset-y-0 before:left-0 before:w-1 hover:-translate-y-0.5 hover:ring-slate-300 hover:shadow-[0_16px_34px_rgb(15_23_42_/_0.12)] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${priorityAccentClasses[target.priority]}`}
     >
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -182,7 +182,7 @@ export function TargetCard({
             title={claimant}
             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-black ring-1 ${
               target.claimedById
-                ? "bg-sky-100 text-sky-800 ring-sky-200"
+                ? "bg-indigo-100 text-indigo-800 ring-indigo-200"
                 : "bg-slate-100 text-slate-500 ring-slate-200"
             }`}
           >
@@ -194,7 +194,7 @@ export function TargetCard({
             className="block min-w-0 flex-1 text-left"
             aria-label={`Open ${target.title}`}
           >
-            <h3 className="line-clamp-2 break-words text-sm font-bold leading-5 text-slate-950 transition group-hover:text-sky-700">
+            <h3 className="line-clamp-2 break-words text-sm font-black leading-5 text-slate-950 transition group-hover:text-indigo-700">
               {target.title}
             </h3>
           </button>
@@ -231,10 +231,10 @@ export function TargetCard({
             </span>
           ) : null}
           <button
-              type="button"
-              onClick={primaryAction}
-              disabled={busy}
-            className={`ml-auto inline-flex h-8 shrink-0 items-center rounded-md px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
+            type="button"
+            onClick={primaryAction}
+            disabled={busy}
+            className={`ml-auto inline-flex h-9 shrink-0 items-center rounded-lg px-3 text-xs font-black shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${primaryButtonClass}`}
           >
             {busy ? "..." : primaryLabel}
           </button>

@@ -2527,9 +2527,9 @@ export function AppShell({ children }: AppShellProps) {
 
   if (isBooting) {
     return (
-      <main className="grid min-h-screen place-items-center bg-slate-50 px-4 text-slate-950">
-        <div className="rounded-lg border border-slate-200 bg-white p-6 text-center shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-sky-500">
+      <main className="grid min-h-screen place-items-center bg-[#eef3f8] px-4 text-slate-950">
+        <div className="rounded-2xl bg-white p-6 text-center shadow-[0_18px_50px_rgb(15_23_42_/_0.12)] ring-1 ring-white/80">
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-indigo-500">
             Real-Time Work Ownership Tracker
           </p>
           <p className="mt-3 text-slate-500">Opening your board...</p>
@@ -2539,7 +2539,7 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[#f4f7fb] text-slate-950">
+    <main className="min-h-screen bg-[#eef3f8] text-slate-950">
       <div className="hidden">{children}</div>
       <div className="mx-auto grid w-full max-w-[1900px] gap-0 lg:grid-cols-[84px_1fr]">
         <aside className="group border-b border-slate-200 bg-[#132346] p-4 text-white lg:sticky lg:top-0 lg:z-30 lg:flex lg:h-screen lg:w-[84px] lg:flex-col lg:overflow-hidden lg:border-b-0 lg:border-r lg:border-r-slate-200 lg:transition-[width] lg:duration-200 lg:hover:w-[288px] lg:focus-within:w-[288px]">
@@ -2705,11 +2705,11 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </aside>
 
-        <section className="min-w-0 p-4 sm:p-6">
-          <header className="mb-4 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <section className="min-w-0 p-4 sm:p-6 xl:pr-28">
+          <header className="mb-5 rounded-2xl bg-white/[0.92] p-4 shadow-[0_10px_30px_rgb(15_23_42_/_0.08)] ring-1 ring-white/80 backdrop-blur">
             <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
               <div className="min-w-0">
-                <p className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-sky-500">
+                <p className="truncate text-xs font-black uppercase tracking-[0.18em] text-indigo-600">
                   {activeTeam?.name ?? "Team"}
                 </p>
                 <div className="mt-1 flex flex-wrap items-end gap-x-3 gap-y-1">
@@ -2735,13 +2735,13 @@ export function AppShell({ children }: AppShellProps) {
                     onChange={(event) => setSearchQuery(event.target.value)}
                     type="search"
                     placeholder="Search work"
-                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                   />
                   <button
                     type="button"
                     onClick={() => void refreshBoard()}
                     disabled={!activeTeamId || isRefreshing}
-                    className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isRefreshing ? "Refreshing" : "Refresh"}
                   </button>
@@ -2749,7 +2749,7 @@ export function AppShell({ children }: AppShellProps) {
                     type="button"
                     onClick={toggleCreateTargetForm}
                     disabled={!canCreateTarget(currentMember)}
-                    className="rounded-md bg-sky-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-[0_10px_18px_rgb(79_70_229_/_0.18)] transition hover:-translate-y-0.5 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Create target
                   </button>
@@ -2768,12 +2768,12 @@ export function AppShell({ children }: AppShellProps) {
                         onClick={() => setBoardFocus(option.key)}
                         className={
                           isActive
-                            ? "rounded-full border border-sky-700 bg-sky-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm"
-                            : "rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-sky-400 hover:text-slate-950"
+                            ? "rounded-full border border-indigo-500 bg-indigo-600 px-3 py-1.5 text-xs font-black text-white shadow-[0_0_0_4px_rgb(99_102_241_/_0.15)] transition-all duration-200 hover:-translate-y-0.5"
+                            : "rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-slate-950"
                         }
                       >
                         {option.label}
-                        <span className={isActive ? "ml-2 text-sky-100" : "ml-2 text-slate-500"}>
+                        <span className={isActive ? "ml-2 text-indigo-100" : "ml-2 text-slate-500"}>
                           {option.count}
                         </span>
                       </button>
@@ -2792,7 +2792,7 @@ export function AppShell({ children }: AppShellProps) {
           <DatabaseModeBanner mode={boardData.capabilities} />
 
           {currentMember ? renderContent() : (
-            <div className="rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
+            <div className="rounded-2xl bg-white p-5 text-sm text-slate-500 shadow-[0_10px_30px_rgb(15_23_42_/_0.08)] ring-1 ring-white/80">
               Your team membership is not active. Ask an owner/admin to invite you, or join with an invite code.
             </div>
           )}
@@ -2816,12 +2816,12 @@ export function AppShell({ children }: AppShellProps) {
           <form
             onSubmit={submitTarget}
             noValidate
-            className="relative z-10 grid max-h-[calc(100vh-2rem)] w-full max-w-2xl gap-4 overflow-y-auto rounded-xl border border-sky-200 bg-white p-5 shadow-2xl"
+            className="relative z-10 grid max-h-[calc(100vh-2rem)] w-full max-w-2xl gap-4 overflow-y-auto rounded-2xl bg-white p-5 shadow-[0_24px_70px_rgb(15_23_42_/_0.22)] ring-1 ring-white/80"
           >
-            <div className="-mx-5 -mt-5 rounded-t-xl border-b border-sky-100 bg-sky-50 px-5 py-4">
+            <div className="-mx-5 -mt-5 rounded-t-2xl border-b border-indigo-100 bg-indigo-50 px-5 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-600">
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-indigo-600">
                     New work
                   </p>
                   <h2 id="create-target-title" className="mt-1 text-xl font-black text-slate-950">
@@ -2855,7 +2855,7 @@ export function AppShell({ children }: AppShellProps) {
                     title: cleanInlineDraft(form.title),
                   }))
                 }
-                className="mt-1 w-full rounded-md border border-slate-200 bg-sky-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-indigo-50/50 px-3 py-2 text-slate-950 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                 placeholder="Prepare weekly report"
                 autoFocus
               />
@@ -2872,7 +2872,7 @@ export function AppShell({ children }: AppShellProps) {
                   }))
                 }
                 rows={3}
-                className="mt-1 w-full rounded-md border border-slate-200 bg-sky-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-indigo-50/50 px-3 py-2 text-slate-950 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                 placeholder="What counts as done?"
               />
             </label>
@@ -2888,7 +2888,7 @@ export function AppShell({ children }: AppShellProps) {
                       priority: event.target.value as TargetPriority,
                     }))
                   }
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-emerald-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-emerald-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -2904,7 +2904,7 @@ export function AppShell({ children }: AppShellProps) {
                     setTargetForm((form) => ({ ...form, dueDate: event.target.value }))
                   }
                   type="date"
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-amber-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-amber-50/60 px-3 py-2 text-slate-950 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                 />
               </label>
             </div>
@@ -2921,7 +2921,7 @@ export function AppShell({ children }: AppShellProps) {
                     }));
                   }}
                   aria-expanded={isRepeatOpen}
-                  className="text-sm font-black text-sky-700 transition hover:text-sky-900"
+                  className="text-sm font-black text-indigo-700 transition hover:text-indigo-900"
                 >
                   {isRepeatOpen
                     ? "Hide repeat schedule"
@@ -2939,7 +2939,7 @@ export function AppShell({ children }: AppShellProps) {
               </div>
 
               {isRepeatOpen ? (
-                <fieldset className="mt-3 rounded-md border border-sky-100 bg-white px-3 py-3">
+                <fieldset className="mt-3 rounded-lg border border-indigo-100 bg-white px-3 py-3">
                   <legend className="px-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
                     Schedule
                   </legend>
@@ -2955,7 +2955,7 @@ export function AppShell({ children }: AppShellProps) {
                             repeatStartDate: event.target.value,
                           }))
                         }
-                        className="mt-1 w-full rounded-md border border-slate-200 bg-sky-50/70 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                        className="mt-1 w-full rounded-lg border border-slate-200 bg-indigo-50/60 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                       />
                     </label>
                     <label className="block text-xs font-black uppercase tracking-[0.12em] text-slate-500">
@@ -2970,7 +2970,7 @@ export function AppShell({ children }: AppShellProps) {
                             repeatEndDate: event.target.value,
                           }))
                         }
-                        className="mt-1 w-full rounded-md border border-slate-200 bg-rose-50/60 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white"
+                        className="mt-1 w-full rounded-lg border border-slate-200 bg-rose-50/60 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                       />
                     </label>
                   </div>
@@ -2995,8 +2995,8 @@ export function AppShell({ children }: AppShellProps) {
                           }
                           className={
                             isSelected
-                              ? "grid h-9 w-9 place-items-center rounded-full bg-sky-600 text-sm font-black text-white shadow-sm transition hover:bg-sky-700"
-                              : "grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-sky-50 text-sm font-black text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
+                              ? "grid h-9 w-9 place-items-center rounded-full bg-indigo-600 text-sm font-black text-white shadow-sm transition hover:bg-indigo-700"
+                              : "grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-indigo-50 text-sm font-black text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700"
                           }
                         >
                           {day.label}
@@ -3035,7 +3035,7 @@ export function AppShell({ children }: AppShellProps) {
               <button
                 type="submit"
                 disabled={isCreatingTarget || !targetForm.title.trim()}
-                className="rounded-md bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-[0_10px_18px_rgb(79_70_229_/_0.18)] transition hover:-translate-y-0.5 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCreatingTarget ? "Creating..." : "Create"}
               </button>
@@ -3045,7 +3045,7 @@ export function AppShell({ children }: AppShellProps) {
       ) : null}
 
       {currentMember && chatTargets.length > 0 ? (
-        <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
+        <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3 xl:hidden">
           {isChatLauncherOpen ? (
             <div className="flex max-h-[52vh] flex-col-reverse items-end gap-2 overflow-y-auto">
               {chatTargets.map((member) => (
@@ -3060,7 +3060,7 @@ export function AppShell({ children }: AppShellProps) {
                   <span className="hidden max-w-36 truncate text-right text-xs font-black text-slate-700 drop-shadow-sm sm:block">
                     {member.name}
                   </span>
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sm font-black text-sky-800 shadow-lg ring-2 ring-white transition group-hover:bg-sky-500 group-hover:text-white">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-black text-indigo-800 shadow-lg ring-2 ring-white transition group-hover:bg-indigo-600 group-hover:text-white">
                     {initialsForName(member.name)}
                   </span>
                 </button>
@@ -3073,7 +3073,7 @@ export function AppShell({ children }: AppShellProps) {
             onClick={() => setIsChatLauncherOpen((value) => !value)}
             aria-expanded={isChatLauncherOpen}
             aria-label={isChatLauncherOpen ? "Close chats" : "Open chats"}
-            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-sky-500 text-white shadow-xl ring-4 ring-sky-100 transition hover:bg-sky-600 focus:outline-none focus:ring-4 focus:ring-sky-200"
+            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-xl ring-4 ring-indigo-100 transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200"
           >
             <MessageIcon className="h-6 w-6" />
             <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-400 px-1 text-[11px] font-black text-slate-950 ring-2 ring-white">
@@ -3083,17 +3083,65 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       ) : null}
 
+      {currentMember && chatTargets.length > 0 ? (
+        <aside className="fixed inset-y-0 right-0 z-40 hidden w-24 flex-col items-center border-l border-white/10 bg-[#132346] px-3 py-4 text-white shadow-2xl xl:flex">
+          <button
+            type="button"
+            onClick={() =>
+              chatMember ? closeMemberChat() : void openMemberChat(chatTargets[0].id)
+            }
+            aria-label={chatMember ? "Close chats" : "Open chats"}
+            className="relative grid h-12 w-12 place-items-center rounded-2xl bg-white/10 text-white shadow-sm ring-1 ring-white/15 transition hover:-translate-y-0.5 hover:bg-indigo-500"
+          >
+            <MessageIcon className="h-5 w-5" />
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-400 px-1 text-[10px] font-black text-slate-950 ring-2 ring-[#132346]">
+              {chatTargets.length}
+            </span>
+          </button>
+          <div className="mt-5 flex min-h-0 w-full flex-1 flex-col items-center gap-3 overflow-y-auto">
+            {chatTargets.map((member) => {
+              const isActiveChat = member.id === chatMemberId;
+              return (
+                <button
+                  key={member.id}
+                  type="button"
+                  onClick={() => void openMemberChat(member.id)}
+                  title={`Chat with ${member.name}`}
+                  aria-label={`Chat with ${member.name}`}
+                  className={`group flex w-full flex-col items-center gap-1 rounded-2xl px-1 py-2 text-center transition hover:-translate-y-0.5 ${
+                    isActiveChat ? "bg-white/[0.12] ring-1 ring-indigo-300/50" : "hover:bg-white/[0.08]"
+                  }`}
+                >
+                  <span
+                    className={`grid h-11 w-11 place-items-center rounded-full text-xs font-black shadow-sm ring-2 transition ${
+                      isActiveChat
+                        ? "bg-indigo-100 text-indigo-800 ring-indigo-300"
+                        : "bg-white text-[#132346] ring-white/20 group-hover:bg-indigo-100 group-hover:text-indigo-800"
+                    }`}
+                  >
+                    {initialsForName(member.name)}
+                  </span>
+                  <span className="w-full truncate text-[10px] font-bold text-slate-200">
+                    {member.name.replace(/@.*/, "")}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+      ) : null}
+
       {chatMember ? (
         <div
-          className="fixed bottom-24 right-4 z-50 h-[min(620px,calc(100vh-7rem))] w-[calc(100vw-2rem)] max-w-[420px] sm:bottom-5 sm:right-24 sm:h-[min(620px,calc(100vh-2.5rem))] sm:w-[400px]"
+          className="fixed bottom-24 right-4 z-50 h-[min(620px,calc(100vh-7rem))] w-[calc(100vw-2rem)] max-w-[420px] sm:bottom-5 sm:right-24 sm:h-[min(620px,calc(100vh-2.5rem))] sm:w-[400px] xl:bottom-4 xl:right-28 xl:top-4 xl:h-auto xl:w-[420px]"
           role="dialog"
           aria-modal="true"
           aria-label={`Chat with ${chatMember.name}`}
         >
-          <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-sky-50 px-4 py-3">
+          <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_70px_rgb(15_23_42_/_0.24)] ring-1 ring-white/80">
+            <div className="flex items-center justify-between gap-3 border-b border-indigo-100 bg-indigo-50 px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500 text-sm font-black text-white">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-black text-white">
                   {initialsForName(chatMember.name)}
                 </span>
                 <div className="min-w-0">
@@ -3125,7 +3173,7 @@ export function AppShell({ children }: AppShellProps) {
                   chatMessage.senderMemberId === chatMember.id ||
                   chatMessage.recipientMemberId === chatMember.id
               ).length === 0 && !isChatLoading ? (
-                <p className="rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500">
+                <p className="rounded-2xl bg-white p-4 text-sm font-semibold text-slate-500 shadow-sm ring-1 ring-slate-200/70">
                   No messages yet. Start the conversation.
                 </p>
               ) : null}
@@ -3153,7 +3201,7 @@ export function AppShell({ children }: AppShellProps) {
                         className={
                           isMine
                             ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-black text-emerald-800 ring-1 ring-emerald-200"
-                            : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-[11px] font-black text-sky-800 ring-1 ring-sky-200"
+                            : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[11px] font-black text-indigo-800 ring-1 ring-indigo-200"
                         }
                       >
                         {initialsForName(senderName)}
@@ -3162,7 +3210,7 @@ export function AppShell({ children }: AppShellProps) {
                         <div
                           className={
                             isMine
-                              ? "rounded-2xl rounded-br-md bg-sky-500 px-3 py-2 text-left text-sm leading-6 text-white shadow-sm"
+                              ? "rounded-2xl rounded-br-md bg-indigo-600 px-3 py-2 text-left text-sm leading-6 text-white shadow-sm"
                               : "rounded-2xl rounded-bl-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700 shadow-sm"
                           }
                         >
@@ -3192,7 +3240,7 @@ export function AppShell({ children }: AppShellProps) {
                 <button
                   type="submit"
                   disabled={isSendingChat || !chatBody.trim()}
-                  className="rounded-full bg-sky-500 px-4 py-2 text-sm font-black text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-black text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSendingChat ? "Sending" : "Send"}
                 </button>

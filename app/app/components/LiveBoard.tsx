@@ -36,6 +36,28 @@ type Section = {
   emptyActionLabel?: string;
 };
 
+function EmptyStateIcon({ tone }: { tone: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`mx-auto grid h-12 w-12 place-items-center rounded-2xl ${tone} shadow-sm ring-1 ring-white/80`}
+    >
+      <svg
+        className="h-6 w-6"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path d="M9 12l2 2 4-4" />
+        <path d="M4 4h16v16H4z" />
+      </svg>
+    </span>
+  );
+}
+
 export function LiveBoard({
   mode,
   targets,
@@ -114,9 +136,9 @@ export function LiveBoard({
             key: "my-work",
             title: "My Work",
             targets: split.myWork,
-            accent: "bg-cyan-300",
-            shell: "border-sky-100 bg-sky-50/50",
-            emptyTitle: "No work assigned.",
+            accent: "bg-indigo-500",
+            shell: "bg-indigo-50/55 text-indigo-700",
+            emptyTitle: "You're all caught up.",
             emptyBody: "Claim a target from Available when you are ready for the next job.",
           },
         ]
@@ -126,8 +148,8 @@ export function LiveBoard({
               key: "completed",
               title: "Completed",
               targets: split.completed,
-              accent: "bg-emerald-300",
-              shell: "border-emerald-100 bg-emerald-50/50",
+              accent: "bg-emerald-500",
+              shell: "bg-emerald-50/55 text-emerald-700",
               emptyTitle: "No completed work yet.",
               emptyBody: "Completed targets will collect here after the team finishes them.",
             },
@@ -138,7 +160,7 @@ export function LiveBoard({
               title: "Available",
               targets: split.available,
               accent: "bg-cyan-500",
-              shell: "border-cyan-100 bg-cyan-50/45",
+              shell: "bg-cyan-50/60 text-cyan-700",
               emptyTitle: "No targets available.",
               emptyBody: "Create the next target to get the team moving.",
               emptyActionLabel: "Create target",
@@ -147,9 +169,9 @@ export function LiveBoard({
               key: "my-work",
               title: "My Work",
               targets: claimedByMeTargets,
-              accent: "bg-sky-500",
-              shell: "border-sky-100 bg-sky-50/45",
-              emptyTitle: "Nothing claimed.",
+              accent: "bg-indigo-500",
+              shell: "bg-indigo-50/55 text-indigo-700",
+              emptyTitle: "You're all caught up.",
               emptyBody: "Claim a target from Available to start working.",
             },
             {
@@ -157,7 +179,7 @@ export function LiveBoard({
               title: "Claimed by Others",
               targets: split.claimedByOthers,
               accent: "bg-violet-500",
-              shell: "border-violet-100 bg-violet-50/45",
+              shell: "bg-violet-50/55 text-violet-700",
               emptyTitle: "No one else is holding work.",
               emptyBody: "Claimed targets from other team members appear here.",
             },
@@ -166,7 +188,7 @@ export function LiveBoard({
               title: "Blocked",
               targets: split.blocked,
               accent: "bg-amber-500",
-              shell: "border-amber-100 bg-amber-50/45",
+              shell: "bg-amber-50/55 text-amber-700",
               emptyTitle: "No blockers.",
               emptyBody: "Blocked work appears here with its reason.",
             },
@@ -175,19 +197,19 @@ export function LiveBoard({
               title: "Completed",
               targets: split.completed,
               accent: "bg-emerald-500",
-              shell: "border-emerald-100 bg-emerald-50/45",
+              shell: "bg-emerald-50/55 text-emerald-700",
               emptyTitle: "Nothing completed yet.",
               emptyBody: "Finished targets move here after completion.",
             },
           ];
   const boardGridClass =
     mode === "board"
-      ? "flex gap-3 overflow-x-auto pb-4"
+      ? "flex gap-4 overflow-x-auto pb-5"
       : "grid gap-4";
   const sectionScrollClass =
-    mode === "board" ? "xl:max-h-[calc(100vh-190px)] xl:overflow-y-auto" : "";
+    mode === "board" ? "xl:max-h-[calc(100vh-210px)] xl:overflow-y-auto" : "";
   const sectionHeaderClass =
-    mode === "board" ? "sticky top-0 z-10 -mx-2 -mt-2 bg-inherit px-3 pt-2" : "px-1";
+    mode === "board" ? "sticky top-0 z-10 -mx-3 -mt-3 rounded-t-2xl bg-inherit px-4 pt-3" : "px-1";
   const sectionLayoutClass =
     mode === "board" ? "min-h-[360px] min-w-[320px] shrink-0 basis-[320px] xl:min-w-[340px] xl:basis-[340px]" : "";
 
@@ -199,26 +221,27 @@ export function LiveBoard({
           onDragOver={(event) => handleDragOver(section.key, event)}
           onDragLeave={() => setDragOverLane((lane) => (lane === section.key ? null : lane))}
           onDrop={(event) => handleDrop(section.key, event)}
-          className={`min-w-0 rounded-lg border p-2 shadow-sm transition ${section.shell} ${sectionScrollClass} ${sectionLayoutClass} ${dragOverLane === section.key ? "ring-2 ring-sky-500 ring-offset-2" : ""}`}
+          className={`min-w-0 rounded-2xl p-3 shadow-[0_10px_30px_rgb(15_23_42_/_0.08)] ring-1 ring-white/75 transition ${section.shell} ${sectionScrollClass} ${sectionLayoutClass} ${dragOverLane === section.key ? "ring-2 ring-indigo-500 ring-offset-2" : ""}`}
         >
           <div className={`mb-2 flex items-center justify-between gap-3 ${sectionHeaderClass}`}>
             <div>
               <div className="flex items-center gap-2">
                 <span className={`h-1.5 w-1.5 rounded-full ${section.accent}`} />
-                <h2 className="text-base font-bold text-slate-950">{section.title}</h2>
+                <h2 className="text-lg font-black text-slate-950">{section.title}</h2>
               </div>
             </div>
-            <span className="shrink-0 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700">
+            <span className="shrink-0 rounded-full bg-white/90 px-2.5 py-1 text-xs font-black text-slate-700 shadow-sm ring-1 ring-slate-200/70">
               {section.targets.length}
             </span>
           </div>
 
           {section.targets.length === 0 ? (
-            <div className="rounded-md border border-dashed border-slate-300 bg-white px-3 py-3">
-              <p className="text-sm font-bold text-slate-800">
+            <div className="rounded-2xl bg-white/[0.88] px-4 py-6 text-center shadow-[0_8px_22px_rgb(15_23_42_/_0.05)] ring-1 ring-white/80">
+              <EmptyStateIcon tone={section.shell} />
+              <p className="mt-3 text-sm font-black text-slate-900">
                 {isSearching ? "No matches." : section.emptyTitle}
               </p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
+              <p className="mx-auto mt-1 max-w-56 text-xs leading-5 text-slate-500">
                 {isSearching
                   ? "Try a different title, owner, priority, or due date."
                   : section.emptyBody}
@@ -227,7 +250,7 @@ export function LiveBoard({
                 <button
                   type="button"
                   onClick={onCreateTarget}
-                  className="mt-3 rounded-md bg-sky-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-sky-600"
+                  className="mt-4 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white shadow-[0_8px_16px_rgb(79_70_229_/_0.18)] transition hover:-translate-y-0.5 hover:bg-indigo-700"
                 >
                   {section.emptyActionLabel}
                 </button>
