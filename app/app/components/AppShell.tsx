@@ -71,6 +71,7 @@ import {
   todayISO,
 } from "../../../lib/workOwnershipRules";
 import { LiveBoard } from "./LiveBoard";
+import { TargetListView } from "./TargetListView";
 import {
   TargetDrawer,
   type TargetDrawerAction,
@@ -123,6 +124,7 @@ type BoardFocus =
   | "waiting"
   | "blocked"
   | "stale";
+type BoardView = "board" | "list";
 type BoardMoveLane = "available" | "my-work" | "claimed-others" | "blocked" | "completed";
 
 function createDefaultTargetForm(): TargetForm {
@@ -427,6 +429,7 @@ export function AppShell({ children }: AppShellProps) {
   const [busyTargetId, setBusyTargetId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [boardFocus, setBoardFocus] = useState<BoardFocus>("all");
+  const [boardView, setBoardView] = useState<BoardView>("board");
   const [targetForm, setTargetForm] = useState<TargetForm>(createDefaultTargetForm);
   const [dashboardTimestamp, setDashboardTimestamp] = useState(() => Date.now());
   const [inviteEmail, setInviteEmail] = useState("");
@@ -2476,7 +2479,20 @@ export function AppShell({ children }: AppShellProps) {
     if (pathname.startsWith("/app/settings")) return renderSettings();
 
     if (pathname.startsWith("/app/my-work")) {
-      return (
+      return boardView === "list" ? (
+        <TargetListView
+          mode="my-work"
+          targets={focusedTargets}
+          members={boardData.members}
+          currentMember={currentMember}
+          searchQuery={searchQuery}
+          busyTargetId={busyTargetId}
+          onClaim={(target) => void runTargetAction("claim", target)}
+          onComplete={(target) => void runTargetAction("complete", target)}
+          onOpenTarget={(target) => setSelectedTargetId(target.id)}
+          onCreateTarget={canCreateTarget(currentMember) ? toggleCreateTargetForm : undefined}
+        />
+      ) : (
         <LiveBoard
           mode="my-work"
           targets={focusedTargets}
@@ -2508,7 +2524,20 @@ export function AppShell({ children }: AppShellProps) {
       );
     }
 
-    return (
+    return boardView === "list" ? (
+      <TargetListView
+        mode="board"
+        targets={focusedTargets}
+        members={boardData.members}
+        currentMember={currentMember}
+        searchQuery={searchQuery}
+        busyTargetId={busyTargetId}
+        onClaim={(target) => void runTargetAction("claim", target)}
+        onComplete={(target) => void runTargetAction("complete", target)}
+        onOpenTarget={(target) => setSelectedTargetId(target.id)}
+        onCreateTarget={canCreateTarget(currentMember) ? toggleCreateTargetForm : undefined}
+      />
+    ) : (
       <LiveBoard
         mode="board"
         targets={focusedTargets}
@@ -2757,9 +2786,10 @@ export function AppShell({ children }: AppShellProps) {
               ) : null}
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {isBoardFocusRoute
-                ? focusOptions.map((option) => {
+            {isBoardFocusRoute ? (
+              <div className="mt-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-wrap gap-2">
+                  {focusOptions.map((option) => {
                     const isActive = boardFocus === option.key;
                     return (
                       <button
@@ -2778,9 +2808,32 @@ export function AppShell({ children }: AppShellProps) {
                         </span>
                       </button>
                     );
-                  })
-                : null}
-            </div>
+                  })}
+                </div>
+                <div className="flex w-fit rounded-full bg-slate-100 p-1 shadow-inner ring-1 ring-slate-200">
+                  {([
+                    { key: "board" as const, label: "Board" },
+                    { key: "list" as const, label: "List" },
+                  ]).map((option) => {
+                    const isActive = boardView === option.key;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setBoardView(option.key)}
+                        className={
+                          isActive
+                            ? "rounded-full bg-white px-3 py-1.5 text-xs font-black text-indigo-700 shadow-sm ring-1 ring-indigo-100"
+                            : "rounded-full px-3 py-1.5 text-xs font-black text-slate-500 transition hover:text-slate-900"
+                        }
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </header>
 
           {message ? (
