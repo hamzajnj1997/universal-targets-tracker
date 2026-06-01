@@ -22,6 +22,10 @@ export type TargetActivityAction =
   | "target_reopened"
   | "target_archived"
   | "note_added"
+  | "checklist_item_added"
+  | "checklist_item_completed"
+  | "checklist_item_reopened"
+  | "checklist_item_deleted"
   | "member_invited"
   | "member_joined"
   | "role_changed";
@@ -99,6 +103,20 @@ export type TargetNote = {
   updatedAt?: string;
 };
 
+export type TargetChecklistItem = {
+  id: string;
+  targetId: string;
+  teamId: string;
+  title: string;
+  isDone: boolean;
+  createdById?: string;
+  completedById?: string;
+  completedAt?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt?: string;
+};
+
 export type MemberMessage = {
   id: string;
   teamId: string;
@@ -114,6 +132,7 @@ export type BoardCapabilities = {
   supportsBlockers: boolean;
   supportsNotes: boolean;
   supportsActivityLog: boolean;
+  supportsChecklists: boolean;
 };
 
 export type BoardData = {
@@ -121,6 +140,7 @@ export type BoardData = {
   targets: WorkTarget[];
   activities: TargetActivity[];
   notes: TargetNote[];
+  checklistItems: TargetChecklistItem[];
   capabilities: BoardCapabilities;
 };
 

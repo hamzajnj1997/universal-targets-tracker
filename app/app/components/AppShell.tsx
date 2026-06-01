@@ -13,6 +13,7 @@ import {
 } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
+  addTargetChecklistItem,
   addTargetNote,
   archiveTarget,
   blockTarget,
@@ -36,8 +37,10 @@ import {
   sendMemberMessage,
   signOut,
   transferTeamOwnership,
+  toggleTargetChecklistItem,
   updateMemberOrg,
   updateTeamSettings,
+  deleteTargetChecklistItem,
 } from "../../../lib/workOwnershipApi";
 import type {
   BoardData,
@@ -79,11 +82,13 @@ const emptyBoardData: BoardData = {
   targets: [],
   activities: [],
   notes: [],
+  checklistItems: [],
   capabilities: {
     schemaMode: "legacy",
     supportsBlockers: false,
     supportsNotes: false,
     supportsActivityLog: false,
+    supportsChecklists: false,
   },
 };
 
@@ -664,6 +669,19 @@ export function AppShell({ children }: AppShellProps) {
       );
     }
 
+    if (boardData.capabilities.supportsChecklists) {
+      channel = channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "target_checklist_items",
+          filter: `workspace_id=eq.${activeTeamId}`,
+        },
+        refresh
+      );
+    }
+
     if (boardData.capabilities.schemaMode === "legacy") {
       channel = channel.on(
         "postgres_changes",
@@ -689,6 +707,7 @@ export function AppShell({ children }: AppShellProps) {
     activeTeamId,
     boardData.capabilities.schemaMode,
     boardData.capabilities.supportsActivityLog,
+    boardData.capabilities.supportsChecklists,
     boardData.capabilities.supportsNotes,
     refreshBoard,
   ]);
@@ -1107,6 +1126,52 @@ export function AppShell({ children }: AppShellProps) {
       await refreshBoard(target.teamId);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Adding note failed.");
+    } finally {
+      setBusyTargetId(null);
+    }
+  }
+
+  async function addChecklistItem(target: WorkTarget, title: string) {
+    setBusyTargetId(target.id);
+    setMessage("");
+
+    try {
+      await addTargetChecklistItem(target.id, title);
+      await refreshBoard(target.teamId);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Adding checklist item failed.");
+    } finally {
+      setBusyTargetId(null);
+    }
+  }
+
+  async function toggleChecklistItem(
+    target: WorkTarget,
+    checklistItemId: string,
+    isDone: boolean
+  ) {
+    setBusyTargetId(target.id);
+    setMessage("");
+
+    try {
+      await toggleTargetChecklistItem(checklistItemId, isDone);
+      await refreshBoard(target.teamId);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Updating checklist item failed.");
+    } finally {
+      setBusyTargetId(null);
+    }
+  }
+
+  async function deleteChecklistItem(target: WorkTarget, checklistItemId: string) {
+    setBusyTargetId(target.id);
+    setMessage("");
+
+    try {
+      await deleteTargetChecklistItem(checklistItemId);
+      await refreshBoard(target.teamId);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Deleting checklist item failed.");
     } finally {
       setBusyTargetId(null);
     }
@@ -2270,6 +2335,7 @@ export function AppShell({ children }: AppShellProps) {
                 {[
                   ["Blockers", boardData.capabilities.supportsBlockers],
                   ["Notes", boardData.capabilities.supportsNotes],
+                  ["Checklists", boardData.capabilities.supportsChecklists],
                   ["Audit log", boardData.capabilities.supportsActivityLog],
                 ].map(([label, active]) => (
                   <div
@@ -3135,12 +3201,18 @@ export function AppShell({ children }: AppShellProps) {
           members={boardData.members}
           activities={boardData.activities}
           notes={boardData.notes}
+          checklistItems={boardData.checklistItems}
           capabilities={boardData.capabilities}
           currentMember={currentMember}
           busy={busyTargetId === selectedTarget.id}
           onClose={() => setSelectedTargetId(null)}
           onAction={(action, target, reason) => void runTargetAction(action, target, reason)}
           onAddNote={(target, body) => void addNote(target, body)}
+          onAddChecklistItem={(target, title) => void addChecklistItem(target, title)}
+          onToggleChecklistItem={(target, itemId, isDone) =>
+            void toggleChecklistItem(target, itemId, isDone)
+          }
+          onDeleteChecklistItem={(target, itemId) => void deleteChecklistItem(target, itemId)}
         />
       ) : null}
     </main>

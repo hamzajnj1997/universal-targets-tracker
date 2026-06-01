@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type {
   BoardCapabilities,
   TargetActivity,
+  TargetChecklistItem,
   TargetNote,
   TeamMember,
   WorkTarget,
@@ -38,12 +39,16 @@ type TargetDrawerProps = {
   members: TeamMember[];
   activities: TargetActivity[];
   notes: TargetNote[];
+  checklistItems: TargetChecklistItem[];
   capabilities: BoardCapabilities;
   currentMember: TeamMember | null;
   busy: boolean;
   onClose: () => void;
   onAction: (action: TargetDrawerAction, target: WorkTarget, reason?: string) => void;
   onAddNote: (target: WorkTarget, body: string) => void;
+  onAddChecklistItem: (target: WorkTarget, title: string) => void;
+  onToggleChecklistItem: (target: WorkTarget, itemId: string, isDone: boolean) => void;
+  onDeleteChecklistItem: (target: WorkTarget, itemId: string) => void;
 };
 
 function initialsForName(name: string) {
@@ -63,17 +68,22 @@ export function TargetDrawer({
   members,
   activities,
   notes,
+  checklistItems,
   capabilities,
   currentMember,
   busy,
   onClose,
   onAction,
   onAddNote,
+  onAddChecklistItem,
+  onToggleChecklistItem,
+  onDeleteChecklistItem,
 }: TargetDrawerProps) {
   const [releaseReason, setReleaseReason] = useState("");
   const [forceReason, setForceReason] = useState("");
   const [blockReason, setBlockReason] = useState("");
   const [noteBody, setNoteBody] = useState("");
+  const [checklistTitle, setChecklistTitle] = useState("");
 
   const targetActivities = activities.filter((activity) => activity.targetId === target.id);
   const targetNotes = notes
@@ -82,6 +92,18 @@ export function TargetDrawer({
       (firstNote, secondNote) =>
         new Date(firstNote.createdAt).getTime() - new Date(secondNote.createdAt).getTime()
     );
+  const targetChecklistItems = checklistItems
+    .filter((item) => item.targetId === target.id)
+    .toSorted(
+      (firstItem, secondItem) =>
+        firstItem.sortOrder - secondItem.sortOrder ||
+        new Date(firstItem.createdAt).getTime() - new Date(secondItem.createdAt).getTime()
+    );
+  const completedChecklistItems = targetChecklistItems.filter((item) => item.isDone).length;
+  const checklistProgress =
+    targetChecklistItems.length > 0
+      ? Math.round((completedChecklistItems / targetChecklistItems.length) * 100)
+      : 0;
   const currentMemberName = currentMember?.name ?? "You";
   const currentMemberInitials = initialsForName(currentMemberName);
   const dueState = getTargetDueState(target);
@@ -111,6 +133,13 @@ export function TargetDrawer({
     if (!noteBody.trim()) return;
     onAddNote(target, noteBody);
     setNoteBody("");
+  }
+
+  function submitChecklistItem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!checklistTitle.trim()) return;
+    onAddChecklistItem(target, checklistTitle);
+    setChecklistTitle("");
   }
 
   return (
@@ -249,6 +278,101 @@ export function TargetDrawer({
             <p className="mt-2 text-sm leading-6 text-amber-900">{target.blockedReason}</p>
           </section>
         ) : null}
+
+        <section className="mt-5 rounded-xl border border-sky-100 bg-sky-50/70 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-950">Checklist</h3>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                {targetChecklistItems.length === 0
+                  ? "No steps yet"
+                  : `${completedChecklistItems}/${targetChecklistItems.length} done`}
+              </p>
+            </div>
+            <span className="rounded-full border border-sky-200 bg-white px-2.5 py-1 text-xs font-black text-sky-800">
+              {checklistProgress}%
+            </span>
+          </div>
+
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white">
+            <div
+              className="h-full rounded-full bg-sky-500 transition-all"
+              style={{ width: `${Math.max(targetChecklistItems.length ? 6 : 0, checklistProgress)}%` }}
+            />
+          </div>
+
+          {capabilities.supportsChecklists ? (
+            <>
+              <form onSubmit={submitChecklistItem} className="mt-3 flex gap-2">
+                <input
+                  value={checklistTitle}
+                  onChange={(event) => setChecklistTitle(event.target.value)}
+                  className="min-w-0 flex-1 rounded-md border border-sky-100 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-sky-400"
+                  placeholder="Add a step"
+                />
+                <button
+                  type="submit"
+                  disabled={busy || !checklistTitle.trim()}
+                  className="rounded-md bg-sky-500 px-3 py-2 text-sm font-black text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Add
+                </button>
+              </form>
+
+              <div className="mt-3 space-y-2">
+                {targetChecklistItems.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-sky-200 bg-white p-3 text-sm text-slate-500">
+                    Add the steps that make this target actually finished.
+                  </p>
+                ) : (
+                  targetChecklistItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-2 rounded-lg border border-sky-100 bg-white px-3 py-2 shadow-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.isDone}
+                        disabled={busy}
+                        onChange={(event) =>
+                          onToggleChecklistItem(target, item.id, event.target.checked)
+                        }
+                        className="h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600"
+                        aria-label={`Mark ${item.title} ${item.isDone ? "not done" : "done"}`}
+                      />
+                      <span
+                        className={
+                          item.isDone
+                            ? "min-w-0 flex-1 truncate text-sm font-semibold text-slate-400 line-through"
+                            : "min-w-0 flex-1 truncate text-sm font-semibold text-slate-800"
+                        }
+                      >
+                        {item.title}
+                      </span>
+                      {item.completedAt ? (
+                        <span className="hidden text-[11px] font-bold text-emerald-700 sm:inline">
+                          {formatRelativeTime(item.completedAt)}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => onDeleteChecklistItem(target, item.id)}
+                        disabled={busy}
+                        className="rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="mt-3 rounded-lg border border-sky-100 bg-white p-3 text-sm leading-6 text-slate-500">
+              Checklists need the checklist database migration.
+            </p>
+          )}
+        </section>
 
         <section className="mt-5 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
           <h3 className="text-sm font-semibold text-slate-950">Actions</h3>

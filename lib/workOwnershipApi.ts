@@ -7,6 +7,7 @@ import type {
   RepeatWeekday,
   TargetActivity,
   TargetActivityAction,
+  TargetChecklistItem,
   TargetNote,
   TargetPriority,
   TargetStatus,
@@ -274,6 +275,10 @@ function normalizeAction(value: unknown): TargetActivityAction {
     "target_reopened",
     "target_archived",
     "note_added",
+    "checklist_item_added",
+    "checklist_item_completed",
+    "checklist_item_reopened",
+    "checklist_item_deleted",
     "member_invited",
     "member_joined",
     "role_changed",
@@ -401,6 +406,22 @@ function toNote(row: RowRecord): TargetNote {
   };
 }
 
+function toChecklistItem(row: RowRecord): TargetChecklistItem {
+  return {
+    id: readString(row, "id"),
+    targetId: readString(row, "target_id"),
+    teamId: readString(row, "workspace_id", readString(row, "team_id")),
+    title: readString(row, "title"),
+    isDone: readBoolean(row, "is_done"),
+    createdById: readOptionalString(row, "created_by_member_id"),
+    completedById: readOptionalString(row, "completed_by_member_id"),
+    completedAt: readOptionalString(row, "completed_at"),
+    sortOrder: readNumber(row, "sort_order"),
+    createdAt: readString(row, "created_at", new Date().toISOString()),
+    updatedAt: readOptionalString(row, "updated_at"),
+  };
+}
+
 function toMemberMessage(row: RowRecord): MemberMessage {
   return {
     id: readString(row, "id"),
@@ -486,6 +507,14 @@ function migrationHint(message: string) {
 
   if (lower.includes("member_messages")) {
     return `${message} Apply supabase/migrations/20260531_member_chat.sql to this Supabase project.`;
+  }
+
+  if (
+    lower.includes("target_checklist_items") ||
+    lower.includes("checklist_item") ||
+    lower.includes("target checklist")
+  ) {
+    return `${message} Apply supabase/migrations/20260602_target_checklists.sql to this Supabase project.`;
   }
 
   if (
@@ -634,6 +663,36 @@ async function fetchNotes(supabase: SupabaseClient, teamId: string) {
   return {
     notes: [],
     supportsNotes: false,
+  };
+}
+
+async function fetchChecklistItems(supabase: SupabaseClient, teamId: string) {
+  const result = await supabase
+    .from("target_checklist_items")
+    .select(
+      "id,workspace_id,target_id,title,is_done,created_by_member_id,completed_by_member_id,completed_at,sort_order,created_at,updated_at"
+    )
+    .eq("workspace_id", teamId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(1000);
+
+  if (!result.error) {
+    return {
+      checklistItems: rows(result.data).map(toChecklistItem),
+      supportsChecklists: true,
+    };
+  }
+  if (isSchemaGap(result.error) || isPermissionDenied(result.error)) {
+    return {
+      checklistItems: [],
+      supportsChecklists: false,
+    };
+  }
+  throwSupabaseError(result.error);
+  return {
+    checklistItems: [],
+    supportsChecklists: false,
   };
 }
 
@@ -1007,11 +1066,19 @@ export async function updateMemberOrg(input: MemberOrgInput): Promise<TeamMember
 export async function loadBoardData(teamId: string): Promise<BoardData> {
   const supabase = requireSupabaseClient();
 
-  const [members, targetResult, activityResult, noteResult, progressLogs] = await Promise.all([
+  const [
+    members,
+    targetResult,
+    activityResult,
+    noteResult,
+    checklistResult,
+    progressLogs,
+  ] = await Promise.all([
     fetchMembers(supabase, teamId),
     fetchTargets(supabase, teamId),
     fetchActivities(supabase, teamId),
     fetchNotes(supabase, teamId),
+    fetchChecklistItems(supabase, teamId),
     fetchProgressLogs(supabase, teamId),
   ]);
   const isWorkOwnershipSchema =
@@ -1027,11 +1094,13 @@ export async function loadBoardData(teamId: string): Promise<BoardData> {
         ? activityResult.activities
         : synthesizeLegacyActivities(progressLogs),
     notes: noteResult.notes,
+    checklistItems: checklistResult.checklistItems,
     capabilities: {
       schemaMode: isWorkOwnershipSchema ? "workOwnership" : "legacy",
       supportsBlockers: targetResult.supportsBlockers,
       supportsNotes: noteResult.supportsNotes,
       supportsActivityLog: activityResult.supportsActivityLog,
+      supportsChecklists: checklistResult.supportsChecklists,
     },
   };
 }
@@ -1375,4 +1444,64 @@ export async function addTargetNote(targetId: string, body: string): Promise<Tar
     throwSupabaseError(insertError);
     return toNote(data as RowRecord);
   }
+}
+
+export async function addTargetChecklistItem(
+  targetId: string,
+  title: string
+): Promise<TargetChecklistItem> {
+  const supabase = requireSupabaseClient();
+  const itemTitle = cleanTitle(title);
+  const { data, error } = await supabase.rpc("add_target_checklist_item", {
+    target_id: targetId,
+    item_title: itemTitle,
+  });
+
+  if (isSchemaGap(error)) {
+    throw new Error(
+      "Target checklists need the checklist database migration. Apply supabase/migrations/20260602_target_checklists.sql to this Supabase project."
+    );
+  }
+
+  throwSupabaseError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!isRowRecord(row)) throw new Error("add_target_checklist_item returned no item.");
+  return toChecklistItem(row);
+}
+
+export async function toggleTargetChecklistItem(
+  checklistItemId: string,
+  isDone: boolean
+): Promise<TargetChecklistItem> {
+  const supabase = requireSupabaseClient();
+  const { data, error } = await supabase.rpc("toggle_target_checklist_item", {
+    checklist_item_id: checklistItemId,
+    item_is_done: isDone,
+  });
+
+  if (isSchemaGap(error)) {
+    throw new Error(
+      "Target checklists need the checklist database migration. Apply supabase/migrations/20260602_target_checklists.sql to this Supabase project."
+    );
+  }
+
+  throwSupabaseError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!isRowRecord(row)) throw new Error("toggle_target_checklist_item returned no item.");
+  return toChecklistItem(row);
+}
+
+export async function deleteTargetChecklistItem(checklistItemId: string): Promise<void> {
+  const supabase = requireSupabaseClient();
+  const { error } = await supabase.rpc("delete_target_checklist_item", {
+    checklist_item_id: checklistItemId,
+  });
+
+  if (isSchemaGap(error)) {
+    throw new Error(
+      "Target checklists need the checklist database migration. Apply supabase/migrations/20260602_target_checklists.sql to this Supabase project."
+    );
+  }
+
+  throwSupabaseError(error);
 }
