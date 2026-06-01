@@ -56,6 +56,7 @@ import {
   STALE_CLAIM_HOURS,
   calculateDashboardMetrics,
   canClaimTarget,
+  canContribute,
   canCompleteTarget,
   canCreateTarget,
   filterTargetsForSearch,
@@ -491,7 +492,12 @@ export function AppShell({ children }: AppShellProps) {
   const accountInitial = accountName.trim().charAt(0).toUpperCase() || "U";
   const activeMembers = boardData.members.filter((member) => member.status === "active");
   const chatMember = activeMembers.find((member) => member.id === chatMemberId) ?? null;
-  const chatTargets = activeMembers.filter((member) => member.id !== currentMember?.id);
+  const canUseChat = canContribute(currentMember);
+  const chatTargets = canUseChat
+    ? activeMembers.filter(
+        (member) => member.id !== currentMember?.id && member.role !== "guest"
+      )
+    : [];
   const topOrgMembers = activeMembers.filter((member) => !member.reportsToMemberId);
   const directReportsByMemberId = useMemo(() => {
     const reports = new Map<string, TeamMember[]>();
@@ -2044,6 +2050,7 @@ export function AppShell({ children }: AppShellProps) {
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
+                  <option value="guest">Guest</option>
                 </select>
                 <button
                   type="submit"

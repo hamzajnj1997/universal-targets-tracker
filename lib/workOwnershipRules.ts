@@ -36,8 +36,18 @@ export function isManagerRole(role: TeamRole | null | undefined) {
   return role === "owner" || role === "admin";
 }
 
+export function isContributorRole(role: TeamRole | null | undefined) {
+  return role === "owner" || role === "admin" || role === "member";
+}
+
+export function canContribute(
+  member: TeamMember | null | undefined
+): member is TeamMember {
+  return Boolean(member && member.status === "active" && isContributorRole(member.role));
+}
+
 export function canCreateTarget(member: TeamMember | null | undefined) {
-  return Boolean(member && member.status === "active");
+  return canContribute(member);
 }
 
 export function canClaimTarget(
@@ -45,7 +55,7 @@ export function canClaimTarget(
   target: WorkTarget
 ) {
   return Boolean(
-    member && member.status === "active" && target.status === "available"
+    canContribute(member) && target.status === "available"
   );
 }
 
@@ -54,8 +64,7 @@ export function canReleaseTarget(
   target: WorkTarget
 ) {
   return Boolean(
-    member &&
-      member.status === "active" &&
+    canContribute(member) &&
       target.status === "claimed" &&
       target.claimedById === member.id
   );
@@ -66,9 +75,8 @@ export function canForceReleaseTarget(
   target: WorkTarget
 ) {
   return Boolean(
-    member &&
-      member.status === "active" &&
-      isManagerRole(member.role) &&
+    canContribute(member) &&
+      isManagerRole(member?.role) &&
       (target.status === "claimed" || target.status === "blocked")
   );
 }
@@ -78,8 +86,7 @@ export function canBlockTarget(
   target: WorkTarget
 ) {
   return Boolean(
-    member &&
-      member.status === "active" &&
+    canContribute(member) &&
       target.status === "claimed" &&
       target.claimedById === member.id
   );
@@ -89,7 +96,7 @@ export function canCompleteTarget(
   member: TeamMember | null | undefined,
   target: WorkTarget
 ) {
-  if (!member || member.status !== "active") return false;
+  if (!canContribute(member)) return false;
   if (target.status !== "claimed" && target.status !== "blocked") return false;
   return target.claimedById === member.id || isManagerRole(member.role);
 }

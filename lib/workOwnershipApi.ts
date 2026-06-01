@@ -173,6 +173,15 @@ function normalizeRole(value: unknown): TeamRole {
   if (normalized === "admin" || normalized === "leader" || normalized === "manager") {
     return "admin";
   }
+  if (
+    normalized === "guest" ||
+    normalized === "viewer" ||
+    normalized === "client" ||
+    normalized === "read-only" ||
+    normalized === "readonly"
+  ) {
+    return "guest";
+  }
   return "member";
 }
 

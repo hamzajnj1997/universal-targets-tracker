@@ -13,6 +13,7 @@ import {
   canArchiveTarget,
   canBlockTarget,
   canCompleteTarget,
+  canContribute,
   canForceReleaseTarget,
   canReleaseTarget,
   canReopenTarget,
@@ -109,6 +110,7 @@ export function TargetDrawer({
   const dueState = getTargetDueState(target);
   const repeatLabel = formatRepeatLabel(target);
   const repeatWindowLabel = formatRepeatWindowLabel(target);
+  const canEditTargetDetails = canContribute(currentMember);
   const canRelease = canReleaseTarget(currentMember, target);
   const canForceRelease = canForceReleaseTarget(currentMember, target);
   const canBlock = capabilities.supportsBlockers && canBlockTarget(currentMember, target);
@@ -301,7 +303,7 @@ export function TargetDrawer({
             />
           </div>
 
-          {capabilities.supportsChecklists ? (
+          {capabilities.supportsChecklists && canEditTargetDetails ? (
             <>
               <form onSubmit={submitChecklistItem} className="mt-3 flex gap-2">
                 <input
@@ -367,6 +369,10 @@ export function TargetDrawer({
                 )}
               </div>
             </>
+          ) : capabilities.supportsChecklists ? (
+            <p className="mt-3 rounded-lg border border-sky-100 bg-white p-3 text-sm leading-6 text-slate-500">
+              Guests can view checklist progress but cannot change it.
+            </p>
           ) : (
             <p className="mt-3 rounded-lg border border-sky-100 bg-white p-3 text-sm leading-6 text-slate-500">
               Checklists need the checklist database migration.
@@ -506,7 +512,7 @@ export function TargetDrawer({
               {targetNotes.length}
             </span>
           </div>
-          {capabilities.supportsNotes ? (
+          {capabilities.supportsNotes && canEditTargetDetails ? (
             <div className="mt-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-black text-sky-800 ring-1 ring-sky-200">
                 {currentMemberInitials}
@@ -531,6 +537,10 @@ export function TargetDrawer({
                 </div>
               </div>
             </div>
+          ) : capabilities.supportsNotes ? (
+            <p className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-500">
+              Guests can view comments but cannot post.
+            </p>
           ) : (
             <p className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-500">
               Notes require the upgraded work ownership database.

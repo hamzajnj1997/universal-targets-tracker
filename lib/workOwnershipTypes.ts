@@ -1,6 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 
-export type TeamRole = "owner" | "admin" | "member";
+export type TeamRole = "owner" | "admin" | "member" | "guest";
 export type TeamMemberStatus = "active" | "inactive" | "removed";
 export type TargetStatus =
   | "available"
